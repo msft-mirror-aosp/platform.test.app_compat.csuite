@@ -36,7 +36,7 @@ LOCAL_SUITE_NAME := CSUITE
 LOCAL_SUITE_FULLNAME := "App Compatibility Test Suite"
 LOCAL_SUITE_VERSION := 1.0
 
-LOCAL_STATIC_JAVA_LIBRARIES := cts-tradefed-harness
+LOCAL_STATIC_JAVA_LIBRARIES := cts-tradefed-harness csuite-harness
 LOCAL_MODULE := csuite-tradefed
 
 include $(BUILD_COMPATIBILITY_SUITE)
