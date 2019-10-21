@@ -148,6 +148,7 @@ public abstract class AppCompatibilityTest
      */
     @Override
     public final void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+        CLog.d("Start of run method.");
         Assert.assertNotNull("Base dir cannot be null", mBaseDir);
         Assert.assertTrue("Base dir should be a directory", mBaseDir.isDirectory());
 
@@ -167,6 +168,7 @@ public abstract class AppCompatibilityTest
             CLog.e(e);
             throw new RuntimeException(e);
         }
+        CLog.d("apkDir: %s.", apkDir);
         Assert.assertNotNull("Could not find the output dir", apkDir);
         List<ApkInfo> apkList = null;
         try {
@@ -175,6 +177,7 @@ public abstract class AppCompatibilityTest
             CLog.e(e);
             throw new RuntimeException(e);
         }
+        CLog.d("Completed sharding apkList. Number of items: %s", apkList.size());
         Assert.assertNotNull("Could not download apk list", apkList);
 
         long start = System.currentTimeMillis();
@@ -205,6 +208,7 @@ public abstract class AppCompatibilityTest
      */
     private void downloadAndTestApks(ITestInvocationListener listener, File kharonDir,
         List<ApkInfo> apkList) throws DeviceNotAvailableException, InterruptedException {
+        CLog.d("Started downloading and testing apks.");
         ApkInfo testingApk = null;
         File testingFile = null;
         for (ApkInfo downloadingApk : apkList) {
@@ -225,6 +229,7 @@ public abstract class AppCompatibilityTest
         }
         // One more time since the first time through the loop we don't test
         testApk(listener, testingApk, testingFile);
+        CLog.d("Completed downloading and testing apks.");
     }
 
     /**
@@ -238,9 +243,13 @@ public abstract class AppCompatibilityTest
     private void testApk(ITestInvocationListener listener, ApkInfo apkInfo, File apkFile)
         throws DeviceNotAvailableException {
         if (apkInfo == null || apkFile == null) {
+            CLog.d("apkInfo or apkFile is null.");
             FileUtil.deleteFile(apkFile);
             return;
         }
+        CLog.d(
+            "Started testing package: %s, apk file: %s.",
+            apkInfo.packageName, apkFile.getAbsolutePath());
 
         mTestCount++;
         if (mRebootNumber != 0 && mTestCount % mRebootNumber == 0) {
@@ -288,11 +297,12 @@ public abstract class AppCompatibilityTest
             try {
                 postLogcat(result, listener);
             } catch (JSONException e) {
-                CLog.w("Posting failed: %s", e.getMessage());
+                CLog.w("Posting failed: %s.", e.getMessage());
             }
             listener.testEnded(testId, System.currentTimeMillis(),
                 Collections.<String, String> emptyMap());
             FileUtil.deleteFile(apkFile);
+            CLog.d("Completed testing package: %s.", apkInfo.packageName);
         }
     }
 
@@ -310,9 +320,11 @@ public abstract class AppCompatibilityTest
     private void installApk(CompatibilityTestResult result, File apkFile, boolean skipAaptCheck)
         throws DeviceNotAvailableException {
         if (!skipAaptCheck) {
+            CLog.d("Parsing apk file: %s.", apkFile.getAbsolutePath());
             AaptParser parser = AaptParser.parse(apkFile);
             if (parser == null) {
-                CLog.d("Failed to parse apk file %s, package: %s, error: %s",
+                CLog.d(
+                    "Failed to parse apk file: %s, package: %s, error: %s.",
                     apkFile.getAbsolutePath(), result.packageName, result.message);
                 result.status = CompatibilityTestResult.STATUS_ERROR;
                 result.message = "aapt fail";
@@ -331,24 +343,28 @@ public abstract class AppCompatibilityTest
                 result.message = "package info mismatch";
                 return;
             }
+            CLog.d("Completed parsing apk file: %s.", apkFile.getAbsolutePath());
         }
 
         try {
             String error = mDevice.installPackage(apkFile, true);
             if (error != null) {
-                CLog.d("Failed to install apk file %s, package: %s, error: %s",
+                CLog.d(
+                    "Failed to install apk file: %s, package: %s, error: %s.",
                     apkFile.getAbsolutePath(), result.packageName, result.message);
                 result.status = CompatibilityTestResult.STATUS_ERROR;
                 result.message = error;
                 return;
             }
         } catch (DeviceUnresponsiveException e) {
-            CLog.d("Installing apk file %s timed out, package: %s, error: %s",
+            CLog.d(
+                "Installing apk file %s timed out, package: %s, error: %s.",
                 apkFile.getAbsolutePath(), result.packageName, result.message);
             result.status = CompatibilityTestResult.STATUS_ERROR;
             result.message = "install timeout";
             return;
         }
+        CLog.d("Completed installing apk file %s.", apkFile.getAbsolutePath());
     }
 
     /**
@@ -362,6 +378,7 @@ public abstract class AppCompatibilityTest
      */
     private void launchApk(CompatibilityTestResult result)
         throws DeviceNotAvailableException {
+        CLog.d("Lauching package: %s.", result.packageName);
         InstrumentationTest instrTest = createInstrumentationTest(result.packageName);
         instrTest.setDevice(mDevice);
 
@@ -369,12 +386,12 @@ public abstract class AppCompatibilityTest
         instrTest.run(failureListener);
 
         if (failureListener.getStackTrace() != null) {
-            CLog.w("Failed to launch package %s", result.packageName);
+            CLog.w("Failed to launch package: %s.", result.packageName);
             result.status = CompatibilityTestResult.STATUS_FAILURE;
             result.message = failureListener.getStackTrace();
         }
 
-        CLog.d("Completed testing on app package: %s", result.packageName);
+        CLog.d("Completed launching package: %s", result.packageName);
     }
 
     /** Helper method which reports a test failed if the status is either a failure or an error. */
@@ -452,6 +469,7 @@ public abstract class AppCompatibilityTest
         public void run() {
             // No-op if mApkInfo is null
             if (mApkInfo == null) {
+                CLog.d("ApkInfo is null.");
                 return;
             }
 
@@ -462,9 +480,10 @@ public abstract class AppCompatibilityTest
                         sourceFile, DOWNLOAD_TIMEOUT_MS, DOWNLOAD_RETRIES);
             } catch (IOException e) {
                 // Log and ignore
-                CLog.e("Could not download apk from %s", sourceFile);
+                CLog.e("Could not download apk from %s.", sourceFile);
                 CLog.e(e);
             }
+            CLog.d("Completed downloading apk file: %s.", mDownloadedFile.getAbsolutePath());
         }
 
         public File getDownloadedFile() {
@@ -516,7 +535,7 @@ public abstract class AppCompatibilityTest
         try {
             OptionCopier.copyOptions(this, shard);
         } catch (ConfigurationException e) {
-            CLog.e("failed to copy test options: %s", e.getMessage());
+            CLog.e("Failed to copy test options: %s.", e.getMessage());
         }
         shard.mShardIndex = shardIndex;
         shard.mShardCount = shardCount;
