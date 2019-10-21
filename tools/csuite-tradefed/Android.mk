@@ -53,5 +53,6 @@ LOCAL_SRC_FILES += $(call all-java-files-under, src/test/java)
 LOCAL_MODULE := csuite-tradefed-tests
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LIBRARIES := tradefed csuite-tradefed
+LOCAL_STATIC_JAVA_LIBRARIES := csuite-harness-tests
 
 include $(BUILD_HOST_JAVA_LIBRARY)
