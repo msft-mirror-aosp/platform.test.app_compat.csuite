@@ -28,8 +28,6 @@ include $(BUILD_HOST_PREBUILT)
 
 include $(CLEAR_VARS)
 
-LOCAL_JAVA_RESOURCE_DIRS := src/test/resources
-
 LOCAL_SUITE_BUILD_NUMBER := $(BUILD_NUMBER_FROM_FILE)
 LOCAL_SUITE_TARGET_ARCH := $(TARGET_ARCH)
 LOCAL_SUITE_NAME := CSUITE
@@ -47,6 +45,8 @@ include $(BUILD_COMPATIBILITY_SUITE)
 ############################
 
 include $(CLEAR_VARS)
+
+LOCAL_JAVA_RESOURCE_DIRS := src/test/resources
 
 LOCAL_SRC_FILES += $(call all-java-files-under, src/test/java)
 
