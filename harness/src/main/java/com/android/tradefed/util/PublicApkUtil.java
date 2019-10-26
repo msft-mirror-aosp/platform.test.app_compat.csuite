@@ -181,7 +181,7 @@ public class PublicApkUtil {
         public final String versionCode;
         public final String fileName;
 
-        private ApkInfo(int rank, String packageName, String versionString, String versionCode,
+        public ApkInfo(int rank, String packageName, String versionString, String versionCode,
             String fileName) {
             this.rank = rank;
             this.packageName = packageName;

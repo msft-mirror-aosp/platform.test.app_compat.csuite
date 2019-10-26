@@ -16,6 +16,9 @@
 
 package com.android.compatibility;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationReceiver;
@@ -28,6 +31,7 @@ import com.android.tradefed.device.LogcatReceiver;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
+import com.android.tradefed.result.CompatibilityTestResult;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
@@ -36,15 +40,16 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.InstrumentationTest;
+import com.android.tradefed.testtype.ITestFilterReceiver;
 import com.android.tradefed.util.AaptParser;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
+import com.android.tradefed.util.PublicApkUtil;
+import com.android.tradefed.util.PublicApkUtil.ApkInfo;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
 
-import com.android.tradefed.result.CompatibilityTestResult;
-import com.android.tradefed.util.PublicApkUtil;
-import com.android.tradefed.util.PublicApkUtil.ApkInfo;
+import com.google.common.base.Strings;
 
 import org.json.JSONException;
 import org.junit.Assert;
@@ -57,13 +62,15 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 /**
  * Test that determines application compatibility. The test iterates through the apks in a given
  * directory. The test installs, launches, and uninstalls each apk.
  */
 public abstract class AppCompatibilityTest
-    implements IDeviceTest, IRemoteTest, IShardableTest, IConfigurationReceiver {
+    implements IDeviceTest, IRemoteTest, IShardableTest, IConfigurationReceiver, ITestFilterReceiver {
 
     @Option(name = "product",
         description = "The product, corresponding to the borgcron job product arg.")
@@ -98,6 +105,14 @@ public abstract class AppCompatibilityTest
         name = "retry-count",
         description = "Number of times to retry a failed test case. 0 means no retry.")
     private int mRetryCount = 5;
+
+    @Option(name = "include-filter",
+        description = "The include filter of the test names to run.")
+    protected Set<String> mIncludeFilters = new HashSet<>();
+
+    @Option(name = "exclude-filter",
+        description = "The exclude filter of the test names to run.")
+    protected Set<String> mExcludeFilters = new HashSet<>();
 
     private static final long DOWNLOAD_TIMEOUT_MS = 60 * 1000;
     private static final int DOWNLOAD_RETRIES = 3;
@@ -179,6 +194,9 @@ public abstract class AppCompatibilityTest
         }
         CLog.d("Completed sharding apkList. Number of items: %s", apkList.size());
         Assert.assertNotNull("Could not download apk list", apkList);
+
+        apkList = filterApk(apkList);
+        CLog.d("Completed filtering apkList. Number of items: %s", apkList.size());
 
         long start = System.currentTimeMillis();
         listener.testRunStarted(mTestLabel, 0);
@@ -445,6 +463,36 @@ public abstract class AppCompatibilityTest
     }
 
     /**
+     * Helper method which takes a list of {@link ApkInfo} objects and returns the filtered list.
+     */
+    protected List<ApkInfo> filterApk(List<ApkInfo> apkList) {
+        List<ApkInfo> filteredList = new ArrayList<>();
+
+        for (ApkInfo apk : apkList) {
+            if (filterTest(apk.packageName)) {
+                filteredList.add(apk);
+            }
+        }
+
+        return filteredList;
+    }
+
+    /**
+     * Return true if a test matches one or more of the include filters AND does not match any of
+     * the exclude filters. If no include filters are given all tests should return true as long as
+     * they do not match any of the exclude filters.
+     */
+    protected boolean filterTest(String testName) {
+        if (mExcludeFilters.contains(testName)) {
+            return false;
+        }
+        if (mIncludeFilters.size() == 0 || mIncludeFilters.contains(testName)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Returns true if either object is null or if both objects are equal.
      */
     private static boolean equalsOrNull(Object a, Object b) {
@@ -562,5 +610,71 @@ public abstract class AppCompatibilityTest
      */
     private TestDescription createTestDescription(String packageBeingTested) {
         return new TestDescription(launcherPackage, packageBeingTested);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addIncludeFilter(String filter) {
+        checkArgument(!Strings.isNullOrEmpty(filter), "Include filter cannot be null or empty.");
+        mIncludeFilters.add(filter);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addAllIncludeFilters(Set<String> filters) {
+        checkNotNull(filters, "Include filters cannot be null.");
+        mIncludeFilters.addAll(filters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearIncludeFilters() {
+        mIncludeFilters.clear();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getIncludeFilters() {
+        return Collections.unmodifiableSet(mIncludeFilters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addExcludeFilter(String filter) {
+        checkArgument(!Strings.isNullOrEmpty(filter), "Exclude filter cannot be null or empty.");
+        mExcludeFilters.add(filter);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addAllExcludeFilters(Set<String> filters) {
+        checkNotNull(filters, "Exclude filters cannot be null.");
+        mExcludeFilters.addAll(filters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearExcludeFilters() {
+        mExcludeFilters.clear();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Set<String> getExcludeFilters() {
+        return Collections.unmodifiableSet(mExcludeFilters);
     }
 }
