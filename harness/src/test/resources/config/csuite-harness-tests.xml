@@ -18,7 +18,7 @@
   <build_provider class="com.android.tradefed.build.StubBuildProvider" />
 
   <test class="com.android.tradefed.testtype.HostTest" >
-    <option name="class" value="com.android.compatibility.AppCompatibilityTestTest" />
+    <option name="class" value="com.android.compatibility.CSuiteUnitTests" />
   </test>
 
   <logger class="com.android.tradefed.log.FileLogger" />

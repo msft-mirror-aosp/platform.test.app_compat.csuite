@@ -21,6 +21,8 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_JAVA_RESOURCE_DIRS := src/main/resources
+
 LOCAL_SRC_FILES := $(call all-java-files-under, src/main/java)
 
 LOCAL_JAVA_LIBRARIES := tradefed
@@ -39,6 +41,9 @@ LOCAL_JAVA_RESOURCE_DIRS := src/test/resources
 LOCAL_SRC_FILES = $(call all-java-files-under, src/test/java)
 
 LOCAL_JAVA_LIBRARIES := tradefed csuite-harness
+
+LOCAL_STATIC_JAVA_LIBRARIES := mockito-host objenesis
+
 LOCAL_MODULE := csuite-harness-tests
 
 include $(BUILD_HOST_JAVA_LIBRARY)
