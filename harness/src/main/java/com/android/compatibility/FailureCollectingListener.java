@@ -19,25 +19,17 @@ package com.android.compatibility;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 
-class FailureCollectingListener implements ITestInvocationListener {
+public final class FailureCollectingListener implements ITestInvocationListener {
     private String mTestTrace = null;
 
     @Override
     public void testFailed(TestDescription test, String trace) {
-        if (trace != null) {
-            setStackTrace(trace);
-        } else {
-            setStackTrace("unknown failure");
-        }
+        setStackTrace(trace != null ? trace : "unknown failure");
     }
 
     @Override
     public void testAssumptionFailure(TestDescription test, String trace) {
-        if (trace != null) {
-            setStackTrace(trace);
-        } else {
-            setStackTrace("unknown assumption failure");
-        }
+        setStackTrace(trace != null ? trace : "unknown assumption failure");
     }
 
 
