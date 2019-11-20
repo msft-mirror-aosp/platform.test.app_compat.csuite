@@ -20,4 +20,6 @@
 
   <option name="enable-root" value="true" />
   <option name="max-log-size" value="200" />
+
+  <template-include name="reporters" default="basic-reporters" />
 </configuration>
