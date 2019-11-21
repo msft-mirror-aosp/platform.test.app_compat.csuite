@@ -163,7 +163,7 @@ public abstract class AppCompatibilityTest
      */
     @Override
     public final void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        CLog.d("Start of run method.");
+        CLog.d("Start of launch test run method. base-dir: %s", mBaseDir);
         Assert.assertNotNull("Base dir cannot be null", mBaseDir);
         Assert.assertTrue("Base dir should be a directory", mBaseDir.isDirectory());
 
