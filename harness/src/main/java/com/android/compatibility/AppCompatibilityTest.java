@@ -199,7 +199,8 @@ public abstract class AppCompatibilityTest
         CLog.d("Completed filtering apkList. Number of items: %s", apkList.size());
 
         long start = System.currentTimeMillis();
-        listener.testRunStarted(mTestLabel, 0);
+        // Start test run for 1 suite module.
+        listener.testRunStarted(mTestLabel, 1);
         mLogcat = new LogcatReceiver(getDevice(), LOGCAT_SIZE_BYTES, 0);
         mLogcat.start();
 
