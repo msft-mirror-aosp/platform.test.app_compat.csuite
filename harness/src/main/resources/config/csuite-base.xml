@@ -22,4 +22,7 @@
   <option name="max-log-size" value="200" />
 
   <template-include name="reporters" default="basic-reporters" />
+  <result_reporter class="com.android.compatibility.common.tradefed.result.ConsoleReporter" />
+  <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CompatibilityProtoResultReporter" />
+  <result_reporter class="com.android.tradefed.result.suite.SuiteResultReporter" />
 </configuration>
