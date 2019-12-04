@@ -143,7 +143,7 @@ public class AppLaunchTest
     CLog.d("Complete filtering test type: %s", TEST_TYPE);
 
     long start = System.currentTimeMillis();
-    listener.testRunStarted(mTestLabel, 0);
+    listener.testRunStarted(mTestLabel, 1);
     mLogcat = new LogcatReceiver(getDevice(), LOGCAT_SIZE_BYTES, 0);
     mLogcat.start();
 
