@@ -21,6 +21,8 @@
   <option name="enable-root" value="true" />
   <option name="max-log-size" value="200" />
 
+  <option name="compatibility:primary-abi-only" value="true" />
+
   <template-include name="reporters" default="basic-reporters" />
   <result_reporter class="com.android.compatibility.common.tradefed.result.ConsoleReporter" />
   <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CompatibilityProtoResultReporter" />
