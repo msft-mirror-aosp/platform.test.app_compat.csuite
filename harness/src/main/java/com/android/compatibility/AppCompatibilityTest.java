@@ -368,19 +368,19 @@ public abstract class AppCompatibilityTest
         try {
             String error = mDevice.installPackage(apkFile, true);
             if (error != null) {
+                result.status = CompatibilityTestResult.STATUS_ERROR;
+                result.message = error;
                 CLog.d(
                     "Failed to install apk file: %s, package: %s, error: %s.",
                     apkFile.getAbsolutePath(), result.packageName, result.message);
-                result.status = CompatibilityTestResult.STATUS_ERROR;
-                result.message = error;
                 return;
             }
         } catch (DeviceUnresponsiveException e) {
+            result.status = CompatibilityTestResult.STATUS_ERROR;
+            result.message = "install timeout";
             CLog.d(
                 "Installing apk file %s timed out, package: %s, error: %s.",
                 apkFile.getAbsolutePath(), result.packageName, result.message);
-            result.status = CompatibilityTestResult.STATUS_ERROR;
-            result.message = "install timeout";
             return;
         }
         CLog.d("Completed installing apk file %s.", apkFile.getAbsolutePath());
