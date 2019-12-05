@@ -39,6 +39,8 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.StreamUtil;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -102,7 +104,13 @@ public class AppLaunchTest
   }
 
   @VisibleForTesting
-  public AppLaunchTest(int retryCount) {
+  public AppLaunchTest(String packageName) {
+    this.mPackageName = packageName;
+  }
+
+  @VisibleForTesting
+  public AppLaunchTest(String packageName, int retryCount) {
+    this.mPackageName = packageName;
     this.mRetryCount = retryCount;
   }
 
@@ -214,6 +222,13 @@ public class AppLaunchTest
       throws DeviceNotAvailableException {
     CLog.d("Launching package: %s.", result.packageName);
 
+    CommandResult resetResult = resetPackage();
+    if (resetResult.getStatus() != CommandStatus.SUCCESS){
+      result.status = CompatibilityTestResult.STATUS_ERROR;
+      result.message = resetResult.getStatus() + resetResult.getStderr();
+      return;
+    }
+
     InstrumentationTest instrTest = createInstrumentationTest(result.packageName);
 
     FailureCollectingListener failureListener = createFailureListener();
@@ -292,6 +307,11 @@ public class AppLaunchTest
       return true;
     }
     return false;
+  }
+
+  protected CommandResult resetPackage() throws DeviceNotAvailableException {
+    return mDevice.executeShellV2Command(
+        String.format("pm clear %s", mPackageName));
   }
 
   private void stopPackage() throws DeviceNotAvailableException {
