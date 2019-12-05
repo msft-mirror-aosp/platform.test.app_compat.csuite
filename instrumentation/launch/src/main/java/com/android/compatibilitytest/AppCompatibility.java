@@ -94,6 +94,10 @@ public final class AppCompatibility {
     @Before
     public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+
+        // Get permissions for privileged device operations.
+        mInstrumentation.getUiAutomation().adoptShellPermissionIdentity();
+
         mContext = InstrumentationRegistry.getTargetContext();
         mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
         mPackageManager = mContext.getPackageManager();
