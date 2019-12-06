@@ -18,7 +18,6 @@ android_test {
     // Include all test java files.
     srcs: ["src/**/*.java"],
     platform_apis: true,
-    certificate: "platform",
     manifest: "src/main/AndroidManifest.xml",
     test_suites: [
         "csuite"
