@@ -38,6 +38,8 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.InstrumentationTest;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -54,6 +56,7 @@ import org.junit.runners.JUnit4;
 public final class AppLaunchTestTest {
 
   private final ITestInvocationListener mMockListener = mock(ITestInvocationListener.class);
+  private static final String TEST_PACKAGE_NAME = "package_name";
 
   @Test
   public void run_testFailed() throws DeviceNotAvailableException {
@@ -73,6 +76,30 @@ public final class AppLaunchTestTest {
     appLaunchTest.run(mMockListener);
 
     verifyPassedAndEndedCall(mMockListener);
+  }
+
+  @Test
+  public void run_packageResetSuccess() throws DeviceNotAvailableException {
+    ITestDevice mMockDevice = mock(ITestDevice.class);
+    when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
+        .thenReturn(new CommandResult(CommandStatus.SUCCESS));
+    AppLaunchTest appLaunchTest = createLaunchTestWithMockDevice(mMockDevice);
+
+    appLaunchTest.run(mMockListener);
+
+    verifyPassedAndEndedCall(mMockListener);
+  }
+
+  @Test
+  public void run_packageResetError() throws DeviceNotAvailableException {
+    ITestDevice mMockDevice = mock(ITestDevice.class);
+    when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
+        .thenReturn(new CommandResult(CommandStatus.FAILED));
+    AppLaunchTest appLaunchTest = createLaunchTestWithMockDevice(mMockDevice);
+
+    appLaunchTest.run(mMockListener);
+
+    verifyFailedAndEndedCall(mMockListener);
   }
 
   @Test
@@ -337,10 +364,15 @@ public final class AppLaunchTestTest {
   }
 
   private AppLaunchTest createLaunchTestWithInstrumentation(InstrumentationTest instrumentation) {
-    AppLaunchTest appLaunchTest = new AppLaunchTest(){
+    AppLaunchTest appLaunchTest = new AppLaunchTest(TEST_PACKAGE_NAME) {
       @Override
       protected InstrumentationTest createInstrumentationTest(String packageBeingTested) {
         return instrumentation;
+      }
+
+      @Override
+      protected CommandResult resetPackage() throws DeviceNotAvailableException {
+        return new CommandResult(CommandStatus.SUCCESS);
       }
     };
     appLaunchTest.setDevice(mock(ITestDevice.class));
@@ -349,13 +381,24 @@ public final class AppLaunchTestTest {
 
   private AppLaunchTest createLaunchTestWithRetry
       (InstrumentationTest instrumentation, int retryCount) {
-    AppLaunchTest appLaunchTest = new AppLaunchTest(retryCount){
+    AppLaunchTest appLaunchTest = new AppLaunchTest(TEST_PACKAGE_NAME, retryCount) {
       @Override
       protected InstrumentationTest createInstrumentationTest(String packageBeingTested) {
         return instrumentation;
       }
+
+      @Override
+      protected CommandResult resetPackage() throws DeviceNotAvailableException {
+        return new CommandResult(CommandStatus.SUCCESS);
+      }
     };
     appLaunchTest.setDevice(mock(ITestDevice.class));
+    return appLaunchTest;
+  }
+
+  private AppLaunchTest createLaunchTestWithMockDevice(ITestDevice device) {
+    AppLaunchTest appLaunchTest = new AppLaunchTest(TEST_PACKAGE_NAME);
+    appLaunchTest.setDevice(device);
     return appLaunchTest;
   }
 
