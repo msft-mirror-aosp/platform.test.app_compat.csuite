@@ -16,6 +16,7 @@
 package com.android.compatibility;
 
 import com.android.compatibility.AppCompatibilityTestTest;
+import com.android.compatibility.targetprep.AppSetupPreparerTest;
 import com.android.compatibility.testtype.AppLaunchTestTest;
 
 import org.junit.runner.RunWith;
@@ -24,8 +25,9 @@ import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
 @SuiteClasses({
-    AppLaunchTestTest.class,
     AppCompatibilityTestTest.class,
+    AppLaunchTestTest.class,
+    AppSetupPreparerTest.class,
 })
 public final class CSuiteUnitTests {
   // Intentionally empty.
