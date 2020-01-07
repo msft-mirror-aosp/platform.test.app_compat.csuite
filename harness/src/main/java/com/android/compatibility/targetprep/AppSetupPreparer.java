@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -46,6 +45,8 @@ import java.util.stream.Collectors;
  * A Tradefed preparer that downloads and installs an app on the target device.
  */
 public class AppSetupPreparer implements ITargetPreparer, ITargetCleaner {
+
+  public static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
 
   @Option(
       name = "package-name",
@@ -77,8 +78,13 @@ public class AppSetupPreparer implements ITargetPreparer, ITargetCleaner {
   @Override
   public void setUp(ITestDevice device, IBuildInfo buildInfo)
       throws DeviceNotAvailableException, TargetSetupError {
+    if (mBaseDir == null) {
+      // TODO(b/147159584): Use a utility to get dynamic options.
+      String baseDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
+      checkNotNull(baseDirOption, "Option %s is not set.", OPTION_GCS_APK_DIR);
+      mBaseDir = new File(baseDirOption);
+    }
 
-    checkNotNull(mBaseDir, "mBaseDir cannot be null.");
     checkArgument(mBaseDir.isDirectory(),
         String.format("mBaseDir %s is not a directory", mBaseDir));
 
