@@ -13,11 +13,11 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="CSuite Compatibility Launch Test Plan">
+<configuration description="C-Suite Compatibility Launch Test Plan">
   <include name="csuite-base" />
 
   <option name="plan" value="launch" />
   <option name="test-tag" value="launch" />
 
-  <option name="compatibility:module-metadata-include-filter" key="plan" value="csuite-launch" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="app-launch" />
 </configuration>
