@@ -27,4 +27,6 @@
   <result_reporter class="com.android.compatibility.common.tradefed.result.ConsoleReporter" />
   <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CompatibilityProtoResultReporter" />
   <result_reporter class="com.android.tradefed.result.suite.SuiteResultReporter" />
+
+  <target_preparer class="com.android.compatibility.targetprep.AppSetupPreparerConfigurationReceiver" />
 </configuration>
