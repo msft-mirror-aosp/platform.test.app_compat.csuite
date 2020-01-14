@@ -24,6 +24,7 @@ import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -74,10 +75,10 @@ public class AppSetupPreparer implements ITargetPreparer, ITargetCleaner {
     this.appInstallSetup = appInstallSetup;
   }
 
-  /** {@inheritDoc} */
-  @Override
-  public void setUp(ITestDevice device, IBuildInfo buildInfo)
-      throws DeviceNotAvailableException, TargetSetupError {
+    /** {@inheritDoc} */
+    @Override
+    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+            throws DeviceNotAvailableException, BuildError, TargetSetupError {
     if (mBaseDir == null) {
       // TODO(b/147159584): Use a utility to get dynamic options.
       String baseDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);

@@ -15,7 +15,6 @@
  */
 package com.android.compatibility.targetprep;
 
-import static com.google.common.base.Preconditions.checkArgument;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
@@ -35,7 +34,6 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
-import com.android.tradefed.util.FileUtil;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -135,9 +133,8 @@ public final class AppSetupPreparerTest {
     assertTrue(new File(destDownloadDir, "apk_name_2.apk").exists());
   }
 
-  @Test
-  public void setUp_apkDoesNotExist()
-      throws IOException, DeviceNotAvailableException, TargetSetupError {
+    @Test
+    public void setUp_apkDoesNotExist() throws Exception {
     File baseDir = testSourceFolder.newFolder("base_dir");
     // Create a file in package_name folder, but the file extension is not apk.
     createPackageFile(baseDir, "package_name", "non_apk_file");
@@ -148,9 +145,8 @@ public final class AppSetupPreparerTest {
         () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
   }
 
-  @Test
-  public void setUp_installSplitApk()
-      throws IOException, DeviceNotAvailableException, TargetSetupError {
+    @Test
+    public void setUp_installSplitApk() throws Exception {
     File baseDir = testSourceFolder.newFolder("base_dir");
     createPackageFile(baseDir, "package_name", "apk_name_1.apk");
     createPackageFile(baseDir, "package_name", "apk_name_2.apk");
@@ -164,9 +160,8 @@ public final class AppSetupPreparerTest {
     verify(mockAppInstallSetup, times(1)).setUp(any(), any());
   }
 
-  @Test
-  public void setUp_installNonSplitApk()
-      throws IOException, DeviceNotAvailableException, TargetSetupError {
+    @Test
+    public void setUp_installNonSplitApk() throws Exception {
     File baseDir = testSourceFolder.newFolder("base_dir");
     createPackageFile(baseDir, "package_name", "apk_name_1.apk");
     AppSetupPreparer preparer =
@@ -179,9 +174,8 @@ public final class AppSetupPreparerTest {
     verify(mockAppInstallSetup, times(1)).setUp(any(), any());
   }
 
-  @Test
-  public void tearDown()
-      throws IOException, DeviceNotAvailableException, TargetSetupError {
+    @Test
+    public void tearDown() throws Exception {
     File baseDir = testSourceFolder.newFolder("base_dir");
     createPackageFile(baseDir, "package_name", "apk_name_1.apk");
     createPackageFile(baseDir, "package_name", "apk_name_2.apk");
