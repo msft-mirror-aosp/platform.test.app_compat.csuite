@@ -16,14 +16,10 @@
 package com.android.compatibility.tradefed;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider;
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.util.FileUtil;
 
-import java.io.IOException;
 
 import org.junit.After;
 import org.junit.Before;
@@ -38,41 +34,43 @@ import java.io.File;
 @RunWith(JUnit4.class)
 public class CSuiteTradefedTest {
 
-  @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+    @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-  private static final String ROOT_DIR_PROPERTY_NAME = "CSUITE_ROOT";
-  private static final String SUITE_FULL_NAME = "App Compatibility Test Suite";
-  private static final String SUITE_NAME = "C-Suite";
+    private static final String ROOT_DIR_PROPERTY_NAME = "CSUITE_ROOT";
+    private static final String SUITE_FULL_NAME = "App Compatibility Test Suite";
+    private static final String SUITE_NAME = "C-Suite";
 
-  private CompatibilityBuildProvider provider;
+    private CompatibilityBuildProvider provider;
 
-  @Before
-  public void setUp() throws Exception {
-    System.setProperty(ROOT_DIR_PROPERTY_NAME, tempFolder.getRoot().getAbsolutePath());
-    File base = tempFolder.newFolder("android-csuite");
-    File tests = tempFolder.newFolder("testcases");
+    @Before
+    public void setUp() throws Exception {
+        System.setProperty(ROOT_DIR_PROPERTY_NAME, tempFolder.getRoot().getAbsolutePath());
+        File base = tempFolder.newFolder("android-csuite");
+        File tests = tempFolder.newFolder("testcases");
 
-    provider = new CompatibilityBuildProvider() {
-      @Override
-      protected String getSuiteInfoName() {
-        return SUITE_NAME;
-      }
-      @Override
-      protected String getSuiteInfoFullname() {
-        return SUITE_FULL_NAME;
-      }
-    };
+        provider =
+                new CompatibilityBuildProvider() {
+                    @Override
+                    protected String getSuiteInfoName() {
+                        return SUITE_NAME;
+                    }
+
+                    @Override
+                    protected String getSuiteInfoFullname() {
+                        return SUITE_FULL_NAME;
+                    }
+                };
+    }
+
+    @Test
+    public void testSuiteInfoLoad() throws Exception {
+        CompatibilityBuildHelper helper = new CompatibilityBuildHelper(provider.getBuild());
+        assertEquals("Incorrect suite full name", SUITE_FULL_NAME, helper.getSuiteFullName());
+        assertEquals("Incorrect suite name", SUITE_NAME, helper.getSuiteName());
+    }
+
+    @After
+    public void cleanUp() throws Exception {
+        System.clearProperty(ROOT_DIR_PROPERTY_NAME);
+    }
   }
-
-  @Test
-  public void testSuiteInfoLoad() throws Exception {
-    CompatibilityBuildHelper helper = new CompatibilityBuildHelper(provider.getBuild());
-    assertEquals("Incorrect suite full name", SUITE_FULL_NAME, helper.getSuiteFullName());
-    assertEquals("Incorrect suite name", SUITE_NAME, helper.getSuiteName());
-  }
-
-  @After
-  public void cleanUp() throws Exception {
-    System.clearProperty(ROOT_DIR_PROPERTY_NAME);
-  }
-}

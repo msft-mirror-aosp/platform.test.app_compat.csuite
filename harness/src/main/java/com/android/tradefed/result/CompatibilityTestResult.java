@@ -21,9 +21,7 @@ import org.json.JSONObject;
 
 import java.util.regex.Pattern;
 
-/**
- * encapsulates compatibility run results for a single app package tested
- */
+/** encapsulates compatibility run results for a single app package tested */
 public class CompatibilityTestResult {
 
     public static final String KEY_PACKAGE = "app_package";
@@ -36,8 +34,8 @@ public class CompatibilityTestResult {
     public static final String KEY_MESSAGE = "message";
 
     public static final String SEPARATOR = "=@ppcomp@t=";
-    public static final Pattern REGEX = Pattern.compile(String.format("^%s(.*?)%s",
-        SEPARATOR, SEPARATOR));
+    public static final Pattern REGEX =
+            Pattern.compile(String.format("^%s(.*?)%s", SEPARATOR, SEPARATOR));
 
     public static final String STATUS_SUCCESS = "success";
     public static final String STATUS_ERROR = "error"; // installation errors etc
@@ -70,6 +68,7 @@ public class CompatibilityTestResult {
 
     /**
      * Reconstructs an instance from a JSON string
+     *
      * @param json
      * @return the {@link CompatibilityTestResult} instance from the JSON serialized string.
      * @throws JSONException

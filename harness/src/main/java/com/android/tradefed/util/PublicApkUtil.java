@@ -17,10 +17,6 @@
 package com.android.tradefed.util;
 
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.util.AaptParser;
-import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.QuotationAwareTokenizer;
-import com.android.tradefed.util.StreamUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -57,8 +53,8 @@ public class PublicApkUtil {
         File latestFile = null;
         try {
             latestFile =
-                downloadFile(
-                    new File(baseDir, LATEST_FILE), DOWNLOAD_TIMEOUT_MS, DOWNLOAD_RETRIES);
+                    downloadFile(
+                            new File(baseDir, LATEST_FILE), DOWNLOAD_TIMEOUT_MS, DOWNLOAD_RETRIES);
             String date = FileUtil.readStringFromFile(latestFile).trim();
             if (DATE_FORMAT.matcher(date).matches()) {
                 return new File(baseDir, date);
@@ -79,7 +75,7 @@ public class PublicApkUtil {
      * @throws IOException
      */
     public static File downloadFile(File remoteFile, long downloadTimeout, int downloadRetries)
-        throws IOException {
+            throws IOException {
         CLog.i("Attempting to download %s", remoteFile);
         File tmpFile = FileUtil.createTempFile(remoteFile.getName(), null);
         FileUtil.copyFile(remoteFile, tmpFile);
@@ -96,7 +92,7 @@ public class PublicApkUtil {
      * @throws IOException
      */
     public static List<ApkInfo> getApkList(String flavor, File dir, boolean fallbackToApkScan)
-        throws IOException {
+            throws IOException {
         File apkFile = new File(dir, String.format("%s_ranking.csv", flavor));
         if (!apkFile.exists() && fallbackToApkScan) {
             return getApkListFromDirectory(dir);
@@ -116,21 +112,28 @@ public class PublicApkUtil {
      */
     private static List<ApkInfo> getApkListFromDirectory(File baseDir) throws IOException {
         List<ApkInfo> apkList = new ArrayList<>();
-        File[] apks = baseDir.listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                // filters out all apk files
-                return name.endsWith(".apk");
-            }
-        });
+        File[] apks =
+                baseDir.listFiles(
+                        new FilenameFilter() {
+                            @Override
+                            public boolean accept(File dir, String name) {
+                                // filters out all apk files
+                                return name.endsWith(".apk");
+                            }
+                        });
         for (File apk : apks) {
             AaptParser parser = AaptParser.parse(apk);
             if (parser == null) {
-                throw new IOException(String.format(
-                    "Failed to parse apk file %s", apk.getCanonicalPath()));
+                throw new IOException(
+                        String.format("Failed to parse apk file %s", apk.getCanonicalPath()));
             }
-            ApkInfo apkInfo = new ApkInfo(-1, parser.getPackageName(), parser.getVersionName(),
-                parser.getVersionCode(), apk.getName());
+            ApkInfo apkInfo =
+                    new ApkInfo(
+                            -1,
+                            parser.getPackageName(),
+                            parser.getVersionName(),
+                            parser.getVersionCode(),
+                            apk.getName());
             apkList.add(apkInfo);
         }
         return apkList;
@@ -139,6 +142,7 @@ public class PublicApkUtil {
     /**
      * Parses ranking information csv file into the data structure representing a list of apks with
      * ranking and package information
+     *
      * @param rankingInfo the path to ranking csv file
      * @return
      * @throws IOException
@@ -181,8 +185,12 @@ public class PublicApkUtil {
         public final String versionCode;
         public final String fileName;
 
-        public ApkInfo(int rank, String packageName, String versionString, String versionCode,
-            String fileName) {
+        public ApkInfo(
+                int rank,
+                String packageName,
+                String versionString,
+                String versionCode,
+                String fileName) {
             this.rank = rank;
             this.packageName = packageName;
             this.versionString = versionString;
@@ -198,19 +206,20 @@ public class PublicApkUtil {
             } catch (NumberFormatException e) {
                 // rethrow as IAE with content of problematic line
                 throw new IllegalArgumentException(
-                    String.format("Invalid line (rank field not a number): %s", line), e);
+                        String.format("Invalid line (rank field not a number): %s", line), e);
             }
             if (cols.length != 5) {
                 throw new IllegalArgumentException(
-                    String.format("Invalid line (expected 5 data columns): %s", line));
+                        String.format("Invalid line (expected 5 data columns): %s", line));
             }
             return new ApkInfo(rank, cols[1], cols[2], cols[3], cols[4]);
         }
 
         @Override
         public String toString() {
-            return String.format("Package: %s v%s (%s), rank: %d, file: %s", packageName,
-                versionCode, versionString, rank, fileName);
+            return String.format(
+                    "Package: %s v%s (%s), rank: %d, file: %s",
+                    packageName, versionCode, versionString, rank, fileName);
+        }
         }
     }
-}

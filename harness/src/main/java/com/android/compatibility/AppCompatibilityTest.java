@@ -70,48 +70,55 @@ import java.util.HashSet;
  * directory. The test installs, launches, and uninstalls each apk.
  */
 public abstract class AppCompatibilityTest
-    implements IDeviceTest, IRemoteTest, IShardableTest, IConfigurationReceiver, ITestFilterReceiver {
+        implements IDeviceTest,
+                IRemoteTest,
+                IShardableTest,
+                IConfigurationReceiver,
+                ITestFilterReceiver {
 
-    @Option(name = "product",
-        description = "The product, corresponding to the borgcron job product arg.")
+    @Option(
+            name = "product",
+            description = "The product, corresponding to the borgcron job product arg.")
     private String mProduct;
 
     @Option(
-        name = "base-dir",
-        description = "The directory of the results excluding the date.",
-        importance = Option.Importance.ALWAYS)
+            name = "base-dir",
+            description = "The directory of the results excluding the date.",
+            importance = Option.Importance.ALWAYS)
     // TODO(b/36786754): Add `mandatory = true` when cmdfiles are moved over
     private File mBaseDir;
 
-    @Option(name = "date",
-        description = "The date to run, in the form YYYYMMDD. If not set, then the latest "
-            + "results will be used.")
+    @Option(
+            name = "date",
+            description =
+                    "The date to run, in the form YYYYMMDD. If not set, then the latest "
+                            + "results will be used.")
     private String mDate;
 
-    @Option(name = "test-label",
-        description = "Unique test identifier label.")
+    @Option(name = "test-label", description = "Unique test identifier label.")
     private String mTestLabel = "AppCompatibility";
 
-    @Option(name = "reboot-after-apks",
-        description = "Reboot the device after a centain number of apks. 0 means no reboot.")
+    @Option(
+            name = "reboot-after-apks",
+            description = "Reboot the device after a centain number of apks. 0 means no reboot.")
     private int mRebootNumber = 100;
 
-    @Option(name = "fallback-to-apk-scan",
-        description = "Fallback to scanning for apks in base directory if ranking information "
-            + "is missing.")
+    @Option(
+            name = "fallback-to-apk-scan",
+            description =
+                    "Fallback to scanning for apks in base directory if ranking information "
+                            + "is missing.")
     private boolean mFallbackToApkScan = false;
 
     @Option(
-        name = "retry-count",
-        description = "Number of times to retry a failed test case. 0 means no retry.")
+            name = "retry-count",
+            description = "Number of times to retry a failed test case. 0 means no retry.")
     private int mRetryCount = 5;
 
-    @Option(name = "include-filter",
-        description = "The include filter of the test names to run.")
+    @Option(name = "include-filter", description = "The include filter of the test names to run.")
     protected Set<String> mIncludeFilters = new HashSet<>();
 
-    @Option(name = "exclude-filter",
-        description = "The exclude filter of the test names to run.")
+    @Option(name = "exclude-filter", description = "The exclude filter of the test names to run.")
     protected Set<String> mExcludeFilters = new HashSet<>();
 
     private static final long DOWNLOAD_TIMEOUT_MS = 60 * 1000;
@@ -135,7 +142,7 @@ public abstract class AppCompatibilityTest
     protected final String packageBeingTestedKey;
 
     protected AppCompatibilityTest(
-        String launcherPackage, String runnerClass, String packageBeingTestedKey) {
+            String launcherPackage, String runnerClass, String packageBeingTestedKey) {
         this.launcherPackage = launcherPackage;
         this.runnerClass = runnerClass;
         this.packageBeingTestedKey = packageBeingTestedKey;
@@ -149,7 +156,7 @@ public abstract class AppCompatibilityTest
 
     /** Sets up some default aspects of the instrumentation test. */
     protected final InstrumentationTest createDefaultInstrumentationTest(
-        String packageBeingTested) {
+            String packageBeingTested) {
         InstrumentationTest instrTest = new InstrumentationTest();
         instrTest.setPackageName(launcherPackage);
         instrTest.setConfiguration(mConfiguration);
@@ -172,9 +179,10 @@ public abstract class AppCompatibilityTest
             CLog.i("\"--product\" not specified, using property from device instead: %s", mProduct);
         }
         Assert.assertTrue(
-            String.format("Shard index out of range: expected [0, %d), got %d",
-                mShardCount, mShardIndex),
-            mShardIndex >= 0 && mShardIndex < mShardCount);
+                String.format(
+                        "Shard index out of range: expected [0, %d), got %d",
+                        mShardCount, mShardIndex),
+                mShardIndex >= 0 && mShardIndex < mShardCount);
 
         File apkDir = null;
         try {
@@ -208,12 +216,12 @@ public abstract class AppCompatibilityTest
         } catch (InterruptedException e) {
             CLog.e(e);
             throw new RuntimeException(e);
-        }finally {
+        } finally {
             mLogcat.stop();
             listener.testRunEnded(
-                System.currentTimeMillis() - start, new HashMap<String, Metric>());
+                    System.currentTimeMillis() - start, new HashMap<String, Metric>());
         }
-    }
+        }
 
     /**
      * Downloads and tests all the APKs in the apk list.
@@ -224,8 +232,9 @@ public abstract class AppCompatibilityTest
      * @throws DeviceNotAvailableException
      * @throws InterruptedException if a download thread was interrupted.
      */
-    private void downloadAndTestApks(ITestInvocationListener listener, File kharonDir,
-        List<ApkInfo> apkList) throws DeviceNotAvailableException, InterruptedException {
+    private void downloadAndTestApks(
+            ITestInvocationListener listener, File kharonDir, List<ApkInfo> apkList)
+            throws DeviceNotAvailableException, InterruptedException {
         CLog.d("Started downloading and testing apks.");
         ApkInfo testingApk = null;
         File testingFile = null;
@@ -259,15 +268,15 @@ public abstract class AppCompatibilityTest
      * @throws DeviceNotAvailableException
      */
     private void testApk(ITestInvocationListener listener, ApkInfo apkInfo, File apkFile)
-        throws DeviceNotAvailableException {
+            throws DeviceNotAvailableException {
         if (apkInfo == null || apkFile == null) {
             CLog.d("apkInfo or apkFile is null.");
             FileUtil.deleteFile(apkFile);
             return;
         }
         CLog.d(
-            "Started testing package: %s, apk file: %s.",
-            apkInfo.packageName, apkFile.getAbsolutePath());
+                "Started testing package: %s, apk file: %s.",
+                apkInfo.packageName, apkFile.getAbsolutePath());
 
         mTestCount++;
         if (mRebootNumber != 0 && mTestCount % mRebootNumber == 0) {
@@ -299,7 +308,7 @@ public abstract class AppCompatibilityTest
                     result.message = null;
                     launchApk(result);
                     mDevice.executeShellCommand(
-                        String.format("am force-stop %s", apkInfo.packageName));
+                            String.format("am force-stop %s", apkInfo.packageName));
                 }
                 if (result.status == null) {
                     result.status = CompatibilityTestResult.STATUS_SUCCESS;
@@ -317,8 +326,8 @@ public abstract class AppCompatibilityTest
             } catch (JSONException e) {
                 CLog.w("Posting failed: %s.", e.getMessage());
             }
-            listener.testEnded(testId, System.currentTimeMillis(),
-                Collections.<String, String> emptyMap());
+            listener.testEnded(
+                    testId, System.currentTimeMillis(), Collections.<String, String>emptyMap());
             FileUtil.deleteFile(apkFile);
             CLog.d("Completed testing package: %s.", apkInfo.packageName);
         }
@@ -326,24 +335,23 @@ public abstract class AppCompatibilityTest
 
     /**
      * Checks that the file is correct and attempts to install it.
-     * <p>
-     * Will set the result status to error if the APK could not be installed or if it contains
+     *
+     * <p>Will set the result status to error if the APK could not be installed or if it contains
      * conflicting information.
-     * </p>
      *
      * @param result the {@link CompatibilityTestResult} containing the APK info.
      * @param apkFile the APK file to install.
      * @throws DeviceNotAvailableException
      */
     private void installApk(CompatibilityTestResult result, File apkFile, boolean skipAaptCheck)
-        throws DeviceNotAvailableException {
+            throws DeviceNotAvailableException {
         if (!skipAaptCheck) {
             CLog.d("Parsing apk file: %s.", apkFile.getAbsolutePath());
             AaptParser parser = AaptParser.parse(apkFile);
             if (parser == null) {
                 CLog.d(
-                    "Failed to parse apk file: %s, package: %s, error: %s.",
-                    apkFile.getAbsolutePath(), result.packageName, result.message);
+                        "Failed to parse apk file: %s, package: %s, error: %s.",
+                        apkFile.getAbsolutePath(), result.packageName, result.message);
                 result.status = CompatibilityTestResult.STATUS_ERROR;
                 result.message = "aapt fail";
                 return;
@@ -352,11 +360,16 @@ public abstract class AppCompatibilityTest
             result.name = parser.getLabel();
 
             if (!equalsOrNull(result.packageName, parser.getPackageName())
-                || !equalsOrNull(result.versionString, parser.getVersionName())
-                || !equalsOrNull(result.versionCode, parser.getVersionCode())) {
-                CLog.d("Package info mismatch: want %s v%s (%s), got %s v%s (%s)",
-                    result.packageName, result.versionCode, result.versionString,
-                    parser.getPackageName(), parser.getVersionCode(), parser.getVersionName());
+                    || !equalsOrNull(result.versionString, parser.getVersionName())
+                    || !equalsOrNull(result.versionCode, parser.getVersionCode())) {
+                CLog.d(
+                        "Package info mismatch: want %s v%s (%s), got %s v%s (%s)",
+                        result.packageName,
+                        result.versionCode,
+                        result.versionString,
+                        parser.getPackageName(),
+                        parser.getVersionCode(),
+                        parser.getVersionName());
                 result.status = CompatibilityTestResult.STATUS_ERROR;
                 result.message = "package info mismatch";
                 return;
@@ -370,16 +383,16 @@ public abstract class AppCompatibilityTest
                 result.status = CompatibilityTestResult.STATUS_ERROR;
                 result.message = error;
                 CLog.d(
-                    "Failed to install apk file: %s, package: %s, error: %s.",
-                    apkFile.getAbsolutePath(), result.packageName, result.message);
+                        "Failed to install apk file: %s, package: %s, error: %s.",
+                        apkFile.getAbsolutePath(), result.packageName, result.message);
                 return;
             }
         } catch (DeviceUnresponsiveException e) {
             result.status = CompatibilityTestResult.STATUS_ERROR;
             result.message = "install timeout";
             CLog.d(
-                "Installing apk file %s timed out, package: %s, error: %s.",
-                apkFile.getAbsolutePath(), result.packageName, result.message);
+                    "Installing apk file %s timed out, package: %s, error: %s.",
+                    apkFile.getAbsolutePath(), result.packageName, result.message);
             return;
         }
         CLog.d("Completed installing apk file %s.", apkFile.getAbsolutePath());
@@ -387,15 +400,13 @@ public abstract class AppCompatibilityTest
 
     /**
      * Method which attempts to launch an APK.
-     * <p>
-     * Will set the result status to failure if the APK could not be launched.
-     * </p>
+     *
+     * <p>Will set the result status to failure if the APK could not be launched.
      *
      * @param result the {@link CompatibilityTestResult} containing the APK info.
      * @throws DeviceNotAvailableException
      */
-    private void launchApk(CompatibilityTestResult result)
-        throws DeviceNotAvailableException {
+    private void launchApk(CompatibilityTestResult result) throws DeviceNotAvailableException {
         CLog.d("Lauching package: %s.", result.packageName);
         InstrumentationTest instrTest = createInstrumentationTest(result.packageName);
         instrTest.setDevice(mDevice);
@@ -414,7 +425,7 @@ public abstract class AppCompatibilityTest
 
     /** Helper method which reports a test failed if the status is either a failure or an error. */
     private void reportResult(
-        ITestInvocationListener listener, TestDescription id, CompatibilityTestResult result) {
+            ITestInvocationListener listener, TestDescription id, CompatibilityTestResult result) {
         String message = result.message != null ? result.message : "unknown";
         if (CompatibilityTestResult.STATUS_ERROR.equals(result.status)) {
             listener.testFailed(id, "ERROR:" + message);
@@ -423,14 +434,16 @@ public abstract class AppCompatibilityTest
         }
     }
 
-    /**
-     * Helper method which posts the logcat.
-     */
-    private void postLogcat(CompatibilityTestResult result,
-        ITestInvocationListener listener) throws JSONException {
+    /** Helper method which posts the logcat. */
+    private void postLogcat(CompatibilityTestResult result, ITestInvocationListener listener)
+            throws JSONException {
         InputStreamSource stream = null;
-        String header = String.format("%s%s%s\n", CompatibilityTestResult.SEPARATOR,
-            result.toJsonString(), CompatibilityTestResult.SEPARATOR);
+        String header =
+                String.format(
+                        "%s%s%s\n",
+                        CompatibilityTestResult.SEPARATOR,
+                        result.toJsonString(),
+                        CompatibilityTestResult.SEPARATOR);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (InputStreamSource logcatData = mLogcat.getLogcatData()) {
             try {
@@ -451,9 +464,7 @@ public abstract class AppCompatibilityTest
         }
     }
 
-    /**
-     * Helper method which takes a list of {@link ApkInfo} objects and returns the sharded list.
-     */
+    /** Helper method which takes a list of {@link ApkInfo} objects and returns the sharded list. */
     private List<ApkInfo> shardApkList(List<ApkInfo> apkList) {
         List<ApkInfo> shardedList = new ArrayList<>(apkList.size() / mShardCount + 1);
         for (int i = mShardIndex; i < apkList.size(); i += mShardCount) {
@@ -492,16 +503,12 @@ public abstract class AppCompatibilityTest
         return false;
     }
 
-    /**
-     * Returns true if either object is null or if both objects are equal.
-     */
+    /** Returns true if either object is null or if both objects are equal. */
     private static boolean equalsOrNull(Object a, Object b) {
         return a == null || b == null || a.equals(b);
     }
 
-    /**
-     * Helper {@link Runnable} which downloads a file, and can be used in another thread.
-     */
+    /** Helper {@link Runnable} which downloads a file, and can be used in another thread. */
     private class ApkDownloadRunnable implements Runnable {
         private final File mKharonDir;
         private final ApkInfo mApkInfo;
@@ -524,8 +531,8 @@ public abstract class AppCompatibilityTest
             File sourceFile = new File(mKharonDir, mApkInfo.fileName);
             try {
                 mDownloadedFile =
-                    PublicApkUtil.downloadFile(
-                        sourceFile, DOWNLOAD_TIMEOUT_MS, DOWNLOAD_RETRIES);
+                        PublicApkUtil.downloadFile(
+                                sourceFile, DOWNLOAD_TIMEOUT_MS, DOWNLOAD_RETRIES);
             } catch (IOException e) {
                 // Log and ignore
                 CLog.e("Could not download apk from %s.", sourceFile);
@@ -560,9 +567,7 @@ public abstract class AppCompatibilityTest
         return mDevice;
     }
 
-    /**
-     * Return a {@link IRunUtil} instance to execute commands with.
-     */
+    /** Return a {@link IRunUtil} instance to execute commands with. */
     IRunUtil getRunUtil() {
         return RunUtil.getDefault();
     }
@@ -573,12 +578,12 @@ public abstract class AppCompatibilityTest
             shard = getClass().newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
             throw new IllegalStateException(
-                "The class "
-                    + getClass().getName()
-                    + " has no public constructor with no arguments, but all subclasses of "
-                    + AppCompatibilityTest.class.getName()
-                    + " should",
-                e);
+                    "The class "
+                            + getClass().getName()
+                            + " has no public constructor with no arguments, but all subclasses of "
+                            + AppCompatibilityTest.class.getName()
+                            + " should",
+                    e);
         }
         try {
             OptionCopier.copyOptions(this, shard);
@@ -612,27 +617,21 @@ public abstract class AppCompatibilityTest
         return new TestDescription(launcherPackage, packageBeingTested);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void addIncludeFilter(String filter) {
         checkArgument(!Strings.isNullOrEmpty(filter), "Include filter cannot be null or empty.");
         mIncludeFilters.add(filter);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void addAllIncludeFilters(Set<String> filters) {
         checkNotNull(filters, "Include filters cannot be null.");
         mIncludeFilters.addAll(filters);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void clearIncludeFilters() {
         mIncludeFilters.clear();
@@ -644,35 +643,27 @@ public abstract class AppCompatibilityTest
         return Collections.unmodifiableSet(mIncludeFilters);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void addExcludeFilter(String filter) {
         checkArgument(!Strings.isNullOrEmpty(filter), "Exclude filter cannot be null or empty.");
         mExcludeFilters.add(filter);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void addAllExcludeFilters(Set<String> filters) {
         checkNotNull(filters, "Exclude filters cannot be null.");
         mExcludeFilters.addAll(filters);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void clearExcludeFilters() {
         mExcludeFilters.clear();
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public Set<String> getExcludeFilters() {
         return Collections.unmodifiableSet(mExcludeFilters);

@@ -30,32 +30,32 @@ public final class AppCrawlerCompatibilityTest extends AppCompatibilityTest {
     private static final String WALKMAN_STEPS_LABEL = "maxSteps";
 
     @Option(
-        name = "walkman-run-ms",
-        description = "Time to run walkman in msecs (only used if test-strategy=walkman).")
+            name = "walkman-run-ms",
+            description = "Time to run walkman in msecs (only used if test-strategy=walkman).")
     private int mWalkmanRunMs = 60 * 1000;
 
     @Option(
-        name = "walkman-steps",
-        description =
-            "Max number of steps to run walkman (only used if test-strategy=walkman)."
-                + " -1 for no limit")
+            name = "walkman-steps",
+            description =
+                    "Max number of steps to run walkman (only used if test-strategy=walkman)."
+                            + " -1 for no limit")
     private int mWalkmanSteps = -1;
 
     public AppCrawlerCompatibilityTest() {
         super(
-            "com.google.android.apps.common.walkman.apps",
-            "com.google.android.apps.common.testing.testrunner"
-                + ".Google3InstrumentationTestRunner",
-            /*
-             * We are using /google/data/ro/teams/walkman/walkman.apk which has parameter
-             * "packages" unlike the up-to-date version in source which uses "package"
-             * see: com.google.android.apps.common.walkman.apps.EngineFactory::getCrawlEngine.
-             * This currently works with the up-to-date version in source, as well.
-             *
-             * Neither of these should be confused with "package_to_launch", which is used by
-             * AppCompatibilityRunner
-             */
-            "packages");
+                "com.google.android.apps.common.walkman.apps",
+                "com.google.android.apps.common.testing.testrunner"
+                        + ".Google3InstrumentationTestRunner",
+                /*
+                 * We are using /google/data/ro/teams/walkman/walkman.apk which has parameter
+                 * "packages" unlike the up-to-date version in source which uses "package"
+                 * see: com.google.android.apps.common.walkman.apps.EngineFactory::getCrawlEngine.
+                 * This currently works with the up-to-date version in source, as well.
+                 *
+                 * Neither of these should be confused with "package_to_launch", which is used by
+                 * AppCompatibilityRunner
+                 */
+                "packages");
     }
 
     @Override
@@ -75,7 +75,7 @@ public final class AppCrawlerCompatibilityTest extends AppCompatibilityTest {
          * This list is required to be mutable, so we wrap in ArrayList.
          */
         instrTest.setTestsToRun(
-            new ArrayList<>(Arrays.asList(new TestDescription(launcherClass, "testEntry"))));
+                new ArrayList<>(Arrays.asList(new TestDescription(launcherClass, "testEntry"))));
 
         return instrTest;
     }

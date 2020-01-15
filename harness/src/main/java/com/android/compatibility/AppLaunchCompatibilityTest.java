@@ -27,29 +27,29 @@ public final class AppLaunchCompatibilityTest extends AppCompatibilityTest {
     private static final String WORKSPACE_LAUNCH_TIMEOUT_LABEL = "workspace_launch_timeout_ms";
 
     @Option(
-        name = "app-launch-timeout-ms",
-        description = "Time to wait for app to launch in msecs.")
+            name = "app-launch-timeout-ms",
+            description = "Time to wait for app to launch in msecs.")
     private int mAppLaunchTimeoutMs = 15000;
 
     @Option(
-        name = "workspace-launch-timeout-ms",
-        description = "Time to wait when launched back into the workspace in msecs.")
+            name = "workspace-launch-timeout-ms",
+            description = "Time to wait when launched back into the workspace in msecs.")
     private int mWorkspaceLaunchTimeoutMs = 2000;
 
     public AppLaunchCompatibilityTest() {
         super(
-            "com.android.compatibilitytest",
-            "com.android.compatibilitytest.AppCompatibilityRunner",
-            "package_to_launch");
+                "com.android.compatibilitytest",
+                "com.android.compatibilitytest.AppCompatibilityRunner",
+                "package_to_launch");
     }
 
     @Override
     public InstrumentationTest createInstrumentationTest(String packageBeingTested) {
         InstrumentationTest instrTest = createDefaultInstrumentationTest(packageBeingTested);
         instrTest.addInstrumentationArg(
-            APP_LAUNCH_TIMEOUT_LABEL, Integer.toString(mAppLaunchTimeoutMs));
+                APP_LAUNCH_TIMEOUT_LABEL, Integer.toString(mAppLaunchTimeoutMs));
         instrTest.addInstrumentationArg(
-            WORKSPACE_LAUNCH_TIMEOUT_LABEL, Integer.toString(mWorkspaceLaunchTimeoutMs));
+                WORKSPACE_LAUNCH_TIMEOUT_LABEL, Integer.toString(mWorkspaceLaunchTimeoutMs));
         return instrTest;
     }
 }

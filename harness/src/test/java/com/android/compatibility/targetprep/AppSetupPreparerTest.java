@@ -15,7 +15,6 @@
  */
 package com.android.compatibility.targetprep;
 
-
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
@@ -48,156 +47,156 @@ import java.io.IOException;
 @RunWith(JUnit4.class)
 public final class AppSetupPreparerTest {
 
-  @Rule public TemporaryFolder testSourceFolder = new TemporaryFolder();
-  @Rule public TemporaryFolder testDestFolder = new TemporaryFolder();
+    @Rule public TemporaryFolder testSourceFolder = new TemporaryFolder();
+    @Rule public TemporaryFolder testDestFolder = new TemporaryFolder();
 
-  private ITestDevice mockDevice;
-  private IDeviceBuildInfo mockDeviceBuildInfo;
-  private TestAppInstallSetup mockAppInstallSetup;
+    private ITestDevice mockDevice;
+    private IDeviceBuildInfo mockDeviceBuildInfo;
+    private TestAppInstallSetup mockAppInstallSetup;
 
-  @Before
-  public void setUp() throws Exception {
-    mockDevice = mock(ITestDevice.class);
+    @Before
+    public void setUp() throws Exception {
+        mockDevice = mock(ITestDevice.class);
 
-    File testDir = testDestFolder.newFolder("download_dir");
-    mockDeviceBuildInfo = mock(IDeviceBuildInfo.class);
-    when(mockDeviceBuildInfo.getTestsDir()).thenReturn(testDir);
+        File testDir = testDestFolder.newFolder("download_dir");
+        mockDeviceBuildInfo = mock(IDeviceBuildInfo.class);
+        when(mockDeviceBuildInfo.getTestsDir()).thenReturn(testDir);
 
-    mockAppInstallSetup = mock(TestAppInstallSetup.class);
-  }
-
-  @Test
-  public void setUp_baseDirIsNull_throwsException()
-      throws DeviceNotAvailableException, TargetSetupError {
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", null, mockAppInstallSetup);
-
-    assertThrows(NullPointerException.class,
-        () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
-  }
-
-  @Test
-  public void setUp_baseDirIsNotDir_throwsException()
-      throws IOException, DeviceNotAvailableException, TargetSetupError {
-    File tempFile = testSourceFolder.newFile("temp_file_name");
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", tempFile, mockAppInstallSetup);
-
-    assertThrows(IllegalArgumentException.class,
-        () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
-  }
-
-  @Test
-  public void setUp_packageDirDoesNotExist_throwsError()
-      throws IOException, DeviceNotAvailableException, TargetSetupError {
-    File baseDir = testSourceFolder.newFolder("base_dir");
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
-
-    assertThrows(IllegalArgumentException.class,
-        () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
-  }
-
-  @Test
-  public void prepareDownloadDir_containsStaleFiles() throws IOException, TargetSetupError {
-    File baseDir = testSourceFolder.newFolder("base_dir");
-    File staleDownloadDir = testDestFolder.newFolder("stale_download_dir");
-    File staleFile = new File(staleDownloadDir, "stale_file");
-    staleFile.createNewFile();
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup) {
-          @Override
-          protected File getDownloadDir(IBuildInfo buildInfo) {
-
-            return staleDownloadDir;
-          }
-        };
-
-    File downloadDir = preparer.prepareDownloadDir(mockDeviceBuildInfo);
-
-    assertFalse(new File(downloadDir, "stale_file.apk").exists());
-  }
+        mockAppInstallSetup = mock(TestAppInstallSetup.class);
+    }
 
     @Test
-  public void downloadPackage_success() throws IOException, TargetSetupError {
-    File baseDir = testSourceFolder.newFolder("base_dir");
-    createPackageFile(baseDir, "package_name", "apk_name_1.apk");
-    createPackageFile(baseDir, "package_name", "apk_name_2.apk");
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
-    File destDownloadDir = testDestFolder.newFolder("dest_dir_name");
+    public void setUp_baseDirIsNull_throwsException()
+            throws DeviceNotAvailableException, TargetSetupError {
+        AppSetupPreparer preparer = new AppSetupPreparer("package_name", null, mockAppInstallSetup);
 
-    preparer.downloadPackage(destDownloadDir);
+        assertThrows(
+                NullPointerException.class, () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
+    }
 
-    assertTrue(new File(destDownloadDir, "apk_name_1.apk").exists());
-    assertTrue(new File(destDownloadDir, "apk_name_2.apk").exists());
-  }
+    @Test
+    public void setUp_baseDirIsNotDir_throwsException()
+            throws IOException, DeviceNotAvailableException, TargetSetupError {
+        File tempFile = testSourceFolder.newFile("temp_file_name");
+        AppSetupPreparer preparer =
+                new AppSetupPreparer("package_name", tempFile, mockAppInstallSetup);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
+    }
+
+    @Test
+    public void setUp_packageDirDoesNotExist_throwsError()
+            throws IOException, DeviceNotAvailableException, TargetSetupError {
+        File baseDir = testSourceFolder.newFolder("base_dir");
+        AppSetupPreparer preparer =
+                new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
+    }
+
+    @Test
+    public void prepareDownloadDir_containsStaleFiles() throws IOException, TargetSetupError {
+        File baseDir = testSourceFolder.newFolder("base_dir");
+        File staleDownloadDir = testDestFolder.newFolder("stale_download_dir");
+        File staleFile = new File(staleDownloadDir, "stale_file");
+        staleFile.createNewFile();
+        AppSetupPreparer preparer =
+                new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup) {
+                    @Override
+                    protected File getDownloadDir(IBuildInfo buildInfo) {
+
+                        return staleDownloadDir;
+                    }
+                };
+
+        File downloadDir = preparer.prepareDownloadDir(mockDeviceBuildInfo);
+
+        assertFalse(new File(downloadDir, "stale_file.apk").exists());
+    }
+
+    @Test
+    public void downloadPackage_success() throws IOException, TargetSetupError {
+        File baseDir = testSourceFolder.newFolder("base_dir");
+        createPackageFile(baseDir, "package_name", "apk_name_1.apk");
+        createPackageFile(baseDir, "package_name", "apk_name_2.apk");
+        AppSetupPreparer preparer =
+                new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
+        File destDownloadDir = testDestFolder.newFolder("dest_dir_name");
+
+        preparer.downloadPackage(destDownloadDir);
+
+        assertTrue(new File(destDownloadDir, "apk_name_1.apk").exists());
+        assertTrue(new File(destDownloadDir, "apk_name_2.apk").exists());
+    }
 
     @Test
     public void setUp_apkDoesNotExist() throws Exception {
-    File baseDir = testSourceFolder.newFolder("base_dir");
-    // Create a file in package_name folder, but the file extension is not apk.
-    createPackageFile(baseDir, "package_name", "non_apk_file");
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
+        File baseDir = testSourceFolder.newFolder("base_dir");
+        // Create a file in package_name folder, but the file extension is not apk.
+        createPackageFile(baseDir, "package_name", "non_apk_file");
+        AppSetupPreparer preparer =
+                new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
 
-    assertThrows(TargetSetupError.class,
-        () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
-  }
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(mockDevice, mockDeviceBuildInfo));
+    }
 
     @Test
     public void setUp_installSplitApk() throws Exception {
-    File baseDir = testSourceFolder.newFolder("base_dir");
-    createPackageFile(baseDir, "package_name", "apk_name_1.apk");
-    createPackageFile(baseDir, "package_name", "apk_name_2.apk");
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
+        File baseDir = testSourceFolder.newFolder("base_dir");
+        createPackageFile(baseDir, "package_name", "apk_name_1.apk");
+        createPackageFile(baseDir, "package_name", "apk_name_2.apk");
+        AppSetupPreparer preparer =
+                new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
 
-    preparer.setUp(mockDevice, mockDeviceBuildInfo);
+        preparer.setUp(mockDevice, mockDeviceBuildInfo);
 
-    verify(mockAppInstallSetup, times(1)).setAltDir(any());
-    verify(mockAppInstallSetup, times(1)).addSplitApkFileNames(anyString());
-    verify(mockAppInstallSetup, times(1)).setUp(any(), any());
-  }
+        verify(mockAppInstallSetup, times(1)).setAltDir(any());
+        verify(mockAppInstallSetup, times(1)).addSplitApkFileNames(anyString());
+        verify(mockAppInstallSetup, times(1)).setUp(any(), any());
+    }
 
     @Test
     public void setUp_installNonSplitApk() throws Exception {
-    File baseDir = testSourceFolder.newFolder("base_dir");
-    createPackageFile(baseDir, "package_name", "apk_name_1.apk");
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
+        File baseDir = testSourceFolder.newFolder("base_dir");
+        createPackageFile(baseDir, "package_name", "apk_name_1.apk");
+        AppSetupPreparer preparer =
+                new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
 
-    preparer.setUp(mockDevice, mockDeviceBuildInfo);
+        preparer.setUp(mockDevice, mockDeviceBuildInfo);
 
-    verify(mockAppInstallSetup, times(1)).setAltDir(any());
-    verify(mockAppInstallSetup, times(1)).addTestFileName(anyString());
-    verify(mockAppInstallSetup, times(1)).setUp(any(), any());
-  }
+        verify(mockAppInstallSetup, times(1)).setAltDir(any());
+        verify(mockAppInstallSetup, times(1)).addTestFileName(anyString());
+        verify(mockAppInstallSetup, times(1)).setUp(any(), any());
+    }
 
     @Test
     public void tearDown() throws Exception {
-    File baseDir = testSourceFolder.newFolder("base_dir");
-    createPackageFile(baseDir, "package_name", "apk_name_1.apk");
-    createPackageFile(baseDir, "package_name", "apk_name_2.apk");
-    AppSetupPreparer preparer =
-        new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
-    preparer.setUp(mockDevice, mockDeviceBuildInfo);
+        File baseDir = testSourceFolder.newFolder("base_dir");
+        createPackageFile(baseDir, "package_name", "apk_name_1.apk");
+        createPackageFile(baseDir, "package_name", "apk_name_2.apk");
+        AppSetupPreparer preparer =
+                new AppSetupPreparer("package_name", baseDir, mockAppInstallSetup);
+        preparer.setUp(mockDevice, mockDeviceBuildInfo);
 
-    preparer.tearDown(mockDevice, mockDeviceBuildInfo, mock(Throwable.class));
+        preparer.tearDown(mockDevice, mockDeviceBuildInfo, mock(Throwable.class));
 
-    File destDir = preparer.getDownloadDir(mockDeviceBuildInfo);
-    assertFalse(new File(destDir, "apk_name_1.apk").exists());
-    assertFalse(new File(destDir, "apk_name_2.apk").exists());
-    verify(mockAppInstallSetup, times(1)).tearDown(any(), any(), any());
+        File destDir = preparer.getDownloadDir(mockDeviceBuildInfo);
+        assertFalse(new File(destDir, "apk_name_1.apk").exists());
+        assertFalse(new File(destDir, "apk_name_2.apk").exists());
+        verify(mockAppInstallSetup, times(1)).tearDown(any(), any(), any());
+    }
+
+    private File createPackageFile(File parentDir, String packageName, String apkName)
+            throws IOException {
+        File packageDir = new File(parentDir, packageName);
+        packageDir.mkdirs();
+        File apkFile = new File(packageDir, apkName);
+        apkFile.createNewFile();
+
+        return apkFile;
+    }
   }
-
-  private File createPackageFile(File parentDir, String packageName, String apkName)
-      throws IOException {
-    File packageDir = new File(parentDir, packageName);
-    packageDir.mkdirs();
-    File apkFile = new File(packageDir, apkName);
-    apkFile.createNewFile();
-
-    return apkFile;
-  }
-}

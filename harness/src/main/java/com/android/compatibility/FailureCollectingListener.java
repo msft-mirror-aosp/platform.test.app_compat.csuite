@@ -32,10 +32,7 @@ public final class FailureCollectingListener implements ITestInvocationListener 
         setStackTrace(trace != null ? trace : "unknown assumption failure");
     }
 
-
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void testRunFailed(String errorMessage) {
         setStackTrace(errorMessage);
@@ -43,6 +40,7 @@ public final class FailureCollectingListener implements ITestInvocationListener 
 
     /**
      * Fetches the stack trace if any.
+     *
      * @return the stack trace.
      */
     public String getStackTrace() {
@@ -51,6 +49,7 @@ public final class FailureCollectingListener implements ITestInvocationListener 
 
     /**
      * Sets the stack trace.
+     *
      * @param stackTrace {@link String} stack trace to set.
      */
     public void setStackTrace(String stackTrace) {
