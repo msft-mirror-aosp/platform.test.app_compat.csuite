@@ -52,10 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Application Compatibility Test that launches an application and detects
- * crashes.
- */
+/** Application Compatibility Test that launches an application and detects crashes. */
 @RunWith(AndroidJUnit4.class)
 public final class AppCompatibility {
 
@@ -105,8 +102,8 @@ public final class AppCompatibility {
 
         // resolve launcher package name
         Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
-        ResolveInfo resolveInfo = mPackageManager.resolveActivity(
-                intent, PackageManager.MATCH_DEFAULT_ONLY);
+        ResolveInfo resolveInfo =
+                mPackageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
         mLauncherPackageName = resolveInfo.activityInfo.packageName;
         Assert.assertNotNull("failed to resolve package name for launcher", mLauncherPackageName);
         Log.v(TAG, "Using launcher package name: " + mLauncherPackageName);
@@ -125,20 +122,19 @@ public final class AppCompatibility {
         // set activity controller to suppress crash dialogs and collects them by process name
         mAppErrors.clear();
         IActivityManager.Stub.asInterface(ServiceManager.checkService(Context.ACTIVITY_SERVICE))
-            .setActivityController(mCrashSupressor, false);
+                .setActivityController(mCrashSupressor, false);
     }
 
     @After
     public void tearDown() throws Exception {
         // unset activity controller
         IActivityManager.Stub.asInterface(ServiceManager.checkService(Context.ACTIVITY_SERVICE))
-            .setActivityController(null, false);
+                .setActivityController(null, false);
         mInstrumentation.getUiAutomation().setRotation(UiAutomation.ROTATION_UNFREEZE);
     }
 
     /**
-     * Actual test case that launches the package and throws an exception on the
-     * first error.
+     * Actual test case that launches the package and throws an exception on the first error.
      *
      * @throws Exception
      */
@@ -157,8 +153,9 @@ public final class AppCompatibility {
             try {
                 checkDropbox(startTime, packageName);
                 if (mAppErrors.containsKey(packageName)) {
-                    StringBuilder message = new StringBuilder("Error(s) detected for package: ")
-                            .append(packageName);
+                    StringBuilder message =
+                            new StringBuilder("Error(s) detected for package: ")
+                                    .append(packageName);
                     List<String> errors = mAppErrors.get(packageName);
                     for (int i = 0; i < MAX_NUM_CRASH_SNIPPET && i < errors.size(); i++) {
                         String err = errors.get(i);
@@ -167,27 +164,36 @@ public final class AppCompatibility {
                         message.append(truncate(err, MAX_CRASH_SNIPPET_LINES));
                     }
                     if (errors.size() > MAX_NUM_CRASH_SNIPPET) {
-                        message.append(String.format("\n... %d more errors omitted ...",
-                                errors.size() - MAX_NUM_CRASH_SNIPPET));
+                        message.append(
+                                String.format(
+                                        "\n... %d more errors omitted ...",
+                                        errors.size() - MAX_NUM_CRASH_SNIPPET));
                     }
                     Assert.fail(message.toString());
                 }
                 // last check: see if app process is still running
-                Assert.assertTrue("app package \"" + packageName + "\" no longer found in running "
-                    + "tasks, but no explicit crashes were detected; check logcat for details",
-                    processStillUp(packageName));
+                Assert.assertTrue(
+                        "app package \""
+                                + packageName
+                                + "\" no longer found in running "
+                                + "tasks, but no explicit crashes were detected; check logcat for details",
+                        processStillUp(packageName));
             } finally {
                 returnHome();
             }
         } else {
-            Log.d(TAG, "Missing argument, use " + PACKAGE_TO_LAUNCH +
-                    " to specify the package to launch");
+            Log.d(
+                    TAG,
+                    "Missing argument, use "
+                            + PACKAGE_TO_LAUNCH
+                            + " to specify the package to launch");
         }
-    }
+        }
 
     /**
      * Truncate the text to at most the specified number of lines, and append a marker at the end
      * when truncated
+     *
      * @param text
      * @param maxLines
      * @return
@@ -209,12 +215,13 @@ public final class AppCompatibility {
 
     /**
      * Check dropbox for entries of interest regarding the specified process
+     *
      * @param startTime if not 0, only check entries with timestamp later than the start time
      * @param processName the process name to check for
      */
     private void checkDropbox(long startTime, String processName) {
-        DropBoxManager dropbox = (DropBoxManager) mContext
-                .getSystemService(Context.DROPBOX_SERVICE);
+        DropBoxManager dropbox =
+                (DropBoxManager) mContext.getSystemService(Context.DROPBOX_SERVICE);
         DropBoxManager.Entry entry = null;
         while (null != (entry = dropbox.getNextEntry(null, startTime))) {
             try {
@@ -263,14 +270,15 @@ public final class AppCompatibility {
     /**
      * Launches and activity and queries for errors.
      *
-     * @param packageName {@link String} the package name of the application to
-     *            launch.
-     * @return {@link Collection} of {@link ProcessErrorStateInfo} detected
-     *         during the app launch.
+     * @param packageName {@link String} the package name of the application to launch.
+     * @return {@link Collection} of {@link ProcessErrorStateInfo} detected during the app launch.
      */
     private void launchActivity(String packageName, Intent intent) {
-        Log.d(TAG, String.format("launching package \"%s\" with intent: %s",
-                packageName, intent.toString()));
+        Log.d(
+                TAG,
+                String.format(
+                        "launching package \"%s\" with intent: %s",
+                        packageName, intent.toString()));
 
         // Launch Activity
         mContext.startActivity(intent);
@@ -289,7 +297,7 @@ public final class AppCompatibility {
         List<String> errors;
         if (mAppErrors.containsKey(pkgName)) {
             errors = mAppErrors.get(pkgName);
-        }  else {
+        } else {
             errors = new ArrayList<>();
         }
         errors.add(String.format("### Type: %s, Details:\n%s", errorType, errorInfo));
@@ -316,7 +324,6 @@ public final class AppCompatibility {
     /**
      * An {@link IActivityController} that instructs framework to kill processes hitting crashes
      * directly without showing crash dialogs
-     *
      */
     private class CrashSuppressor extends IActivityController.Stub {
 
@@ -333,8 +340,14 @@ public final class AppCompatibility {
         }
 
         @Override
-        public boolean appCrashed(String processName, int pid, String shortMsg, String longMsg,
-                long timeMillis, String stackTrace) throws RemoteException {
+        public boolean appCrashed(
+                String processName,
+                int pid,
+                String shortMsg,
+                String longMsg,
+                long timeMillis,
+                String stackTrace)
+                throws RemoteException {
             Log.d(TAG, "app crash: " + processName);
             addProcessError(processName, "crash", stackTrace);
             // don't show dialog
