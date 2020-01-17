@@ -412,7 +412,7 @@ public final class AppLaunchTestTest {
         InOrder inOrder = inOrder(listener);
         inOrder.verify(listener, times(1)).testRunStarted(anyString(), anyInt());
         inOrder.verify(listener, times(1)).testStarted(anyObject(), anyLong());
-        inOrder.verify(listener, times(1)).testFailed(any(), any());
+        inOrder.verify(listener, times(1)).testFailed(any(), anyString());
         inOrder.verify(listener, times(1))
                 .testEnded(anyObject(), anyLong(), (Map<String, String>) any());
         inOrder.verify(listener, times(1)).testRunEnded(anyLong(), (HashMap<String, Metric>) any());
@@ -422,7 +422,7 @@ public final class AppLaunchTestTest {
         InOrder inOrder = inOrder(listener);
         inOrder.verify(listener, times(1)).testRunStarted(anyString(), anyInt());
         inOrder.verify(listener, times(1)).testStarted(anyObject(), anyLong());
-        inOrder.verify(listener, never()).testFailed(any(), any());
+        inOrder.verify(listener, never()).testFailed(any(), anyString());
         inOrder.verify(listener, times(1))
                 .testEnded(anyObject(), anyLong(), (Map<String, String>) any());
         inOrder.verify(listener, times(1)).testRunEnded(anyLong(), (HashMap<String, Metric>) any());
