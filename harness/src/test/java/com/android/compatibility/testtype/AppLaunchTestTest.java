@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
@@ -55,13 +56,14 @@ public final class AppLaunchTestTest {
 
     private final ITestInvocationListener mMockListener = mock(ITestInvocationListener.class);
     private static final String TEST_PACKAGE_NAME = "package_name";
+    private static final TestInformation NULL_TEST_INFORMATION = null;
 
     @Test
     public void run_testFailed() throws DeviceNotAvailableException {
         InstrumentationTest instrumentationTest = createFailingInstrumentationTest();
         AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
 
-        appLaunchTest.run(mMockListener);
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         verifyFailedAndEndedCall(mMockListener);
     }
@@ -71,7 +73,7 @@ public final class AppLaunchTestTest {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
         AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
 
-        appLaunchTest.run(mMockListener);
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         verifyPassedAndEndedCall(mMockListener);
     }
@@ -83,7 +85,7 @@ public final class AppLaunchTestTest {
                 .thenReturn(new CommandResult(CommandStatus.SUCCESS));
         AppLaunchTest appLaunchTest = createLaunchTestWithMockDevice(mMockDevice);
 
-        appLaunchTest.run(mMockListener);
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         verifyPassedAndEndedCall(mMockListener);
     }
@@ -95,7 +97,7 @@ public final class AppLaunchTestTest {
                 .thenReturn(new CommandResult(CommandStatus.FAILED));
         AppLaunchTest appLaunchTest = createLaunchTestWithMockDevice(mMockDevice);
 
-        appLaunchTest.run(mMockListener);
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         verifyFailedAndEndedCall(mMockListener);
     }
@@ -105,7 +107,7 @@ public final class AppLaunchTestTest {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTestAfterFailing(2);
         AppLaunchTest appLaunchTest = createLaunchTestWithRetry(instrumentationTest, 2);
 
-        appLaunchTest.run(mMockListener);
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         verifyPassedAndEndedCall(mMockListener);
     }
@@ -115,7 +117,7 @@ public final class AppLaunchTestTest {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTestAfterFailing(3);
         AppLaunchTest appLaunchTest = createLaunchTestWithRetry(instrumentationTest, 2);
 
-        appLaunchTest.run(mMockListener);
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         verifyFailedAndEndedCall(mMockListener);
     }
@@ -330,7 +332,8 @@ public final class AppLaunchTestTest {
         InstrumentationTest instrumentation =
                 new InstrumentationTest() {
                     @Override
-                    public void run(final ITestInvocationListener listener)
+                    public void run(
+                            final TestInformation testInfo, final ITestInvocationListener listener)
                             throws DeviceNotAvailableException {
                         listener.testFailed(new TestDescription("", ""), "test failed");
                     }
@@ -342,7 +345,8 @@ public final class AppLaunchTestTest {
         InstrumentationTest instrumentation =
                 new InstrumentationTest() {
                     @Override
-                    public void run(final ITestInvocationListener listener)
+                    public void run(
+                            final TestInformation testInfo, final ITestInvocationListener listener)
                             throws DeviceNotAvailableException {}
                 };
         return instrumentation;
@@ -354,7 +358,8 @@ public final class AppLaunchTestTest {
                     private int retryCount = 0;
 
                     @Override
-                    public void run(final ITestInvocationListener listener)
+                    public void run(
+                            final TestInformation testInfo, final ITestInvocationListener listener)
                             throws DeviceNotAvailableException {
                         if (retryCount < failedCount) {
                             listener.testFailed(new TestDescription("", ""), "test failed");
@@ -412,7 +417,7 @@ public final class AppLaunchTestTest {
         InOrder inOrder = inOrder(listener);
         inOrder.verify(listener, times(1)).testRunStarted(anyString(), anyInt());
         inOrder.verify(listener, times(1)).testStarted(anyObject(), anyLong());
-        inOrder.verify(listener, times(1)).testFailed(any(), any());
+        inOrder.verify(listener, times(1)).testFailed(any(), anyString());
         inOrder.verify(listener, times(1))
                 .testEnded(anyObject(), anyLong(), (Map<String, String>) any());
         inOrder.verify(listener, times(1)).testRunEnded(anyLong(), (HashMap<String, Metric>) any());
@@ -422,7 +427,7 @@ public final class AppLaunchTestTest {
         InOrder inOrder = inOrder(listener);
         inOrder.verify(listener, times(1)).testRunStarted(anyString(), anyInt());
         inOrder.verify(listener, times(1)).testStarted(anyObject(), anyLong());
-        inOrder.verify(listener, never()).testFailed(any(), any());
+        inOrder.verify(listener, never()).testFailed(any(), anyString());
         inOrder.verify(listener, times(1))
                 .testEnded(anyObject(), anyLong(), (Map<String, String>) any());
         inOrder.verify(listener, times(1)).testRunEnded(anyLong(), (HashMap<String, Metric>) any());

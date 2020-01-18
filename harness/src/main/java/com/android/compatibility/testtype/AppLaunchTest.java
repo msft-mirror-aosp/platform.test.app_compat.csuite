@@ -26,6 +26,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.LogcatReceiver;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
@@ -128,7 +129,8 @@ public class AppLaunchTest
      * {@inheritDoc}
      */
     @Override
-    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(final TestInformation testInfo, final ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         CLog.d("Start of run method.");
 
         Assert.assertNotNull("Package name cannot be null", mPackageName);
@@ -148,7 +150,7 @@ public class AppLaunchTest
         mLogcat.start();
 
       try {
-            testPackage(listener);
+            testPackage(testInfo, listener);
         } catch (InterruptedException e) {
             CLog.e(e);
             throw new RuntimeException(e);
@@ -165,7 +167,7 @@ public class AppLaunchTest
      * @param listener The {@link ITestInvocationListener}.
      * @throws DeviceNotAvailableException
      */
-    private void testPackage(ITestInvocationListener listener)
+    private void testPackage(final TestInformation testInfo, ITestInvocationListener listener)
             throws DeviceNotAvailableException, InterruptedException {
         CLog.d("Started testing package: %s.", mPackageName);
 
@@ -180,7 +182,7 @@ public class AppLaunchTest
                 result.status = null;
                 result.message = null;
                 // Clear test result between retries.
-                launchPackage(result);
+                launchPackage(testInfo, result);
                 if (result.status == CompatibilityTestResult.STATUS_SUCCESS) {
                     return;
                 }
@@ -209,7 +211,8 @@ public class AppLaunchTest
      * @param result the {@link CompatibilityTestResult} containing the package info.
      * @throws DeviceNotAvailableException
      */
-    private void launchPackage(CompatibilityTestResult result) throws DeviceNotAvailableException {
+    private void launchPackage(final TestInformation testInfo, CompatibilityTestResult result)
+            throws DeviceNotAvailableException {
         CLog.d("Launching package: %s.", result.packageName);
 
         CommandResult resetResult = resetPackage();
@@ -222,7 +225,7 @@ public class AppLaunchTest
         InstrumentationTest instrTest = createInstrumentationTest(result.packageName);
 
         FailureCollectingListener failureListener = createFailureListener();
-        instrTest.run(failureListener);
+        instrTest.run(testInfo, failureListener);
         CLog.d("Stack Trace: %s", failureListener.getStackTrace());
 
         if (failureListener.getStackTrace() != null) {
