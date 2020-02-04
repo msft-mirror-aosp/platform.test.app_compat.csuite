@@ -66,10 +66,11 @@ public class AppLaunchTest
     @Option(name = "test-label", description = "Unique test identifier label.")
     private String mTestLabel = "AppCompatibility";
 
+    @Deprecated
     @Option(
             name = "retry-count",
             description = "Number of times to retry a failed test case. 0 means no retry.")
-    private int mRetryCount = 5;
+    private int mRetryCount = 0;
 
     @Option(name = "include-filter", description = "The include filter of the test type.")
     protected Set<String> mIncludeFilters = new HashSet<>();
