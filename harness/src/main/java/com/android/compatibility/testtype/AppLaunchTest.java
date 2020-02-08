@@ -66,10 +66,11 @@ public class AppLaunchTest
     @Option(name = "test-label", description = "Unique test identifier label.")
     private String mTestLabel = "AppCompatibility";
 
+    @Deprecated
     @Option(
             name = "retry-count",
             description = "Number of times to retry a failed test case. 0 means no retry.")
-    private int mRetryCount = 5;
+    private int mRetryCount = 0;
 
     @Option(name = "include-filter", description = "The include filter of the test type.")
     protected Set<String> mIncludeFilters = new HashSet<>();
@@ -88,8 +89,6 @@ public class AppLaunchTest
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
-    private static final String TEST_TYPE = "launch";
-    private static final TestDescription TEST_DESCRIPTION = createTestDescription();
 
     private ITestDevice mDevice;
     private LogcatReceiver mLogcat;
@@ -99,13 +98,13 @@ public class AppLaunchTest
 
     @VisibleForTesting
     public AppLaunchTest(String packageName) {
-        this.mPackageName = packageName;
+        mPackageName = packageName;
     }
 
     @VisibleForTesting
     public AppLaunchTest(String packageName, int retryCount) {
-        this.mPackageName = packageName;
-        this.mRetryCount = retryCount;
+        mPackageName = packageName;
+        mRetryCount = retryCount;
     }
 
     /**
@@ -133,17 +132,18 @@ public class AppLaunchTest
     public void run(final TestInformation testInfo, final ITestInvocationListener listener)
             throws DeviceNotAvailableException {
         CLog.d("Start of run method.");
-
-        Assert.assertNotNull("Package name cannot be null", mPackageName);
-
         CLog.d("Include filters: %s", mIncludeFilters);
         CLog.d("Exclude filters: %s", mExcludeFilters);
 
-        if (!inFilter(TEST_DESCRIPTION.toString())) {
-            CLog.d("Test case %s doesn't match any filter", TEST_DESCRIPTION);
+        Assert.assertNotNull("Package name cannot be null", mPackageName);
+
+        TestDescription testDescription = createTestDescription();
+
+        if (!inFilter(testDescription.toString())) {
+            CLog.d("Test case %s doesn't match any filter", testDescription);
             return;
       }
-        CLog.d("Complete filtering test case: %s", TEST_DESCRIPTION);
+        CLog.d("Complete filtering test case: %s", testDescription);
 
         long start = System.currentTimeMillis();
         listener.testRunStarted(mTestLabel, 1);
@@ -151,7 +151,7 @@ public class AppLaunchTest
         mLogcat.start();
 
       try {
-            testPackage(testInfo, listener);
+            testPackage(testInfo, testDescription, listener);
         } catch (InterruptedException e) {
             CLog.e(e);
             throw new RuntimeException(e);
@@ -168,11 +168,14 @@ public class AppLaunchTest
      * @param listener The {@link ITestInvocationListener}.
      * @throws DeviceNotAvailableException
      */
-    private void testPackage(final TestInformation testInfo, ITestInvocationListener listener)
+    private void testPackage(
+            final TestInformation testInfo,
+            TestDescription testDescription,
+            ITestInvocationListener listener)
             throws DeviceNotAvailableException, InterruptedException {
         CLog.d("Started testing package: %s.", mPackageName);
 
-        listener.testStarted(TEST_DESCRIPTION, System.currentTimeMillis());
+        listener.testStarted(testDescription, System.currentTimeMillis());
 
         CompatibilityTestResult result = createCompatibilityTestResult();
         result.packageName = mPackageName;
@@ -188,7 +191,7 @@ public class AppLaunchTest
                 }
             }
         } finally {
-            reportResult(listener, TEST_DESCRIPTION, result);
+            reportResult(listener, testDescription, result);
             stopPackage();
             try {
                 postLogcat(result, listener);
@@ -196,7 +199,7 @@ public class AppLaunchTest
                 CLog.w("Posting failed: %s.", e.getMessage());
             }
             listener.testEnded(
-                    TEST_DESCRIPTION,
+                    testDescription,
                     System.currentTimeMillis(),
                     Collections.<String, String>emptyMap());
 
@@ -341,8 +344,8 @@ public class AppLaunchTest
      * Get a test description for use in logging. For compatibility with logs, this should be
      * TestDescription(test class name, test type).
      */
-    private static TestDescription createTestDescription() {
-        return new TestDescription(AppLaunchTest.class.getSimpleName(), TEST_TYPE);
+    private TestDescription createTestDescription() {
+        return new TestDescription(getClass().getSimpleName(), mPackageName);
     }
 
     /** Get a FailureCollectingListener for failure listening. */

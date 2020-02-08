@@ -24,7 +24,6 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
@@ -41,7 +40,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /** A Tradefed preparer that downloads and installs an app on the target device. */
-public final class AppSetupPreparer implements ITargetPreparer, ITargetCleaner {
+public final class AppSetupPreparer implements ITargetPreparer {
 
     public static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
 
