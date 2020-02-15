@@ -23,6 +23,7 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -103,9 +104,8 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     /** {@inheritDoc} */
     @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
-        appInstallSetup.tearDown(device, buildInfo, e);
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
+        appInstallSetup.tearDown(testInfo, e);
     }
 
     private List<String> listApkFilePaths(File downloadDir) throws IOException {
