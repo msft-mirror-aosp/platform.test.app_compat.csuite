@@ -27,6 +27,7 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 
@@ -39,7 +40,6 @@ import org.junit.runners.JUnit4;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @RunWith(JUnit4.class)
@@ -121,15 +121,11 @@ public class AppSetupPreparerTest {
 
     @Test
     public void tearDown() throws Exception {
-        File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        createPackageFile(gcsApkDir, "package_name", "apk_name_1.apk");
-        createPackageFile(gcsApkDir, "package_name", "apk_name_2.apk");
-        mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
-        preparer.setUp(NULL_DEVICE, mBuildInfo);
+        TestInformation testInfo = TestInformation.newBuilder().build();
 
-        preparer.tearDown(NULL_DEVICE, mBuildInfo, mock(Throwable.class));
+        preparer.tearDown(testInfo, null);
 
-        verify(mockAppInstallSetup, times(1)).tearDown(any(), any(), any());
+        verify(mockAppInstallSetup, times(1)).tearDown(testInfo, null);
     }
 
     private File createPackageFile(File parentDir, String packageName, String apkName)
