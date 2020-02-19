@@ -20,7 +20,9 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.targetprep.ITargetPreparer;
+
 import com.google.common.annotations.VisibleForTesting;
+
 import java.io.File;
 
 /**

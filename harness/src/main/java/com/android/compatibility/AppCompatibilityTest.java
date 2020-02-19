@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.compatibility;
@@ -39,8 +39,8 @@ import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
-import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.AaptParser;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
@@ -61,9 +61,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.HashSet;
 
 /**
  * Test that determines application compatibility. The test iterates through the apks in a given
@@ -137,15 +137,15 @@ public abstract class AppCompatibilityTest
     private int mShardCount = 1;
     private int mShardIndex = 0;
 
-    protected final String launcherPackage;
-    protected final String runnerClass;
-    protected final String packageBeingTestedKey;
+    protected final String mLauncherPackage;
+    protected final String mRunnerClass;
+    protected final String mPackageBeingTestedKey;
 
     protected AppCompatibilityTest(
             String launcherPackage, String runnerClass, String packageBeingTestedKey) {
-        this.launcherPackage = launcherPackage;
-        this.runnerClass = runnerClass;
-        this.packageBeingTestedKey = packageBeingTestedKey;
+        this.mLauncherPackage = launcherPackage;
+        this.mRunnerClass = runnerClass;
+        this.mPackageBeingTestedKey = packageBeingTestedKey;
     }
 
     /**
@@ -158,10 +158,10 @@ public abstract class AppCompatibilityTest
     protected final InstrumentationTest createDefaultInstrumentationTest(
             String packageBeingTested) {
         InstrumentationTest instrTest = new InstrumentationTest();
-        instrTest.setPackageName(launcherPackage);
+        instrTest.setPackageName(mLauncherPackage);
         instrTest.setConfiguration(mConfiguration);
-        instrTest.addInstrumentationArg(packageBeingTestedKey, packageBeingTested);
-        instrTest.setRunnerName(runnerClass);
+        instrTest.addInstrumentationArg(mPackageBeingTestedKey, packageBeingTested);
+        instrTest.setRunnerName(mRunnerClass);
         return instrTest;
     }
 
@@ -221,7 +221,7 @@ public abstract class AppCompatibilityTest
             listener.testRunEnded(
                     System.currentTimeMillis() - start, new HashMap<String, Metric>());
         }
-        }
+    }
 
     /**
      * Downloads and tests all the APKs in the apk list.
@@ -515,7 +515,7 @@ public abstract class AppCompatibilityTest
 
         private File mDownloadedFile = null;
 
-        public ApkDownloadRunnable(File kharonDir, ApkInfo apkInfo) {
+        ApkDownloadRunnable(File kharonDir, ApkInfo apkInfo) {
             mKharonDir = kharonDir;
             mApkInfo = apkInfo;
         }
@@ -614,7 +614,7 @@ public abstract class AppCompatibilityTest
      * TestDescription(launcher package, package being run).
      */
     private TestDescription createTestDescription(String packageBeingTested) {
-        return new TestDescription(launcherPackage, packageBeingTested);
+        return new TestDescription(mLauncherPackage, packageBeingTested);
     }
 
     /** {@inheritDoc} */
