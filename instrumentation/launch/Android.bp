@@ -20,6 +20,6 @@ android_test {
     platform_apis: true,
     manifest: "src/main/AndroidManifest.xml",
     test_suites: [
-        "csuite"
+        "csuite",
     ],
 }
