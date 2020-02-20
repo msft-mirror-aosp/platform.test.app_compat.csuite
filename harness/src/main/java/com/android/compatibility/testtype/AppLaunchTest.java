@@ -79,6 +79,9 @@ public class AppLaunchTest
     @Option(name = "exclude-filter", description = "The exclude filter of the test type.")
     protected Set<String> mExcludeFilters = new HashSet<>();
 
+    @Option(name = "check-gms", description = "Check whether GMS is alive after test.")
+    protected boolean mCheckGms = false;
+
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
@@ -95,17 +98,25 @@ public class AppLaunchTest
     private LogcatReceiver mLogcat;
     private IConfiguration mConfiguration;
 
-    public AppLaunchTest() {}
+    public AppLaunchTest() {
+        this(null);
+    }
 
     @VisibleForTesting
     public AppLaunchTest(String packageName) {
-        mPackageName = packageName;
+        this(packageName, 0);
     }
 
     @VisibleForTesting
     public AppLaunchTest(String packageName, int retryCount) {
+        this(packageName, retryCount, false);
+    }
+
+    @VisibleForTesting
+    public AppLaunchTest(String packageName, int retryCount, boolean checkGms) {
         mPackageName = packageName;
         mRetryCount = retryCount;
+        mCheckGms = checkGms;
     }
 
     /**
@@ -188,8 +199,18 @@ public class AppLaunchTest
                 // Clear test result between retries.
                 launchPackage(testInfo, result);
                 if (result.status == CompatibilityTestResult.STATUS_SUCCESS) {
-                    return;
+                    break;
                 }
+            }
+
+            if (mCheckGms
+                    && mDevice.executeShellV2Command("pidof com.google.android.gms").getExitCode()
+                            != 0) {
+                // If GMS process is not running, it could be due to device instability.
+                // Throwing DeviceNotAvailableException will trigger a invovation re-try
+                // in the test lab to allocate a new test device.
+                throw new DeviceNotAvailableException(
+                        "GMS required but not present! Device is not suitable for tests.");
             }
         } finally {
             reportResult(listener, testDescription, result);
