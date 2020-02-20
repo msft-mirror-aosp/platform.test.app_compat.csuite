@@ -176,7 +176,8 @@ public final class AppCompatibility {
                         "app package \""
                                 + packageName
                                 + "\" no longer found in running "
-                                + "tasks, but no explicit crashes were detected; check logcat for details",
+                                + "tasks, but no explicit crashes were detected; check logcat for "
+                                + "details",
                         processStillUp(packageName));
             } finally {
                 returnHome();
@@ -188,7 +189,7 @@ public final class AppCompatibility {
                             + PACKAGE_TO_LAUNCH
                             + " to specify the package to launch");
         }
-        }
+    }
 
     /**
      * Truncate the text to at most the specified number of lines, and append a marker at the end

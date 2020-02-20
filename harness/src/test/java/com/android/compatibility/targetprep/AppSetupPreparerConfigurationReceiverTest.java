@@ -15,14 +15,16 @@
  */
 package com.android.compatibility.targetprep;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.IBuildInfo;
+
+import static com.google.common.truth.Truth.assertThat;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import java.io.File;
 
-import static com.google.common.truth.Truth.assertThat;
+import java.io.File;
 
 @RunWith(JUnit4.class)
 public final class AppSetupPreparerConfigurationReceiverTest {

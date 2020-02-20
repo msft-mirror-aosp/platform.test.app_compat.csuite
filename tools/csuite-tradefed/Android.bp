@@ -1,4 +1,4 @@
-// Copyright (C) 2012 The Android Open Source Project
+// Copyright (C) 2018 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test {
-    name: "csuite-launch-instrumentation",
-    static_libs: ["androidx.test.rules"],
-    // Include all test java files.
-    srcs: ["src/**/*.java"],
-    platform_apis: true,
-    manifest: "src/main/AndroidManifest.xml",
-    test_suites: [
-        "csuite",
+tradefed_binary_host {
+    name: "csuite-tradefed",
+    wrapper: "src/scripts/csuite-tradefed",
+    short_name: "CSUITE",
+    full_name: "App Compatibility Test Suite",
+    version: "1.0",
+    static_libs: [
+        "cts-tradefed-harness",
+        "csuite-harness",
     ],
+}
+
+java_test_host {
+    name: "csuite-tradefed-tests",
+    srcs: [
+        "src/test/java/**/*.java",
+    ],
+    static_libs: [
+        "tradefed",
+        "csuite-tradefed",
+    ],
+    test_suites: ["general-tests"],
 }

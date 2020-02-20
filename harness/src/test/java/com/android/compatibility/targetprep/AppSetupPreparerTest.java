@@ -15,21 +15,19 @@
  */
 package com.android.compatibility.targetprep;
 
-import static org.testng.Assert.assertThrows;
-
-import static org.mockito.ArgumentMatchers.any;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.testng.Assert.assertThrows;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -51,16 +49,16 @@ public class AppSetupPreparerTest {
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     private final IBuildInfo mBuildInfo = new BuildInfo();
-    private final TestAppInstallSetup mockAppInstallSetup = mock(TestAppInstallSetup.class);
-    private final AppSetupPreparer preparer =
-     new AppSetupPreparer("package_name", mockAppInstallSetup);
+    private final TestAppInstallSetup mMockAppInstallSetup = mock(TestAppInstallSetup.class);
+    private final AppSetupPreparer mPreparer =
+            new AppSetupPreparer("package_name", mMockAppInstallSetup);
 
     @Test
     public void setUp_gcsApkDirIsNull_throwsException()
             throws DeviceNotAvailableException, TargetSetupError {
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, null);
 
-        assertThrows(NullPointerException.class, () -> preparer.setUp(NULL_DEVICE, mBuildInfo));
+        assertThrows(NullPointerException.class, () -> mPreparer.setUp(NULL_DEVICE, mBuildInfo));
     }
 
     @Test
@@ -69,7 +67,8 @@ public class AppSetupPreparerTest {
         File tempFile = tempFolder.newFile("temp_file_name");
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, tempFile.getPath());
 
-        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, mBuildInfo));
+        assertThrows(
+                IllegalArgumentException.class, () -> mPreparer.setUp(NULL_DEVICE, mBuildInfo));
     }
 
     @Test
@@ -78,7 +77,8 @@ public class AppSetupPreparerTest {
         File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
 
-        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, mBuildInfo));
+        assertThrows(
+                IllegalArgumentException.class, () -> mPreparer.setUp(NULL_DEVICE, mBuildInfo));
     }
 
     @Test
@@ -87,7 +87,7 @@ public class AppSetupPreparerTest {
         createPackageFile(gcsApkDir, "package_name", "non_apk_file");
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, mBuildInfo));
+        assertThrows(TargetSetupError.class, () -> mPreparer.setUp(NULL_DEVICE, mBuildInfo));
     }
 
     @Test
@@ -98,11 +98,11 @@ public class AppSetupPreparerTest {
         createPackageFile(gcsApkDir, "package_name", "apk_name_2.apk");
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
 
-        preparer.setUp(NULL_DEVICE, mBuildInfo);
+        mPreparer.setUp(NULL_DEVICE, mBuildInfo);
 
-        verify(mockAppInstallSetup).setAltDir(packageDir);
-        verify(mockAppInstallSetup).addSplitApkFileNames("apk_name_2.apk,apk_name_1.apk");
-        verify(mockAppInstallSetup).setUp(any(), any());
+        verify(mMockAppInstallSetup).setAltDir(packageDir);
+        verify(mMockAppInstallSetup).addSplitApkFileNames("apk_name_2.apk,apk_name_1.apk");
+        verify(mMockAppInstallSetup).setUp(any(), any());
     }
 
     @Test
@@ -112,25 +112,27 @@ public class AppSetupPreparerTest {
         createPackageFile(gcsApkDir, "package_name", "apk_name_1.apk");
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
 
-        preparer.setUp(NULL_DEVICE, mBuildInfo);
+        mPreparer.setUp(NULL_DEVICE, mBuildInfo);
 
-        verify(mockAppInstallSetup).setAltDir(packageDir);
-        verify(mockAppInstallSetup).addTestFileName("apk_name_1.apk");
-        verify(mockAppInstallSetup).setUp(any(), any());
+        verify(mMockAppInstallSetup).setAltDir(packageDir);
+        verify(mMockAppInstallSetup).addTestFileName("apk_name_1.apk");
+        verify(mMockAppInstallSetup).setUp(any(), any());
     }
 
     @Test
     public void tearDown() throws Exception {
         TestInformation testInfo = TestInformation.newBuilder().build();
 
-        preparer.tearDown(testInfo, null);
+        mPreparer.tearDown(testInfo, null);
 
-        verify(mockAppInstallSetup, times(1)).tearDown(testInfo, null);
+        verify(mMockAppInstallSetup, times(1)).tearDown(testInfo, null);
     }
 
     private File createPackageFile(File parentDir, String packageName, String apkName)
             throws IOException {
-        File packageDir = Files.createDirectories(Paths.get(parentDir.getAbsolutePath(), packageName)).toFile();
+        File packageDir =
+                Files.createDirectories(Paths.get(parentDir.getAbsolutePath(), packageName))
+                        .toFile();
 
         return Files.createFile(Paths.get(packageDir.getAbsolutePath(), apkName)).toFile();
     }

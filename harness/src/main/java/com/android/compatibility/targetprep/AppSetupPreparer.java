@@ -33,10 +33,8 @@ import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.IOException;
-
 import java.nio.file.Files;
 import java.nio.file.Paths;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -48,7 +46,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @Option(name = "package-name", description = "Package name of the app being tested.")
     private String mPackageName;
 
-    private final TestAppInstallSetup appInstallSetup;
+    private final TestAppInstallSetup mAppInstallSetup;
 
     public AppSetupPreparer() {
         this(null, new TestAppInstallSetup());
@@ -57,7 +55,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting
     public AppSetupPreparer(String packageName, TestAppInstallSetup appInstallSetup) {
         this.mPackageName = packageName;
-        this.appInstallSetup = appInstallSetup;
+        this.mAppInstallSetup = appInstallSetup;
     }
 
     /** {@inheritDoc} */
@@ -78,7 +76,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 packageDir.isDirectory(),
                 String.format("Package directory %s is not a directory", packageDir));
 
-        appInstallSetup.setAltDir(packageDir);
+        mAppInstallSetup.setAltDir(packageDir);
 
         List<String> apkFilePaths;
         try {
@@ -94,18 +92,18 @@ public final class AppSetupPreparer implements ITargetPreparer {
         }
 
         if (apkFilePaths.size() == 1) {
-            appInstallSetup.addTestFileName(apkFilePaths.get(0));
+            mAppInstallSetup.addTestFileName(apkFilePaths.get(0));
         } else {
-            appInstallSetup.addSplitApkFileNames(String.join(",", apkFilePaths));
+            mAppInstallSetup.addSplitApkFileNames(String.join(",", apkFilePaths));
         }
 
-        appInstallSetup.setUp(device, buildInfo);
+        mAppInstallSetup.setUp(device, buildInfo);
     }
 
     /** {@inheritDoc} */
     @Override
     public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
-        appInstallSetup.tearDown(testInfo, e);
+        mAppInstallSetup.tearDown(testInfo, e);
     }
 
     private List<String> listApkFilePaths(File downloadDir) throws IOException {
@@ -114,4 +112,4 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 .filter(s -> s.endsWith(".apk"))
                 .collect(Collectors.toList());
     }
-  }
+}
