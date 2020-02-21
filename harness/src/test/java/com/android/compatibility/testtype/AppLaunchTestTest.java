@@ -15,22 +15,6 @@
  */
 package com.android.compatibility.testtype;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyObject;
-import static org.mockito.ArgumentMatchers.anyString;
-
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
-
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
@@ -41,15 +25,29 @@ import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Set;
-import java.util.HashSet;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyObject;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
-import org.mockito.InOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.InOrder;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 @RunWith(JUnit4.class)
 public final class AppLaunchTestTest {
@@ -355,16 +353,16 @@ public final class AppLaunchTestTest {
     private InstrumentationTest createPassingInstrumentationTestAfterFailing(int failedCount) {
         InstrumentationTest instrumentation =
                 new InstrumentationTest() {
-                    private int retryCount = 0;
+                    private int mRetryCount = 0;
 
                     @Override
                     public void run(
                             final TestInformation testInfo, final ITestInvocationListener listener)
                             throws DeviceNotAvailableException {
-                        if (retryCount < failedCount) {
+                        if (mRetryCount < failedCount) {
                             listener.testFailed(new TestDescription("", ""), "test failed");
                         }
-                        retryCount++;
+                        mRetryCount++;
                     }
                 };
         return instrumentation;
@@ -432,4 +430,4 @@ public final class AppLaunchTestTest {
                 .testEnded(anyObject(), anyLong(), (Map<String, String>) any());
         inOrder.verify(listener, times(1)).testRunEnded(anyLong(), (HashMap<String, Metric>) any());
     }
-  }
+}

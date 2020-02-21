@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.compatibility.testtype;
@@ -37,8 +37,8 @@ import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
-import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.StreamUtil;
@@ -53,8 +53,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Set;
 import java.util.HashSet;
+import java.util.Set;
 
 /** A test that verifies that a single app can be successfully launched. */
 public class AppLaunchTest
@@ -66,6 +66,7 @@ public class AppLaunchTest
     @Option(name = "test-label", description = "Unique test identifier label.")
     private String mTestLabel = "AppCompatibility";
 
+    /** @deprecated */
     @Deprecated
     @Option(
             name = "retry-count",
@@ -142,7 +143,7 @@ public class AppLaunchTest
         if (!inFilter(testDescription.toString())) {
             CLog.d("Test case %s doesn't match any filter", testDescription);
             return;
-      }
+        }
         CLog.d("Complete filtering test case: %s", testDescription);
 
         long start = System.currentTimeMillis();
@@ -150,7 +151,7 @@ public class AppLaunchTest
         mLogcat = new LogcatReceiver(getDevice(), LOGCAT_SIZE_BYTES, 0);
         mLogcat.start();
 
-      try {
+        try {
             testPackage(testInfo, testDescription, listener);
         } catch (InterruptedException e) {
             CLog.e(e);
@@ -159,7 +160,7 @@ public class AppLaunchTest
             mLogcat.stop();
             listener.testRunEnded(
                     System.currentTimeMillis() - start, new HashMap<String, Metric>());
-      }
+        }
     }
 
     /**
@@ -289,7 +290,7 @@ public class AppLaunchTest
             listener.testLog("logcat_" + result.packageName, LogDataType.LOGCAT, stream);
         } finally {
             StreamUtil.cancel(stream);
-      }
+        }
     }
 
     /**
@@ -412,4 +413,4 @@ public class AppLaunchTest
     public Set<String> getExcludeFilters() {
         return Collections.unmodifiableSet(mExcludeFilters);
     }
-  }
+}

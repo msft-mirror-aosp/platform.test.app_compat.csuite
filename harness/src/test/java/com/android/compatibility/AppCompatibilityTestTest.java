@@ -37,11 +37,11 @@ import java.util.TreeSet;
 @RunWith(JUnit4.class)
 public final class AppCompatibilityTestTest {
 
-    private ConcreteAppCompatibilityTest sut;
+    private ConcreteAppCompatibilityTest mSut;
 
     private class ConcreteAppCompatibilityTest extends AppCompatibilityTest {
 
-        public ConcreteAppCompatibilityTest() {
+        ConcreteAppCompatibilityTest() {
             super(null, null, null);
         }
 
@@ -53,29 +53,29 @@ public final class AppCompatibilityTestTest {
 
     @Before
     public void setUp() {
-        sut = new ConcreteAppCompatibilityTest();
+        mSut = new ConcreteAppCompatibilityTest();
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void addIncludeFilter_nullIncludeFilter_throwsException() {
-        sut.addIncludeFilter(null);
+        mSut.addIncludeFilter(null);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void addIncludeFilter_emptyIncludeFilter_throwsException() {
-        sut.addIncludeFilter("");
+        mSut.addIncludeFilter("");
     }
 
     @Test
     public void addIncludeFilter_validIncludeFilter() {
-        sut.addIncludeFilter("test_filter");
+        mSut.addIncludeFilter("test_filter");
 
-        assertTrue(sut.mIncludeFilters.contains("test_filter"));
+        assertTrue(mSut.mIncludeFilters.contains("test_filter"));
     }
 
     @Test(expected = NullPointerException.class)
     public void addAllIncludeFilters_nullIncludeFilter_throwsException() {
-        sut.addAllIncludeFilters(null);
+        mSut.addAllIncludeFilters(null);
     }
 
     @Test
@@ -84,48 +84,48 @@ public final class AppCompatibilityTestTest {
         test_filters.add("filter_one");
         test_filters.add("filter_two");
 
-        sut.addAllIncludeFilters(test_filters);
+        mSut.addAllIncludeFilters(test_filters);
 
-        assertTrue(sut.mIncludeFilters.contains("filter_one"));
-        assertTrue(sut.mIncludeFilters.contains("filter_two"));
+        assertTrue(mSut.mIncludeFilters.contains("filter_one"));
+        assertTrue(mSut.mIncludeFilters.contains("filter_two"));
     }
 
     @Test
     public void clearIncludeFilters() {
-        sut.addIncludeFilter("filter_test");
+        mSut.addIncludeFilter("filter_test");
 
-        sut.clearIncludeFilters();
+        mSut.clearIncludeFilters();
 
-        assertTrue(sut.mIncludeFilters.isEmpty());
+        assertTrue(mSut.mIncludeFilters.isEmpty());
     }
 
     @Test
     public void getIncludeFilters() {
-        sut.addIncludeFilter("filter_test");
+        mSut.addIncludeFilter("filter_test");
 
-        assertEquals(sut.mIncludeFilters, sut.getIncludeFilters());
+        assertEquals(mSut.mIncludeFilters, mSut.getIncludeFilters());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void addExcludeFilter_nullExcludeFilter_throwsException() {
-        sut.addExcludeFilter(null);
+        mSut.addExcludeFilter(null);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void addExcludeFilter_emptyExcludeFilter_throwsException() {
-        sut.addExcludeFilter("");
+        mSut.addExcludeFilter("");
     }
 
     @Test
     public void addExcludeFilter_validExcludeFilter() {
-        sut.addExcludeFilter("test_filter");
+        mSut.addExcludeFilter("test_filter");
 
-        assertTrue(sut.mExcludeFilters.contains("test_filter"));
+        assertTrue(mSut.mExcludeFilters.contains("test_filter"));
     }
 
     @Test(expected = NullPointerException.class)
     public void addAllExcludeFilters_nullExcludeFilters_throwsException() {
-        sut.addAllExcludeFilters(null);
+        mSut.addAllExcludeFilters(null);
     }
 
     @Test
@@ -134,33 +134,33 @@ public final class AppCompatibilityTestTest {
         test_filters.add("filter_one");
         test_filters.add("filter_two");
 
-        sut.addAllExcludeFilters(test_filters);
+        mSut.addAllExcludeFilters(test_filters);
 
-        assertTrue(sut.mExcludeFilters.contains("filter_one"));
-        assertTrue(sut.mExcludeFilters.contains("filter_two"));
+        assertTrue(mSut.mExcludeFilters.contains("filter_one"));
+        assertTrue(mSut.mExcludeFilters.contains("filter_two"));
     }
 
     @Test
     public void clearExcludeFilters() {
-        sut.addExcludeFilter("filter_test");
+        mSut.addExcludeFilter("filter_test");
 
-        sut.clearExcludeFilters();
+        mSut.clearExcludeFilters();
 
-        assertTrue(sut.mExcludeFilters.isEmpty());
+        assertTrue(mSut.mExcludeFilters.isEmpty());
     }
 
     @Test
     public void getExcludeFilters() {
-        sut.addExcludeFilter("filter_test");
+        mSut.addExcludeFilter("filter_test");
 
-        assertEquals(sut.mExcludeFilters, sut.getExcludeFilters());
+        assertEquals(mSut.mExcludeFilters, mSut.getExcludeFilters());
     }
 
     @Test
     public void filterApk_withNoFilter() {
         List<ApkInfo> testList = createApkList();
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertEquals(filteredList, testList);
     }
@@ -168,9 +168,9 @@ public final class AppCompatibilityTestTest {
     @Test
     public void filterApk_withRelatedIncludeFilters() {
         List<ApkInfo> testList = createApkList();
-        sut.addIncludeFilter("filter_one");
+        mSut.addIncludeFilter("filter_one");
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertEquals(convertList(filteredList), Arrays.asList("filter_one"));
     }
@@ -178,9 +178,9 @@ public final class AppCompatibilityTestTest {
     @Test
     public void filterApk_withUnrelatedIncludeFilters() {
         List<ApkInfo> testList = createApkList();
-        sut.addIncludeFilter("filter_three");
+        mSut.addIncludeFilter("filter_three");
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertTrue(filteredList.isEmpty());
     }
@@ -188,9 +188,9 @@ public final class AppCompatibilityTestTest {
     @Test
     public void filterApk_withRelatedExcludeFilters() {
         List<ApkInfo> testList = createApkList();
-        sut.addExcludeFilter("filter_one");
+        mSut.addExcludeFilter("filter_one");
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertEquals(convertList(filteredList), Arrays.asList("filter_two"));
     }
@@ -198,9 +198,9 @@ public final class AppCompatibilityTestTest {
     @Test
     public void filterApk_withUnrelatedExcludeFilters() {
         List<ApkInfo> testList = createApkList();
-        sut.addExcludeFilter("filter_three");
+        mSut.addExcludeFilter("filter_three");
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertEquals(filteredList, testList);
     }
@@ -208,10 +208,10 @@ public final class AppCompatibilityTestTest {
     @Test
     public void filterApk_withSameIncludeAndExcludeFilters() {
         List<ApkInfo> testList = createApkList();
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_one");
+        mSut.addIncludeFilter("filter_one");
+        mSut.addExcludeFilter("filter_one");
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertTrue(filteredList.isEmpty());
     }
@@ -219,11 +219,11 @@ public final class AppCompatibilityTestTest {
     @Test
     public void filterApk_withDifferentIncludeAndExcludeFilter() {
         List<ApkInfo> testList = createApkList();
-        sut.addIncludeFilter("filter_one");
-        sut.addIncludeFilter("filter_two");
-        sut.addExcludeFilter("filter_two");
+        mSut.addIncludeFilter("filter_one");
+        mSut.addIncludeFilter("filter_two");
+        mSut.addExcludeFilter("filter_two");
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertEquals(convertList(filteredList), Arrays.asList("filter_one"));
     }
@@ -231,10 +231,10 @@ public final class AppCompatibilityTestTest {
     @Test
     public void filterApk_withUnrelatedIncludeFilterAndRelatedExcludeFilter() {
         List<ApkInfo> testList = createApkList();
-        sut.addIncludeFilter("filter_three");
-        sut.addExcludeFilter("filter_two");
+        mSut.addIncludeFilter("filter_three");
+        mSut.addExcludeFilter("filter_two");
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertTrue(filteredList.isEmpty());
     }
@@ -242,10 +242,10 @@ public final class AppCompatibilityTestTest {
     @Test
     public void filterApk_withRelatedIncludeFilterAndUnrelatedExcludeFilter() {
         List<ApkInfo> testList = createApkList();
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_three");
+        mSut.addIncludeFilter("filter_one");
+        mSut.addExcludeFilter("filter_three");
 
-        List<ApkInfo> filteredList = sut.filterApk(testList);
+        List<ApkInfo> filteredList = mSut.filterApk(testList);
 
         assertEquals(convertList(filteredList), Arrays.asList("filter_one"));
     }
@@ -269,66 +269,66 @@ public final class AppCompatibilityTestTest {
 
     @Test
     public void filterTest_withEmptyFilter() {
-        assertTrue(sut.filterTest("filter_one"));
+        assertTrue(mSut.filterTest("filter_one"));
     }
 
     @Test
     public void filterTest_withRelatedIncludeFilter() {
-        sut.addIncludeFilter("filter_one");
+        mSut.addIncludeFilter("filter_one");
 
-        assertTrue(sut.filterTest("filter_one"));
+        assertTrue(mSut.filterTest("filter_one"));
     }
 
     @Test
     public void filterTest_withUnrelatedIncludeFilter() {
-        sut.addIncludeFilter("filter_two");
+        mSut.addIncludeFilter("filter_two");
 
-        assertFalse(sut.filterTest("filter_one"));
+        assertFalse(mSut.filterTest("filter_one"));
     }
 
     @Test
     public void filterTest_withRelatedExcludeFilter() {
-        sut.addExcludeFilter("filter_one");
+        mSut.addExcludeFilter("filter_one");
 
-        assertFalse(sut.filterTest("filter_one"));
+        assertFalse(mSut.filterTest("filter_one"));
     }
 
     @Test
     public void filterTest_withUnrelatedExcludeFilter() {
-        sut.addExcludeFilter("filter_two");
+        mSut.addExcludeFilter("filter_two");
 
-        assertTrue(sut.filterTest("filter_one"));
+        assertTrue(mSut.filterTest("filter_one"));
     }
 
     @Test
     public void filterTest_withSameIncludeAndExcludeFilters() {
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_one");
+        mSut.addIncludeFilter("filter_one");
+        mSut.addExcludeFilter("filter_one");
 
-        assertFalse(sut.filterTest("filter_one"));
+        assertFalse(mSut.filterTest("filter_one"));
     }
 
     @Test
     public void filterTest_withUnrelatedIncludeFilterAndRelatedExcludeFilter() {
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_two");
+        mSut.addIncludeFilter("filter_one");
+        mSut.addExcludeFilter("filter_two");
 
-        assertFalse(sut.filterTest("filter_two"));
+        assertFalse(mSut.filterTest("filter_two"));
     }
 
     @Test
     public void filterTest_withRelatedIncludeFilterAndUnrelatedExcludeFilter() {
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_two");
+        mSut.addIncludeFilter("filter_one");
+        mSut.addExcludeFilter("filter_two");
 
-        assertTrue(sut.filterTest("filter_one"));
+        assertTrue(mSut.filterTest("filter_one"));
     }
 
     @Test
     public void filterTest_withUnRelatedIncludeFilterAndUnrelatedExcludeFilter() {
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_two");
+        mSut.addIncludeFilter("filter_one");
+        mSut.addExcludeFilter("filter_two");
 
-        assertFalse(sut.filterTest("filter_three"));
+        assertFalse(mSut.filterTest("filter_three"));
     }
-  }
+}
