@@ -24,6 +24,7 @@ import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -101,7 +102,9 @@ public class AppSetupPreparerTest {
         mPreparer.setUp(NULL_DEVICE, mBuildInfo);
 
         verify(mMockAppInstallSetup).setAltDir(packageDir);
-        verify(mMockAppInstallSetup).addSplitApkFileNames("apk_name_2.apk,apk_name_1.apk");
+        verify(mMockAppInstallSetup)
+                .addSplitApkFileNames(
+                        argThat(s -> s.contains("apk_name_1.apk") && s.contains("apk_name_2.apk")));
         verify(mMockAppInstallSetup).setUp(any(), any());
     }
 
