@@ -83,7 +83,7 @@ public class AppLaunchTest
     protected boolean mCheckGms = false;
 
     @Option(name = "dismiss-dialog", description = "Attempt to dismiss dialog from apps.")
-    protected boolean mDismissDialog = true;
+    protected boolean mDismissDialog = false;
 
     @Option(
             name = "app-launch-timeout-ms",
