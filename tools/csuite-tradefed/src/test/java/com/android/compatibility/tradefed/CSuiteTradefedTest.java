@@ -40,7 +40,7 @@ public class CSuiteTradefedTest {
     private static final String SUITE_FULL_NAME = "App Compatibility Test Suite";
     private static final String SUITE_NAME = "C-Suite";
 
-    private CompatibilityBuildProvider provider;
+    private CompatibilityBuildProvider mProvider;
 
     @Before
     public void setUp() throws Exception {
@@ -48,7 +48,7 @@ public class CSuiteTradefedTest {
         File base = tempFolder.newFolder("android-csuite");
         File tests = tempFolder.newFolder("testcases");
 
-        provider =
+        mProvider =
                 new CompatibilityBuildProvider() {
                     @Override
                     protected String getSuiteInfoName() {
@@ -64,7 +64,7 @@ public class CSuiteTradefedTest {
 
     @Test
     public void testSuiteInfoLoad() throws Exception {
-        CompatibilityBuildHelper helper = new CompatibilityBuildHelper(provider.getBuild());
+        CompatibilityBuildHelper helper = new CompatibilityBuildHelper(mProvider.getBuild());
         assertEquals("Incorrect suite full name", SUITE_FULL_NAME, helper.getSuiteFullName());
         assertEquals("Incorrect suite name", SUITE_NAME, helper.getSuiteName());
     }
@@ -73,4 +73,4 @@ public class CSuiteTradefedTest {
     public void cleanUp() throws Exception {
         System.clearProperty(ROOT_DIR_PROPERTY_NAME);
     }
-  }
+}

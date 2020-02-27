@@ -35,10 +35,11 @@ platform source code and setting up a build environment.
 The source for the tradefed framework can be found on the 'tradefed' branch.
 
 Perform these steps to build and run csuite from the development environment:
+
 cd <path to android source root>
 make csuite
 csuite-tradefed
-run csuite-unit-tests
+run <plan-name>
 
 More documentation and details on using and extending trade federation will
 be forthcoming in the near future.

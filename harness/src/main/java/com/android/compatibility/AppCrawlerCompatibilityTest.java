@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.compatibility;
@@ -65,7 +65,7 @@ public final class AppCrawlerCompatibilityTest extends AppCompatibilityTest {
         instrTest.addInstrumentationArg(WALKMAN_RUN_MS_LABEL, Integer.toString(mWalkmanRunMs));
         instrTest.addInstrumentationArg(WALKMAN_STEPS_LABEL, Integer.toString(mWalkmanSteps));
 
-        String launcherClass = launcherPackage + ".WalkmanInstrumentationEntry";
+        String launcherClass = mLauncherPackage + ".WalkmanInstrumentationEntry";
         instrTest.setClassName(launcherClass);
         /*
          * InstrumentationTest can't deduce the exact test to run, so we specify it

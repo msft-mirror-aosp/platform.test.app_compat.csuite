@@ -15,8 +15,8 @@
  */
 package com.android.compatibility;
 
-import com.android.compatibility.targetprep.AppSetupPreparerTest;
 import com.android.compatibility.targetprep.AppSetupPreparerConfigurationReceiverTest;
+import com.android.compatibility.targetprep.AppSetupPreparerTest;
 import com.android.compatibility.testtype.AppLaunchTestTest;
 
 import org.junit.runner.RunWith;

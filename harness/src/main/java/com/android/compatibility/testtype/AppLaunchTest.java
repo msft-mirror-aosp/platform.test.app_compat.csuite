@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.compatibility.testtype;
@@ -37,8 +37,8 @@ import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
-import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.StreamUtil;
@@ -53,8 +53,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Set;
 import java.util.HashSet;
+import java.util.Set;
 
 /** A test that verifies that a single app can be successfully launched. */
 public class AppLaunchTest
@@ -66,6 +66,7 @@ public class AppLaunchTest
     @Option(name = "test-label", description = "Unique test identifier label.")
     private String mTestLabel = "AppCompatibility";
 
+    /** @deprecated */
     @Deprecated
     @Option(
             name = "retry-count",
@@ -77,6 +78,9 @@ public class AppLaunchTest
 
     @Option(name = "exclude-filter", description = "The exclude filter of the test type.")
     protected Set<String> mExcludeFilters = new HashSet<>();
+
+    @Option(name = "check-gms", description = "Check whether GMS is alive after test.")
+    protected boolean mCheckGms = false;
 
     @Option(
             name = "app-launch-timeout-ms",
@@ -94,17 +98,25 @@ public class AppLaunchTest
     private LogcatReceiver mLogcat;
     private IConfiguration mConfiguration;
 
-    public AppLaunchTest() {}
+    public AppLaunchTest() {
+        this(null);
+    }
 
     @VisibleForTesting
     public AppLaunchTest(String packageName) {
-        mPackageName = packageName;
+        this(packageName, 0);
     }
 
     @VisibleForTesting
     public AppLaunchTest(String packageName, int retryCount) {
+        this(packageName, retryCount, false);
+    }
+
+    @VisibleForTesting
+    public AppLaunchTest(String packageName, int retryCount, boolean checkGms) {
         mPackageName = packageName;
         mRetryCount = retryCount;
+        mCheckGms = checkGms;
     }
 
     /**
@@ -142,7 +154,7 @@ public class AppLaunchTest
         if (!inFilter(testDescription.toString())) {
             CLog.d("Test case %s doesn't match any filter", testDescription);
             return;
-      }
+        }
         CLog.d("Complete filtering test case: %s", testDescription);
 
         long start = System.currentTimeMillis();
@@ -150,7 +162,7 @@ public class AppLaunchTest
         mLogcat = new LogcatReceiver(getDevice(), LOGCAT_SIZE_BYTES, 0);
         mLogcat.start();
 
-      try {
+        try {
             testPackage(testInfo, testDescription, listener);
         } catch (InterruptedException e) {
             CLog.e(e);
@@ -159,7 +171,7 @@ public class AppLaunchTest
             mLogcat.stop();
             listener.testRunEnded(
                     System.currentTimeMillis() - start, new HashMap<String, Metric>());
-      }
+        }
     }
 
     /**
@@ -187,8 +199,18 @@ public class AppLaunchTest
                 // Clear test result between retries.
                 launchPackage(testInfo, result);
                 if (result.status == CompatibilityTestResult.STATUS_SUCCESS) {
-                    return;
+                    break;
                 }
+            }
+
+            if (mCheckGms
+                    && mDevice.executeShellV2Command("pidof com.google.android.gms").getExitCode()
+                            != 0) {
+                // If GMS process is not running, it could be due to device instability.
+                // Throwing DeviceNotAvailableException will trigger a invovation re-try
+                // in the test lab to allocate a new test device.
+                throw new DeviceNotAvailableException(
+                        "GMS required but not present! Device is not suitable for tests.");
             }
         } finally {
             reportResult(listener, testDescription, result);
@@ -289,7 +311,7 @@ public class AppLaunchTest
             listener.testLog("logcat_" + result.packageName, LogDataType.LOGCAT, stream);
         } finally {
             StreamUtil.cancel(stream);
-      }
+        }
     }
 
     /**
@@ -412,4 +434,4 @@ public class AppLaunchTest
     public Set<String> getExcludeFilters() {
         return Collections.unmodifiableSet(mExcludeFilters);
     }
-  }
+}
