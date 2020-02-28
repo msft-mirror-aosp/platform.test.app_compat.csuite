@@ -23,8 +23,11 @@ import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -42,17 +45,21 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 @RunWith(JUnit4.class)
-public class AppSetupPreparerTest {
+public final class AppSetupPreparerTest {
 
     private static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
-    public static final ITestDevice NULL_DEVICE = null;
+    private static final ITestDevice NULL_DEVICE = null;
+    private static final IBuildInfo NULL_BUILD_INFO = null;
+    private static final String NULL_PACKAGE_NAME = null;
+    private static final TestAppInstallSetup NULL_TEST_APP_INSTALL_SETUP = null;
+    private static final String TEST_PACKAGE_NAME = "test.package.name";
 
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     private final IBuildInfo mBuildInfo = new BuildInfo();
     private final TestAppInstallSetup mMockAppInstallSetup = mock(TestAppInstallSetup.class);
     private final AppSetupPreparer mPreparer =
-            new AppSetupPreparer("package_name", mMockAppInstallSetup);
+            new AppSetupPreparer(TEST_PACKAGE_NAME, mMockAppInstallSetup);
 
     @Test
     public void setUp_gcsApkDirIsNull_throwsException()
@@ -85,7 +92,7 @@ public class AppSetupPreparerTest {
     @Test
     public void setUp_apkDoesNotExist() throws Exception {
         File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        createPackageFile(gcsApkDir, "package_name", "non_apk_file");
+        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "non_apk_file");
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
 
         assertThrows(TargetSetupError.class, () -> mPreparer.setUp(NULL_DEVICE, mBuildInfo));
@@ -94,9 +101,9 @@ public class AppSetupPreparerTest {
     @Test
     public void setUp_installSplitApk() throws Exception {
         File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        File packageDir = new File(gcsApkDir.getPath(), "package_name");
-        createPackageFile(gcsApkDir, "package_name", "apk_name_1.apk");
-        createPackageFile(gcsApkDir, "package_name", "apk_name_2.apk");
+        File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
+        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "apk_name_1.apk");
+        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "apk_name_2.apk");
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
 
         mPreparer.setUp(NULL_DEVICE, mBuildInfo);
@@ -111,8 +118,8 @@ public class AppSetupPreparerTest {
     @Test
     public void setUp_installNonSplitApk() throws Exception {
         File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        File packageDir = new File(gcsApkDir.getPath(), "package_name");
-        createPackageFile(gcsApkDir, "package_name", "apk_name_1.apk");
+        File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
+        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "apk_name_1.apk");
         mBuildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
 
         mPreparer.setUp(NULL_DEVICE, mBuildInfo);
@@ -131,7 +138,76 @@ public class AppSetupPreparerTest {
         verify(mMockAppInstallSetup, times(1)).tearDown(testInfo, null);
     }
 
-    private File createPackageFile(File parentDir, String packageName, String apkName)
+    @Test
+    public void setUp_withinRetryLimit_doesNotThrowException() throws Exception {
+        IBuildInfo buildInfo = createValidBuildInfo();
+        AppSetupPreparer preparer =
+                new AppSetupPreparer(TEST_PACKAGE_NAME, mMockAppInstallSetup, 1);
+        doThrow(new TargetSetupError("Still failing"))
+                .doNothing()
+                .when(mMockAppInstallSetup)
+                .setUp(any(), any());
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+    }
+
+    @Test
+    public void setUp_exceedsRetryLimit_throwException() throws Exception {
+        IBuildInfo buildInfo = createValidBuildInfo();
+        AppSetupPreparer preparer =
+                new AppSetupPreparer(TEST_PACKAGE_NAME, mMockAppInstallSetup, 1);
+        doThrow(new TargetSetupError("Still failing"))
+                .doThrow(new TargetSetupError("Still failing"))
+                .doNothing()
+                .when(mMockAppInstallSetup)
+                .setUp(any(), any());
+
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+    }
+
+    @Test
+    public void setUp_zeroMaxRetry_runsOnce() throws Exception {
+        IBuildInfo buildInfo = createValidBuildInfo();
+        AppSetupPreparer preparer =
+                new AppSetupPreparer(TEST_PACKAGE_NAME, mMockAppInstallSetup, 0);
+        doNothing().when(mMockAppInstallSetup).setUp(any(), any());
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+
+        verify(mMockAppInstallSetup, times(1)).setUp(any(), any());
+    }
+
+    @Test
+    public void setUp_positiveMaxRetryButNoException_runsOnlyOnce() throws Exception {
+        IBuildInfo buildInfo = createValidBuildInfo();
+        AppSetupPreparer preparer =
+                new AppSetupPreparer(TEST_PACKAGE_NAME, mMockAppInstallSetup, 1);
+        doNothing().when(mMockAppInstallSetup).setUp(any(), any());
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+
+        verify(mMockAppInstallSetup, times(1)).setUp(any(), any());
+    }
+
+    @Test
+    public void setUp_negativeMaxRetry_throwsException() throws Exception {
+        IBuildInfo buildInfo = createValidBuildInfo();
+        AppSetupPreparer preparer =
+                new AppSetupPreparer(TEST_PACKAGE_NAME, mMockAppInstallSetup, -1);
+
+        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+    }
+
+    private IBuildInfo createValidBuildInfo() throws Exception {
+        IBuildInfo buildInfo = new BuildInfo();
+        File gcsApkDir = tempFolder.newFolder("any");
+        File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
+        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "test.apk");
+        buildInfo.addBuildAttribute(OPTION_GCS_APK_DIR, gcsApkDir.getPath());
+        return buildInfo;
+    }
+
+    private static File createPackageFile(File parentDir, String packageName, String apkName)
             throws IOException {
         File packageDir =
                 Files.createDirectories(Paths.get(parentDir.getAbsolutePath(), packageName))
