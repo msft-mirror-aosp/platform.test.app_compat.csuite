@@ -82,6 +82,9 @@ public class AppLaunchTest
     @Option(name = "check-gms", description = "Check whether GMS is alive after test.")
     protected boolean mCheckGms = false;
 
+    @Option(name = "dismiss-dialog", description = "Attempt to dismiss dialog from apps.")
+    protected boolean mDismissDialog = false;
+
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
@@ -91,6 +94,7 @@ public class AppLaunchTest
             "com.android.compatibilitytest.AppCompatibilityRunner";
     private static final String LAUNCH_TEST_PACKAGE = "com.android.compatibilitytest";
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
+    private static final String ARG_DISMISS_DIALOG = "ARG_DISMISS_DIALOG";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
 
@@ -133,6 +137,7 @@ public class AppLaunchTest
         instrTest.setDevice(mDevice);
         instrTest.addInstrumentationArg(
                 APP_LAUNCH_TIMEOUT_LABEL, Integer.toString(mAppLaunchTimeoutMs));
+        instrTest.addInstrumentationArg(ARG_DISMISS_DIALOG, Boolean.toString(mDismissDialog));
 
         return instrTest;
     }
