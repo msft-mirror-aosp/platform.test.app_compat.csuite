@@ -24,6 +24,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -46,21 +47,51 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @Option(name = "package-name", description = "Package name of the app being tested.")
     private String mPackageName;
 
-    private final TestAppInstallSetup mAppInstallSetup;
+    @Option(name = "max-retry", description = "Max number of retries upon TargetSetupError.")
+    private int mMaxRetry;
+
+    private final TestAppInstallSetup mTestAppInstallSetup;
 
     public AppSetupPreparer() {
         this(null, new TestAppInstallSetup());
     }
 
     @VisibleForTesting
-    public AppSetupPreparer(String packageName, TestAppInstallSetup appInstallSetup) {
+    public AppSetupPreparer(String packageName, TestAppInstallSetup testAppInstallSetup) {
+        this(packageName, testAppInstallSetup, 0);
+    }
+
+    @VisibleForTesting
+    public AppSetupPreparer(
+            String packageName, TestAppInstallSetup testAppInstallSetup, int maxRetry) {
         this.mPackageName = packageName;
-        this.mAppInstallSetup = appInstallSetup;
+        this.mTestAppInstallSetup = testAppInstallSetup;
+        this.mMaxRetry = maxRetry;
     }
 
     /** {@inheritDoc} */
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
+            throws DeviceNotAvailableException, BuildError, TargetSetupError {
+        checkArgument(
+                mMaxRetry >= 0, "The value of max-retry should be greater than or equal to zero.");
+
+        int runCount = 0;
+        while (true) {
+            try {
+                runCount++;
+                setUpOnce(device, buildInfo);
+                break;
+            } catch (TargetSetupError e) {
+                if (runCount > mMaxRetry) {
+                    throw e;
+                }
+                CLog.w("setUp failed: %s. Run count: %d. Retrying...", e, runCount);
+            }
+        }
+    }
+
+    public void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         // TODO(b/147159584): Use a utility to get dynamic options.
         String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
@@ -76,7 +107,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 packageDir.isDirectory(),
                 String.format("Package directory %s is not a directory", packageDir));
 
-        mAppInstallSetup.setAltDir(packageDir);
+        mTestAppInstallSetup.setAltDir(packageDir);
 
         List<String> apkFilePaths;
         try {
@@ -92,18 +123,18 @@ public final class AppSetupPreparer implements ITargetPreparer {
         }
 
         if (apkFilePaths.size() == 1) {
-            mAppInstallSetup.addTestFileName(apkFilePaths.get(0));
+            mTestAppInstallSetup.addTestFileName(apkFilePaths.get(0));
         } else {
-            mAppInstallSetup.addSplitApkFileNames(String.join(",", apkFilePaths));
+            mTestAppInstallSetup.addSplitApkFileNames(String.join(",", apkFilePaths));
         }
 
-        mAppInstallSetup.setUp(device, buildInfo);
+        mTestAppInstallSetup.setUp(device, buildInfo);
     }
 
     /** {@inheritDoc} */
     @Override
     public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
-        mAppInstallSetup.tearDown(testInfo, e);
+        mTestAppInstallSetup.tearDown(testInfo, e);
     }
 
     private List<String> listApkFilePaths(File downloadDir) throws IOException {
