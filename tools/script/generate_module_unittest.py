@@ -100,27 +100,27 @@ class WriteBuildModuleTest(unittest.TestCase):
 class ParsePackageListTest(unittest.TestCase):
 
     def test_accepts_empty_lines(self):
-        input = io.StringIO('\n\n\npackage_name\n\n')
+        lines = io.StringIO('\n\n\npackage_name\n\n')
 
-        package_list = generate_module.parse_package_list(input)
+        package_list = generate_module.parse_package_list(lines)
 
         self.assertEqual(len(package_list), 1)
         self.assertIn('package_name', package_list)
         self.assertTrue(all(package_list))
 
     def test_strips_trailing_whitespace(self):
-        input = io.StringIO('  package_name  ')
+        lines = io.StringIO('  package_name  ')
 
-        package_list = generate_module.parse_package_list(input)
+        package_list = generate_module.parse_package_list(lines)
 
         self.assertEqual(len(package_list), 1)
         self.assertIn('package_name', package_list)
         self.assertTrue(all(package_list))
 
     def test_duplicate_package_name(self):
-        input = io.StringIO('\n\npackage_name\n\npackage_name\n')
+        lines = io.StringIO('\n\npackage_name\n\npackage_name\n')
 
-        package_list = generate_module.parse_package_list(input)
+        package_list = generate_module.parse_package_list(lines)
 
         self.assertEqual(len(package_list), 1)
         self.assertIn('package_name', package_list)
