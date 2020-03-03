@@ -126,6 +126,15 @@ class ParsePackageListTest(unittest.TestCase):
         self.assertIn('package_name', package_list)
         self.assertTrue(all(package_list))
 
+    def test_ignore_comment_lines(self):
+        input = io.StringIO('\n# Comments.\npackage_name\n')
+
+        package_list = generate_module.parse_package_list(input)
+
+        self.assertEqual(len(package_list), 1)
+        self.assertIn('package_name', package_list)
+        self.assertTrue(all(package_list))
+
 
 class ParseArgsTest(fake_filesystem_unittest.TestCase):
 
