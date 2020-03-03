@@ -28,6 +28,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.LogcatReceiver;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
@@ -169,7 +170,8 @@ public abstract class AppCompatibilityTest
      * {@inheritDoc}
      */
     @Override
-    public final void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public final void run(final TestInformation testInfo, ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
         CLog.d("Start of launch test run method. base-dir: %s", mBaseDir);
         Assert.assertNotNull("Base dir cannot be null", mBaseDir);
         Assert.assertTrue("Base dir should be a directory", mBaseDir.isDirectory());
@@ -212,7 +214,7 @@ public abstract class AppCompatibilityTest
         mLogcat.start();
 
         try {
-            downloadAndTestApks(listener, apkDir, apkList);
+            downloadAndTestApks(testInfo, listener, apkDir, apkList);
         } catch (InterruptedException e) {
             CLog.e(e);
             throw new RuntimeException(e);
@@ -226,6 +228,7 @@ public abstract class AppCompatibilityTest
     /**
      * Downloads and tests all the APKs in the apk list.
      *
+     * @param testInfo The {@link TestInformation}.
      * @param listener The {@link ITestInvocationListener}.
      * @param kharonDir The {@link File} of the CNS dir containing the APKs.
      * @param apkList The sharded list of {@link ApkInfo} objects.
@@ -233,7 +236,10 @@ public abstract class AppCompatibilityTest
      * @throws InterruptedException if a download thread was interrupted.
      */
     private void downloadAndTestApks(
-            ITestInvocationListener listener, File kharonDir, List<ApkInfo> apkList)
+            final TestInformation testInfo,
+            ITestInvocationListener listener,
+            File kharonDir,
+            List<ApkInfo> apkList)
             throws DeviceNotAvailableException, InterruptedException {
         CLog.d("Started downloading and testing apks.");
         ApkInfo testingApk = null;
@@ -243,7 +249,7 @@ public abstract class AppCompatibilityTest
             Thread downloadThread = new Thread(downloader);
             downloadThread.start();
 
-            testApk(listener, testingApk, testingFile);
+            testApk(testInfo, listener, testingApk, testingFile);
 
             try {
                 downloadThread.join(JOIN_TIMEOUT_MS);
@@ -255,19 +261,24 @@ public abstract class AppCompatibilityTest
             testingFile = downloader.getDownloadedFile();
         }
         // One more time since the first time through the loop we don't test
-        testApk(listener, testingApk, testingFile);
+        testApk(testInfo, listener, testingApk, testingFile);
         CLog.d("Completed downloading and testing apks.");
     }
 
     /**
      * Attempts to install and launch an APK and reports the results.
      *
+     * @param testInfo The {@link TestInformation}.
      * @param listener The {@link ITestInvocationListener}.
      * @param apkInfo The {@link ApkInfo} to run the test against.
      * @param apkFile The downloaded {@link File}.
      * @throws DeviceNotAvailableException
      */
-    private void testApk(ITestInvocationListener listener, ApkInfo apkInfo, File apkFile)
+    private void testApk(
+            final TestInformation testInfo,
+            ITestInvocationListener listener,
+            ApkInfo apkInfo,
+            File apkFile)
             throws DeviceNotAvailableException {
         if (apkInfo == null || apkFile == null) {
             CLog.d("apkInfo or apkFile is null.");
@@ -306,7 +317,7 @@ public abstract class AppCompatibilityTest
                     // Clear test result between retries
                     result.status = null;
                     result.message = null;
-                    launchApk(result);
+                    launchApk(testInfo, result);
                     mDevice.executeShellCommand(
                             String.format("am force-stop %s", apkInfo.packageName));
                 }
@@ -403,16 +414,18 @@ public abstract class AppCompatibilityTest
      *
      * <p>Will set the result status to failure if the APK could not be launched.
      *
+     * @param testInfo The {@link TestInformation}.
      * @param result the {@link CompatibilityTestResult} containing the APK info.
      * @throws DeviceNotAvailableException
      */
-    private void launchApk(CompatibilityTestResult result) throws DeviceNotAvailableException {
+    private void launchApk(final TestInformation testInfo, CompatibilityTestResult result)
+            throws DeviceNotAvailableException {
         CLog.d("Lauching package: %s.", result.packageName);
         InstrumentationTest instrTest = createInstrumentationTest(result.packageName);
         instrTest.setDevice(mDevice);
 
         FailureCollectingListener failureListener = new FailureCollectingListener();
-        instrTest.run(failureListener);
+        instrTest.run(testInfo, failureListener);
 
         if (failureListener.getStackTrace() != null) {
             CLog.w("Failed to launch package: %s.", result.packageName);
