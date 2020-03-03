@@ -24,6 +24,9 @@ from pyfakefs import fake_filesystem_unittest
 import generate_module
 
 
+_AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
+
+
 class WriteTestModuleTest(unittest.TestCase):
 
     def test_xml_is_valid(self):
@@ -127,9 +130,9 @@ class ParsePackageListTest(unittest.TestCase):
         self.assertTrue(all(package_list))
 
     def test_ignore_comment_lines(self):
-        input = io.StringIO('\n# Comments.\npackage_name\n')
+        lines = io.StringIO('\n# Comments.\npackage_name\n')
 
-        package_list = generate_module.parse_package_list(input)
+        package_list = generate_module.parse_package_list(lines)
 
         self.assertEqual(len(package_list), 1)
         self.assertIn('package_name', package_list)
@@ -196,15 +199,13 @@ class GenerateAllModulesFromConfigTest(fake_filesystem_unittest.TestCase):
     def test_removes_all_existing_package_files(self):
         root_dir = '/test/'
         package_dir = '/test/existing_package/'
-        existing_package_file1 = 'test/existing_package/AndroidTest.xml'
-        existing_package_file2 = 'test/existing_package/Android.bp'
-        self.fs.create_file(existing_package_file1, contents='auto-generated')
-        self.fs.create_file(existing_package_file2, contents='auto-generated')
+        self.fs.create_file('test/existing_package/AndroidTest.xml',
+                            contents=_AUTO_GENERATE_NOTE)
+        self.fs.create_file('test/existing_package/Android.bp',
+                            contents=_AUTO_GENERATE_NOTE)
 
         generate_module.remove_existing_package_files(root_dir)
 
-        self.assertFalse(os.path.exists(existing_package_file1))
-        self.assertFalse(os.path.exists(existing_package_file2))
         self.assertFalse(os.path.exists(package_dir))
 
 
