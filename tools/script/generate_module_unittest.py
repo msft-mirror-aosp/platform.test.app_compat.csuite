@@ -14,6 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Disable import errors since repo upload hooks don't currently add external
+# library dependencies on the Python path.
+# TODO(hzalek): Move this configuration to a pylintrc file.
+# pylint: disable=import-error
+
 import io
 import os
 import unittest
@@ -107,36 +112,28 @@ class ParsePackageListTest(unittest.TestCase):
 
         package_list = generate_module.parse_package_list(lines)
 
-        self.assertEqual(len(package_list), 1)
-        self.assertIn('package_name', package_list)
-        self.assertTrue(all(package_list))
+        self.assertListEqual(['package_name'], list(package_list))
 
     def test_strips_trailing_whitespace(self):
         lines = io.StringIO('  package_name  ')
 
         package_list = generate_module.parse_package_list(lines)
 
-        self.assertEqual(len(package_list), 1)
-        self.assertIn('package_name', package_list)
-        self.assertTrue(all(package_list))
+        self.assertListEqual(['package_name'], list(package_list))
 
     def test_duplicate_package_name(self):
         lines = io.StringIO('\n\npackage_name\n\npackage_name\n')
 
         package_list = generate_module.parse_package_list(lines)
 
-        self.assertEqual(len(package_list), 1)
-        self.assertIn('package_name', package_list)
-        self.assertTrue(all(package_list))
+        self.assertListEqual(['package_name'], list(package_list))
 
     def test_ignore_comment_lines(self):
         lines = io.StringIO('\n# Comments.\npackage_name\n')
 
         package_list = generate_module.parse_package_list(lines)
 
-        self.assertEqual(len(package_list), 1)
-        self.assertIn('package_name', package_list)
-        self.assertTrue(all(package_list))
+        self.assertListEqual(['package_name'], list(package_list))
 
 
 class ParseArgsTest(fake_filesystem_unittest.TestCase):
