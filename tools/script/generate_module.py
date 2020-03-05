@@ -24,7 +24,7 @@ from xml.dom import minidom
 from xml.etree import cElementTree as ET
 from xml.sax import saxutils
 
-from typing import IO, List, Text
+from typing import IO, Set, Text
 
 _ANDROID_BP_FILE_NAME = 'Android.bp'
 _ANDROID_XML_FILE_NAME = 'AndroidTest.xml'
@@ -86,9 +86,11 @@ def _remove_empty_dirs(path):
             os.rmdir(file_path)
 
 
-def parse_package_list(package_list_file: IO[bytes]) -> List[bytes]:
-    return {
-        line.strip() for line in package_list_file.readlines() if line.strip()}
+def parse_package_list(package_list_file: IO[bytes]) -> Set[bytes]:
+    # Remove leading/trailing spaces in each line and filter out empty lines.
+    packages = filter(bool, map(str.strip, package_list_file.readlines()))
+    # Filter out comment lines and remove duplicate items.
+    return {package for package in packages if not package.startswith('#')}
 
 
 def _generate_module_files(package_name, root_dir):
