@@ -26,6 +26,7 @@ from xml.sax import saxutils
 
 from typing import IO, Set, Text
 
+_AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
 _ANDROID_BP_FILE_NAME = 'Android.bp'
 _ANDROID_XML_FILE_NAME = 'AndroidTest.xml'
 
@@ -76,7 +77,7 @@ def remove_existing_package_files(root_dir):
 
 def _is_auto_generated(filename):
     with open(filename, 'r') as f:
-        return 'WAS AUTO-GENERATED' in f.read()
+        return _AUTO_GENERATE_NOTE in f.read()
 
 
 def _remove_empty_dirs(path):
@@ -87,10 +88,10 @@ def _remove_empty_dirs(path):
 
 
 def parse_package_list(package_list_file: IO[bytes]) -> Set[bytes]:
-    # Remove leading/trailing spaces in each line and filter out empty lines.
-    packages = filter(bool, map(str.strip, package_list_file.readlines()))
-    # Filter out comment lines and remove duplicate items.
-    return {package for package in packages if not package.startswith('#')}
+    packages = {line.strip() for line in package_list_file.readlines()}
+    for package in packages:
+        if package and not package.startswith('#'):
+            yield package
 
 
 def _generate_module_files(package_name, root_dir):
@@ -197,9 +198,9 @@ _BUILD_MODULE_HEADER = """// Copyright (C) 2019 The Android Open Source Project
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!
+// {auto_generate_note}
 
-"""
+""".format(auto_generate_note=_AUTO_GENERATE_NOTE)
 
 _BUILD_MODULE_TEMPLATE = """csuite_config {{
     name: "csuite_{package_name}",
@@ -221,9 +222,9 @@ _TEST_MODULE_HEADER = """<?xml version="1.0" encoding="utf-8"?>
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<!-- THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!-->
+<!-- {auto_generate_note}-->
 
-"""
+""".format(auto_generate_note=_AUTO_GENERATE_NOTE)
 
 
 def _file_path(path):
