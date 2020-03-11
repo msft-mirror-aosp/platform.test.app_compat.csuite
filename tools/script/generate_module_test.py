@@ -23,8 +23,8 @@ import io
 import os
 import unittest
 
-from lxml import etree
-from pyfakefs import fake_filesystem_unittest
+from xml.etree import cElementTree as ET
+from pyfakefs import fake_filesystem_unittest # pylint: disable=import-error
 
 import generate_module
 
@@ -49,27 +49,8 @@ class WriteTestModuleTest(unittest.TestCase):
                 'Android Open Source Project' in generated_str
 
     def _is_validate_xml(self, xml_str: bytes) -> bool:
-        xmlschema_doc = etree.parse(
-            io.BytesIO('''<?xml version="1.0" encoding="UTF-8" ?>
-        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-        <xs:element name="configuration">
-        <xs:complexType>
-            <xs:sequence>
-            <xs:element name="option" minOccurs="0" maxOccurs="unbounded"/>
-            <xs:element name="target_preparer" minOccurs="0" maxOccurs="unbounded"/>
-            <xs:element name="test" minOccurs="0" maxOccurs="unbounded"/>
-            </xs:sequence>
-            <xs:attribute name="description"/>
-        </xs:complexType>
-        </xs:element>
-        </xs:schema>
-        '''.encode('utf8')))
-        xmlschema = etree.XMLSchema(xmlschema_doc)
-
-        xml_doc = etree.parse(io.BytesIO(xml_str.encode('utf8')))
-        result = xmlschema.validate(xml_doc)
-
-        return result
+        ET.parse(io.BytesIO(xml_str.encode('utf8')))
+        return True
 
 
 class WriteBuildModuleTest(unittest.TestCase):
@@ -150,7 +131,9 @@ class ParseArgsTest(fake_filesystem_unittest.TestCase):
         with self.assertRaises(SystemExit):
             generate_module.parse_args(
                 ['--package_list', package_list_file_path,
-                 '--root_dir', root_dir])
+                 '--root_dir', root_dir],
+                out=io.StringIO(),
+                err=io.StringIO())
 
     def test_module_dir_not_exist(self):
         package_list_file_path = '/test/package_list.txt'
@@ -163,7 +146,9 @@ class ParseArgsTest(fake_filesystem_unittest.TestCase):
         with self.assertRaises(SystemExit):
             generate_module.parse_args(
                 ['--package_list', package_list_file_path,
-                 '--root_dir', root_dir])
+                 '--root_dir', root_dir],
+                out=io.StringIO(),
+                err=io.StringIO())
 
 
 class GenerateAllModulesFromConfigTest(fake_filesystem_unittest.TestCase):
@@ -207,4 +192,6 @@ class GenerateAllModulesFromConfigTest(fake_filesystem_unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    # Setting verbosity is required to generate output that the TradeFed test
+    # runner can parse.
+    unittest.main(verbosity=3)

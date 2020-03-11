@@ -20,10 +20,11 @@ import argparse
 import glob
 import os
 import sys
+
+from contextlib import contextmanager
 from xml.dom import minidom
 from xml.etree import cElementTree as ET
 from xml.sax import saxutils
-
 from typing import IO, Set, Text
 
 _AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
@@ -239,7 +240,17 @@ def _dir_path(path):
     raise argparse.ArgumentTypeError('%s is not a valid path' % path)
 
 
-def parse_args(args):
+@contextmanager
+def _redirect_sys_output(out, err):
+    current_out, current_err = sys.stdout, sys.stderr
+    try:
+        sys.stdout, sys.stderr = out, err
+        yield
+    finally:
+        sys.stdout, sys.stderr = current_out, current_err
+
+
+def parse_args(args, out=sys.stdout, err=sys.stderr):
     parser = argparse.ArgumentParser()
     parser.add_argument('--package_list',
                         type=_file_path,
@@ -250,7 +261,12 @@ def parse_args(args):
                         required=True,
                         help='path of the root directory that' +
                         'modules will be generated in')
-    return parser.parse_args(args)
+
+    # We redirect stdout and stderr to improve testability since ArgumentParser
+    # always writes to those files. More specifically, the TradeFed python test
+    # runner will choke parsing output that is not in the expected format.
+    with _redirect_sys_output(out, err):
+        return parser.parse_args(args)
 
 
 def main():
