@@ -12,28 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-python_binary_host {
-    name: "csuite_generate_module",
-    main: "generate_module.py",
-    srcs: [
-        "generate_module.py",
-    ],
-    defaults: [
-        "csuite_python_defaults",
-    ],
-}
-
-python_test_host {
-    name: "generate_module_test",
-    srcs: [
-        "generate_module.py",
-        "generate_module_test.py",
-    ],
-    libs: [
-        "pyfakefs",
-    ],
-    test_suites: ["general-tests"],
-    defaults: [
-        "csuite_python_defaults",
-    ],
+python_defaults {
+    name: "csuite_python_defaults",
+    version: {
+        py2: {
+            enabled: false,
+        },
+        py3: {
+            enabled: true,
+            // TODO(hzalek): Remove this once b/146057182 is resolved as not
+            // using the embedded_launcher is dangerous.
+            embedded_launcher: false,
+        },
+    },
 }
