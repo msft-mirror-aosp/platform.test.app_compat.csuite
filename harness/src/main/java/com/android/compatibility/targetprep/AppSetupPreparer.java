@@ -36,6 +36,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -44,6 +46,11 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     public static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
     private static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
+
+    @Option(
+            name = "test-file-name",
+            description = "the name of an apk file to be installed on device. Can be repeated.")
+    private Collection<String> mTestFileNames = new ArrayList<String>();
 
     @Option(name = "package-name", description = "Package name of the app being tested.")
     private String mPackageName;
@@ -120,6 +127,10 @@ public final class AppSetupPreparer implements ITargetPreparer {
         if (apkFilePaths.isEmpty()) {
             throw new TargetSetupError(
                     String.format("Failed to find apk files in %s.", packageDir));
+        }
+
+        for (String testFileName : mTestFileNames) {
+            mTestAppInstallSetup.addTestFileName(testFileName);
         }
 
         if (apkFilePaths.size() == 1) {

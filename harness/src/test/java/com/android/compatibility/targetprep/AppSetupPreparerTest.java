@@ -239,6 +239,16 @@ public final class AppSetupPreparerTest {
                 () -> mPreparer.setUp(createUnavailableDevice(), buildInfo));
     }
 
+    @Test
+    public void setUp_containsTestFileNameOption_addToTestAppInstallSetup() throws Exception {
+        IBuildInfo buildInfo = createValidBuildInfo();
+        new OptionSetter(mPreparer).setOptionValue("test-file-name", "additional.apk");
+
+        mPreparer.setUp(NULL_DEVICE, buildInfo);
+
+        verify(mMockAppInstallSetup).addTestFileName("additional.apk");
+    }
+
     private IBuildInfo createValidBuildInfo() throws Exception {
         IBuildInfo buildInfo = new BuildInfo();
         File gcsApkDir = tempFolder.newFolder("any");
