@@ -43,12 +43,18 @@ import java.util.stream.Collectors;
 public final class AppSetupPreparer implements ITargetPreparer {
 
     public static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
+    private static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
 
     @Option(name = "package-name", description = "Package name of the app being tested.")
     private String mPackageName;
 
     @Option(name = "max-retry", description = "Max number of retries upon TargetSetupError.")
-    private int mMaxRetry;
+    private int mMaxRetry = 0;
+
+    @Option(
+            name = OPTION_CHECK_DEVICE_AVAILABLE,
+            description = "Whether to check device avilibility upon setUp failure.")
+    private boolean mCheckDeviceAvailable = false;
 
     private final TestAppInstallSetup mTestAppInstallSetup;
 
@@ -58,15 +64,8 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     @VisibleForTesting
     public AppSetupPreparer(String packageName, TestAppInstallSetup testAppInstallSetup) {
-        this(packageName, testAppInstallSetup, 0);
-    }
-
-    @VisibleForTesting
-    public AppSetupPreparer(
-            String packageName, TestAppInstallSetup testAppInstallSetup, int maxRetry) {
         this.mPackageName = packageName;
         this.mTestAppInstallSetup = testAppInstallSetup;
-        this.mMaxRetry = maxRetry;
     }
 
     /** {@inheritDoc} */
@@ -83,6 +82,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 setUpOnce(device, buildInfo);
                 break;
             } catch (TargetSetupError e) {
+                checkDeviceAvailable(device);
                 if (runCount > mMaxRetry) {
                     throw e;
                 }
@@ -142,5 +142,19 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 .map(x -> x.getFileName().toString())
                 .filter(s -> s.endsWith(".apk"))
                 .collect(Collectors.toList());
+    }
+
+    private void checkDeviceAvailable(ITestDevice device) throws DeviceNotAvailableException {
+        if (!mCheckDeviceAvailable) {
+            return;
+        }
+
+        // Throw an exception for TF to retry the invocation if the device is no longer available
+        // since retrying would be useless. Ideally we would wait for the device to recover but
+        // that is currently not supported in TradeFed.
+        if (device.getProperty("_") == null) {
+            throw new DeviceNotAvailableException(
+                    "getprop command failed. Might have lost connection to the device.");
+        }
     }
 }
