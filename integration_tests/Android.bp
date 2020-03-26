@@ -26,6 +26,7 @@
 // do that since Soong currently complains when a python_host_test depends on
 // that target since, although compatible, the arch variants (x86_64 and
 // common) don't exactly match.
+
 genrule {
     name: "csuite_standalone_zip",
     cmd: "ANDROID_CSUITE=$(genDir)/android-csuite && " +
@@ -67,6 +68,9 @@ python_library_host {
     ],
     data: [
         ":csuite_standalone_zip",
+    ],
+    libs: [
+        "csuite_test",
     ],
 }
 
