@@ -34,11 +34,10 @@ _CSUITE_LAUNCH_TEST_CLASS =\
   'com.android.compatibility.testtype.AppLaunchTest'
 
 _MODULE_PREPARERS = [
-    ('com.android.tradefed.targetprep.TestAppInstallSetup', [{
+    ('com.android.compatibility.targetprep.AppSetupPreparer', [{
         'name': 'test-file-name',
         'value': 'csuite-launch-instrumentation.apk'
     }]),
-    ('com.android.compatibility.targetprep.AppSetupPreparer', []),
     ('com.android.tradefed.targetprep.RunCommandTargetPreparer', [
         {
             'name': 'run-command',
