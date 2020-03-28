@@ -30,8 +30,10 @@ python_test_host {
         "generate_module_test.py",
     ],
     libs: [
+        "csuite_test",
         "pyfakefs",
     ],
+    test_config_template: "csuite_test_template.xml",
     test_suites: ["general-tests"],
     defaults: [
         "csuite_python_defaults",
