@@ -36,7 +36,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -47,9 +46,6 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     public static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
     private static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
-    private static final String OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS =
-            "exponential-backoff-multiplier-seconds";
-    private static final String OPTION_MAX_RETRY = "max-retry";
 
     @Option(
             name = "test-file-name",
@@ -59,16 +55,8 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @Option(name = "package-name", description = "Package name of the app being tested.")
     private String mPackageName;
 
-    @Option(name = OPTION_MAX_RETRY, description = "Max number of retries upon TargetSetupError.")
+    @Option(name = "max-retry", description = "Max number of retries upon TargetSetupError.")
     private int mMaxRetry = 0;
-
-    @Option(
-            name = OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS,
-            description =
-                    "The exponential backoff multiplier for retries in seconds ."
-                            + "A value n means the preparer will wait for n^(retry_count) "
-                            + "seconds between retries.")
-    private int mExponentialBackoffMultiplierSeconds = 0;
 
     @Option(
             name = OPTION_CHECK_DEVICE_AVAILABLE,
@@ -76,28 +64,23 @@ public final class AppSetupPreparer implements ITargetPreparer {
     private boolean mCheckDeviceAvailable = false;
 
     private final TestAppInstallSetup mTestAppInstallSetup;
-    private final Sleeper mSleeper;
 
     public AppSetupPreparer() {
-        this(null, new TestAppInstallSetup(), Sleepers.DefaultSleeper.INSTANCE);
+        this(null, new TestAppInstallSetup());
     }
 
     @VisibleForTesting
-    public AppSetupPreparer(
-            String packageName, TestAppInstallSetup testAppInstallSetup, Sleeper sleeper) {
-        mPackageName = packageName;
-        mTestAppInstallSetup = testAppInstallSetup;
-        mSleeper = sleeper;
+    public AppSetupPreparer(String packageName, TestAppInstallSetup testAppInstallSetup) {
+        this.mPackageName = packageName;
+        this.mTestAppInstallSetup = testAppInstallSetup;
     }
 
     /** {@inheritDoc} */
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
-        checkArgumentNonNegative(mMaxRetry, OPTION_MAX_RETRY);
-        checkArgumentNonNegative(
-                mExponentialBackoffMultiplierSeconds,
-                OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS);
+        checkArgument(
+                mMaxRetry >= 0, "The value of max-retry should be greater than or equal to zero.");
 
         int runCount = 0;
         while (true) {
@@ -111,14 +94,6 @@ public final class AppSetupPreparer implements ITargetPreparer {
                     throw e;
                 }
                 CLog.w("setUp failed: %s. Run count: %d. Retrying...", e, runCount);
-            }
-
-            try {
-                mSleeper.sleep(
-                        Duration.ofSeconds(
-                                (int) Math.pow(mExponentialBackoffMultiplierSeconds, runCount)));
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e.getMessage());
             }
         }
     }
@@ -192,26 +167,5 @@ public final class AppSetupPreparer implements ITargetPreparer {
             throw new DeviceNotAvailableException(
                     "getprop command failed. Might have lost connection to the device.");
         }
-    }
-
-    private void checkArgumentNonNegative(int val, String name) {
-        checkArgument(val >= 0, "%s (%s) must not be negative", name, val);
-    }
-
-    interface Sleeper {
-        void sleep(Duration duration) throws InterruptedException;
-    }
-
-    static class Sleepers {
-        enum DefaultSleeper implements Sleeper {
-            INSTANCE;
-
-            @Override
-            public void sleep(Duration duration) throws InterruptedException {
-                Thread.sleep(duration.toMillis());
-            }
-        }
-
-        private Sleepers() {}
     }
 }
