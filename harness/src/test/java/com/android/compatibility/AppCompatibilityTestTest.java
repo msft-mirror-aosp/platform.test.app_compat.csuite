@@ -39,7 +39,7 @@ public final class AppCompatibilityTestTest {
 
     private ConcreteAppCompatibilityTest mSut;
 
-    private class ConcreteAppCompatibilityTest extends AppCompatibilityTest {
+    private static class ConcreteAppCompatibilityTest extends AppCompatibilityTest {
 
         ConcreteAppCompatibilityTest() {
             super(null, null, null);
