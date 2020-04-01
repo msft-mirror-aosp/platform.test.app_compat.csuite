@@ -252,10 +252,28 @@ def main():
 
   parser = argparse.ArgumentParser()
   parser.add_argument('-s', '--serial', help='the device serial')
+  parser.add_argument(
+      '--test-output-file',
+      help='the file in which to store the test results',
+      required=True)
   args, unknown = parser.parse_known_args(sys.argv)
 
   _DEVICE_SERIAL = args.serial
 
-  # Setting verbosity is required to generate output that the TradeFed test
-  # runner can parse.
-  unittest.main(verbosity=3, argv=unknown)
+  with open(args.test_output_file, 'w') as test_output_file:
+
+    # Note that we use a type and not an instance for 'testRunner' since
+    # TestProgram forwards its constructor arguments when creating an instance
+    # of the runner type. Not doing so would require us to make sure that the
+    # parameters passed to TestProgram are aligned with those for creating a
+    # runner instance.
+    class TestRunner(unittest.TextTestRunner):
+      """A test runner that writes test results to the TF-provided file."""
+
+      def __init__(self, *args, **kwargs):
+        super(TestRunner, self).__init__(
+            stream=test_output_file, *args, **kwargs)
+
+    # Setting verbosity is required to generate output that the TradeFed test
+    # runner can parse.
+    unittest.TestProgram(verbosity=3, testRunner=TestRunner, argv=unknown)
