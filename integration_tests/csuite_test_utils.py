@@ -13,23 +13,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Utilities for C-Suite tests."""
+"""Utilities for C-Suite integration tests."""
 
-import argparse
 import contextlib
 import os
 import pathlib
 import shutil
 import stat
 import subprocess
-import sys
 import tempfile
 from typing import Sequence, Text
-import unittest
 import zipfile
+import csuite_test
 
-# Export the TestCase class to reduce the number of imports tests have to list.
-TestCase = unittest.TestCase
+# Export symbols to reduce the number of imports tests have to list.
+TestCase = csuite_test.TestCase  # pylint: disable=invalid-name
+main = csuite_test.main
+get_device_serial = csuite_test.get_device_serial
 
 
 class CSuiteHarness(contextlib.AbstractContextManager):
@@ -234,28 +234,3 @@ def _get_test_file(name: Text) -> pathlib.Path:
 
 def _get_test_dir() -> pathlib.Path:
   return pathlib.Path(__file__).parent
-
-
-_DEVICE_SERIAL = None
-
-
-def get_device_serial() -> Text:
-  """Returns the serial of the connected device."""
-  if not _DEVICE_SERIAL:
-    raise RuntimeError(
-        'Device serial is unset, did you call main in your test?')
-  return _DEVICE_SERIAL
-
-
-def main():
-  global _DEVICE_SERIAL
-
-  parser = argparse.ArgumentParser()
-  parser.add_argument('-s', '--serial', help='the device serial')
-  args, unknown = parser.parse_known_args(sys.argv)
-
-  _DEVICE_SERIAL = args.serial
-
-  # Setting verbosity is required to generate output that the TradeFed test
-  # runner can parse.
-  unittest.main(verbosity=3, argv=unknown)
