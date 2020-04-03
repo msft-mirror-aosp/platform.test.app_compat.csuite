@@ -46,10 +46,17 @@ import java.util.stream.Collectors;
 public final class AppSetupPreparer implements ITargetPreparer {
 
     public static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
-    private static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
-    private static final String OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS =
+    @VisibleForTesting static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
+
+    @VisibleForTesting
+    static final String OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS =
+            "wait-for-device-available-seconds";
+
+    @VisibleForTesting
+    static final String OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS =
             "exponential-backoff-multiplier-seconds";
-    private static final String OPTION_MAX_RETRY = "max-retry";
+
+    @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
 
     @Option(
             name = "test-file-name",
@@ -65,15 +72,24 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @Option(
             name = OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS,
             description =
-                    "The exponential backoff multiplier for retries in seconds ."
+                    "The exponential backoff multiplier for retries in seconds. "
                             + "A value n means the preparer will wait for n^(retry_count) "
                             + "seconds between retries.")
     private int mExponentialBackoffMultiplierSeconds = 0;
 
+    // TODO(yuexima): Remove this option after migrated to using
+    // OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS
     @Option(
             name = OPTION_CHECK_DEVICE_AVAILABLE,
             description = "Whether to check device avilibility upon setUp failure.")
     private boolean mCheckDeviceAvailable = false;
+
+    @Option(
+            name = OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS,
+            description =
+                    "Timeout value for waiting for device available in seconds. "
+                            + "A negative value means not to check device availability.")
+    private int mWaitForDeviceAvailableSeconds = -1;
 
     private final TestAppInstallSetup mTestAppInstallSetup;
     private final Sleeper mSleeper;
@@ -181,17 +197,22 @@ public final class AppSetupPreparer implements ITargetPreparer {
     }
 
     private void checkDeviceAvailable(ITestDevice device) throws DeviceNotAvailableException {
-        if (!mCheckDeviceAvailable) {
+        if (mCheckDeviceAvailable) {
+            // Throw an exception for TF to retry the invocation if the device is no longer
+            // available since retrying would be useless. Ideally we would wait for the device to
+            // recover but that is currently not supported in TradeFed.
+            if (device.getProperty("any_key") == null) {
+                throw new DeviceNotAvailableException(
+                        "getprop command failed. Might have lost connection to the device.");
+            }
             return;
         }
 
-        // Throw an exception for TF to retry the invocation if the device is no longer available
-        // since retrying would be useless. Ideally we would wait for the device to recover but
-        // that is currently not supported in TradeFed.
-        if (device.getProperty("_") == null) {
-            throw new DeviceNotAvailableException(
-                    "getprop command failed. Might have lost connection to the device.");
+        if (mWaitForDeviceAvailableSeconds < 0) {
+            return;
         }
+
+        device.waitForDeviceAvailable(1000L * mWaitForDeviceAvailableSeconds);
     }
 
     private void checkArgumentNonNegative(int val, String name) {
