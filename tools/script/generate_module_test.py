@@ -17,9 +17,9 @@
 
 import io
 import os
-import unittest
-
 from xml.etree import cElementTree as ET
+import csuite_test
+
 import generate_module
 
 from pyfakefs import fake_filesystem_unittest
@@ -27,7 +27,7 @@ from pyfakefs import fake_filesystem_unittest
 _AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
 
 
-class WriteTestModuleTest(unittest.TestCase):
+class WriteTestModuleTest(csuite_test.TestCase):
 
   def test_xml_is_valid(self):
     package_name = 'package_name'
@@ -48,7 +48,7 @@ class WriteTestModuleTest(unittest.TestCase):
     return True
 
 
-class WriteBuildModuleTest(unittest.TestCase):
+class WriteBuildModuleTest(csuite_test.TestCase):
 
   def test_build_file_is_valid(self):
     package_name = 'package_name'
@@ -82,7 +82,7 @@ class WriteBuildModuleTest(unittest.TestCase):
     return parenthese_count == 0
 
 
-class ParsePackageListTest(unittest.TestCase):
+class ParsePackageListTest(csuite_test.TestCase):
 
   def test_accepts_empty_lines(self):
     lines = io.StringIO('\n\n\npackage_name\n\n')
@@ -188,6 +188,4 @@ class GenerateAllModulesFromConfigTest(fake_filesystem_unittest.TestCase):
 
 
 if __name__ == '__main__':
-  # Setting verbosity is required to generate output that the TradeFed test
-  # runner can parse.
-  unittest.main(verbosity=3)
+  csuite_test.main()
