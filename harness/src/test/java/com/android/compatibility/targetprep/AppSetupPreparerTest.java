@@ -30,6 +30,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -43,6 +44,8 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.internal.stubbing.answers.AnswersWithDelay;
+import org.mockito.stubbing.Answer;
 
 import java.io.File;
 import java.io.IOException;
@@ -58,6 +61,7 @@ public final class AppSetupPreparerTest {
     private static final String NULL_PACKAGE_NAME = null;
     private static final TestAppInstallSetup NULL_TEST_APP_INSTALL_SETUP = null;
     private static final String TEST_PACKAGE_NAME = "test.package.name";
+    private static final Answer<Object> EMPTY_ANSWER = (i) -> null;
 
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
@@ -169,6 +173,66 @@ public final class AppSetupPreparerTest {
         doThrow(new TargetSetupError("Still failing"))
                 .doThrow(new TargetSetupError("Still failing"))
                 .doNothing()
+                .when(mMockAppInstallSetup)
+                .setUp(any(), any());
+
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+    }
+
+    @Test
+    public void setUp_negativeTimeout_throwsException() throws Exception {
+        AppSetupPreparer preparer = createPreparer();
+        IBuildInfo buildInfo = createValidBuildInfo();
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "-1");
+
+        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, mBuildInfo));
+    }
+
+    @Test
+    public void setUp_withinTimeout_doesNotThrowException() throws Exception {
+        AppSetupPreparer preparer = createPreparer();
+        IBuildInfo buildInfo = createValidBuildInfo();
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "1000");
+        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
+                .when(mMockAppInstallSetup)
+                .setUp(any(), any());
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+    }
+
+    @Test
+    public void setUp_exceedsTimeout_throwsException() throws Exception {
+        AppSetupPreparer preparer = createPreparer();
+        IBuildInfo buildInfo = createValidBuildInfo();
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5");
+        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
+                .when(mMockAppInstallSetup)
+                .setUp(any(), any());
+
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+    }
+
+    @Test
+    public void setUp_timesOutWithoutExceedingRetryLimit_doesNotThrowException() throws Exception {
+        AppSetupPreparer preparer = createPreparer();
+        IBuildInfo buildInfo = createValidBuildInfo();
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_MAX_RETRY, "1");
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5");
+        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
+                .doNothing()
+                .when(mMockAppInstallSetup)
+                .setUp(any(), any());
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+    }
+
+    @Test
+    public void setUp_timesOutAndExceedsRetryLimit_doesNotThrowException() throws Exception {
+        AppSetupPreparer preparer = createPreparer();
+        IBuildInfo buildInfo = createValidBuildInfo();
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_MAX_RETRY, "1");
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5");
+        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
                 .when(mMockAppInstallSetup)
                 .setUp(any(), any());
 
