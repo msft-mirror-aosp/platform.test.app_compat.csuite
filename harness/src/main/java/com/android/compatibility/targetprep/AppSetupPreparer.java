@@ -31,6 +31,9 @@ import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.SimpleTimeLimiter;
+import com.google.common.util.concurrent.TimeLimiter;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,6 +43,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /** A Tradefed preparer that downloads and installs an app on the target device. */
@@ -55,6 +60,8 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting
     static final String OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS =
             "exponential-backoff-multiplier-seconds";
+
+    @VisibleForTesting static final String OPTION_SETUP_TIMEOUT_MILLIS = "setup-timeout-millis";
 
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
 
@@ -91,8 +98,18 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "A negative value means not to check device availability.")
     private int mWaitForDeviceAvailableSeconds = -1;
 
+    @Option(
+            name = OPTION_SETUP_TIMEOUT_MILLIS,
+            description =
+                    "Timeout value for a setUp operation. "
+                            + "Note that the timeout is not a global timeout and will "
+                            + "be applied to each retry attempt.")
+    private long mSetupOnceTimeoutMillis = TimeUnit.MINUTES.toMillis(10);
+
     private final TestAppInstallSetup mTestAppInstallSetup;
     private final Sleeper mSleeper;
+    private final TimeLimiter mTimeLimiter =
+            SimpleTimeLimiter.create(Executors.newCachedThreadPool());
 
     public AppSetupPreparer() {
         this(null, new TestAppInstallSetup(), Sleepers.DefaultSleeper.INSTANCE);
@@ -114,20 +131,40 @@ public final class AppSetupPreparer implements ITargetPreparer {
         checkArgumentNonNegative(
                 mExponentialBackoffMultiplierSeconds,
                 OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS);
+        checkArgumentNonNegative(mSetupOnceTimeoutMillis, OPTION_SETUP_TIMEOUT_MILLIS);
 
         int runCount = 0;
         while (true) {
+            TargetSetupError currentException;
             try {
                 runCount++;
-                setUpOnce(device, buildInfo);
+
+                ITargetPreparer handler =
+                        mTimeLimiter.newProxy(
+                                new ITargetPreparer() {
+                                    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+                                            throws DeviceNotAvailableException, BuildError,
+                                                    TargetSetupError {
+                                        setUpOnce(device, buildInfo);
+                                    }
+                                },
+                                ITargetPreparer.class,
+                                mSetupOnceTimeoutMillis,
+                                TimeUnit.MILLISECONDS);
+                handler.setUp(device, buildInfo);
+
                 break;
             } catch (TargetSetupError e) {
-                checkDeviceAvailable(device);
-                if (runCount > mMaxRetry) {
-                    throw e;
-                }
-                CLog.w("setUp failed: %s. Run count: %d. Retrying...", e, runCount);
+                currentException = e;
+            } catch (UncheckedTimeoutException e) {
+                currentException = new TargetSetupError(e.getMessage(), e);
             }
+
+            checkDeviceAvailable(device);
+            if (runCount > mMaxRetry) {
+                throw currentException;
+            }
+            CLog.w("setUp failed: %s. Run count: %d. Retrying...", currentException, runCount);
 
             try {
                 mSleeper.sleep(
@@ -139,7 +176,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         }
     }
 
-    public void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
+    private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         // TODO(b/147159584): Use a utility to get dynamic options.
         String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
@@ -215,7 +252,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         device.waitForDeviceAvailable(1000L * mWaitForDeviceAvailableSeconds);
     }
 
-    private void checkArgumentNonNegative(int val, String name) {
+    private void checkArgumentNonNegative(long val, String name) {
         checkArgument(val >= 0, "%s (%s) must not be negative", name, val);
     }
 
