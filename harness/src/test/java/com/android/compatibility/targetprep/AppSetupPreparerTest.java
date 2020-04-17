@@ -397,7 +397,7 @@ public final class AppSetupPreparerTest {
 
     @Test
     public void setUp_interruptedDuringBackoff_throwsException() throws Exception {
-        FakeSleeper sleeper = new FakeThrowingSleeper();
+        FakeSleeper sleeper = new FakeInterruptedSleeper();
         AppSetupPreparer preparer = createPreparerWithSleeper(sleeper);
         IBuildInfo buildInfo = createValidBuildInfo();
         setPreparerOption(
@@ -405,8 +405,14 @@ public final class AppSetupPreparerTest {
         setPreparerOption(preparer, AppSetupPreparer.OPTION_MAX_RETRY, "3");
         makeInstallerThrow(new TargetSetupError(""));
 
-        assertThrows(RuntimeException.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
-        assertThat(sleeper.getSleepHistory().size()).isEqualTo(1);
+        try {
+            assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            assertThat(sleeper.getSleepHistory().size()).isEqualTo(1);
+        } finally {
+            // Clear interrupt to not interfere with future tests.
+            Thread.interrupted();
+        }
     }
 
     private void setPreparerOption(AppSetupPreparer preparer, String key, String val)
@@ -467,7 +473,7 @@ public final class AppSetupPreparerTest {
         }
     }
 
-    private static class FakeThrowingSleeper extends FakeSleeper {
+    private static class FakeInterruptedSleeper extends FakeSleeper {
         @Override
         public void sleep(Duration duration) throws InterruptedException {
             super.sleep(duration);

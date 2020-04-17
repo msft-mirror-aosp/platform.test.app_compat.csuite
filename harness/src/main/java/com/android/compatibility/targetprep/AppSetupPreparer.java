@@ -171,7 +171,8 @@ public final class AppSetupPreparer implements ITargetPreparer {
                         Duration.ofSeconds(
                                 (int) Math.pow(mExponentialBackoffMultiplierSeconds, runCount)));
             } catch (InterruptedException e) {
-                throw new RuntimeException(e.getMessage());
+                Thread.currentThread().interrupt();
+                throw new TargetSetupError(e.getMessage(), e);
             }
         }
     }
