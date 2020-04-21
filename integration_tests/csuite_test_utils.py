@@ -93,17 +93,17 @@ class CSuiteHarness(contextlib.AbstractContextManager):
 
     # Clear environment variables that would cause the script to think it's in a
     # build tree.
-    del env['ANDROID_BUILD_TOP']
-    del env['ANDROID_HOST_OUT']
+    env.pop('ANDROID_BUILD_TOP', None)
+    env.pop('ANDROID_HOST_OUT', None)
 
     # Clear environment variables that would cause TradeFed to find test configs
     # other than the ones created by the test.
-    del env['ANDROID_HOST_OUT_TESTCASES']
-    del env['ANDROID_TARGET_OUT_TESTCASES']
+    env.pop('ANDROID_HOST_OUT_TESTCASES', None)
+    env.pop('ANDROID_TARGET_OUT_TESTCASES', None)
 
     # Clear environment variables that might cause the suite to pick up a
     # connected device that wasn't explicitly specified.
-    del env['ANDROID_SERIAL']
+    env.pop('ANDROID_SERIAL', None)
 
     # Set the environment variable that TradeFed requires to find test modules.
     env['ANDROID_TARGET_OUT_TESTCASES'] = self._testcases_dir
