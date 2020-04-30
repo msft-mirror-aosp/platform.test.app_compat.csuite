@@ -19,43 +19,69 @@ import argparse
 import contextlib
 import glob
 import os
+import string
 import sys
 
 from typing import IO, Set, Text
-from xml.dom import minidom
-from xml.etree import cElementTree as ET
-from xml.sax import saxutils
 
-_AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
 _ANDROID_BP_FILE_NAME = 'Android.bp'
 _ANDROID_XML_FILE_NAME = 'AndroidTest.xml'
+_AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
 
-_CSUITE_LAUNCH_TEST_CLASS =\
-  'com.android.compatibility.testtype.AppLaunchTest'
+_BUILD_MODULE_TEMPLATE = string.Template("""\
+// Copyright (C) 2019 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-_MODULE_PREPARERS = [
-    ('com.android.compatibility.targetprep.AppSetupPreparer', [{
-        'name': 'test-file-name',
-        'value': 'csuite-launch-instrumentation.apk'
-    }]),
-    ('com.android.tradefed.targetprep.RunCommandTargetPreparer', [
-        {
-            'name': 'run-command',
-            'value': 'input keyevent KEYCODE_WAKEUP'
-        },
-        {
-            'name': 'run-command',
-            'value': 'input keyevent KEYCODE_MENU'
-        },
-        {
-            'name': 'run-command',
-            'value': 'input keyevent KEYCODE_HOME'
-        },
-    ]),
-]
+// ${auto_generate_note}
 
-_CONFIG_TYPE_TARGET_PREPARER = 'target_preparer'
-_CONFIG_TYPE_TEST = 'test'
+csuite_config {
+    name: "csuite_${package_name}",
+}
+""")
+
+_TEST_MODULE_TEMPLATE = string.Template("""\
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2019 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<!-- ${auto_generate_note}-->
+
+<configuration description="Tests the compatibility of apps">
+    <option key="plan" name="config-descriptor:metadata" value="app-launch"/>
+    <option name="package-name" value="${package_name}"/>
+    <target_preparer class="com.android.compatibility.targetprep.AppSetupPreparer">
+        <option name="test-file-name" value="csuite-launch-instrumentation.apk"/>
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
+        <option name="run-command" value="input keyevent KEYCODE_MENU"/>
+        <option name="run-command" value="input keyevent KEYCODE_HOME"/>
+    </target_preparer>
+    <test class="com.android.compatibility.testtype.AppLaunchTest"/>
+</configuration>
+""")
 
 
 def generate_all_modules_from_config(package_list_file_path, root_dir):
@@ -130,96 +156,16 @@ def _create_package_dir(root_dir, package_name):
 
 
 def write_build_module(package_name: Text, out_file: IO[bytes]) -> Text:
-  build_module = _BUILD_MODULE_HEADER \
-      + _BUILD_MODULE_TEMPLATE.format(package_name=package_name)
+  build_module = _BUILD_MODULE_TEMPLATE.substitute(
+      package_name=package_name, auto_generate_note=_AUTO_GENERATE_NOTE)
   out_file.write(build_module)
 
 
 def write_test_module(package_name: Text, out_file: IO[bytes]) -> Text:
   """Writes the test module for the provided package into a file."""
-  configuration = ET.Element('configuration',
-                             {'description': 'Tests the compatibility of apps'})
-  ET.SubElement(configuration, 'option', {
-      'name': 'config-descriptor:metadata',
-      'key': 'plan',
-      'value': 'app-launch'
-  })
-  ET.SubElement(configuration, 'option', {
-      'name': 'package-name',
-      'value': package_name
-  })
-
-  for (preparer, options) in _MODULE_PREPARERS:
-    _add_element_with_option(
-        configuration, _CONFIG_TYPE_TARGET_PREPARER, preparer, options=options)
-
-  _add_element_with_option(configuration, _CONFIG_TYPE_TEST,
-                           _CSUITE_LAUNCH_TEST_CLASS)
-
-  test_module = _TEST_MODULE_HEADER + _prettify(configuration)
+  test_module = _TEST_MODULE_TEMPLATE.substitute(
+      package_name=package_name, auto_generate_note=_AUTO_GENERATE_NOTE)
   out_file.write(test_module)
-
-
-def _add_element_with_option(elem, sub_elem, class_name, options=None):
-  if options is None:
-    options = []
-
-  new_elem = ET.SubElement(elem, sub_elem, {
-      'class': class_name,
-  })
-  for option in options:
-    ET.SubElement(new_elem, 'option', option)
-
-
-def _prettify(elem: ET.Element) -> Text:
-  declaration = minidom.Document().toxml()
-  parsed = minidom.parseString(ET.tostring(elem, 'utf-8'))
-
-  return saxutils.unescape(
-      parsed.toprettyxml(indent='    ')[len(declaration) + 1:])
-
-
-_BUILD_MODULE_HEADER = """// Copyright (C) 2019 The Android Open Source Project
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// {auto_generate_note}
-
-""".format(auto_generate_note=_AUTO_GENERATE_NOTE)
-
-_BUILD_MODULE_TEMPLATE = """csuite_config {{
-    name: "csuite_{package_name}",
-}}
-"""
-
-_TEST_MODULE_HEADER = """<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2019 The Android Open Source Project
-
-     Licensed under the Apache License, Version 2.0 (the "License");
-     you may not use this file except in compliance with the License.
-     You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
--->
-<!-- {auto_generate_note}-->
-
-""".format(auto_generate_note=_AUTO_GENERATE_NOTE)
 
 
 def _file_path(path):
