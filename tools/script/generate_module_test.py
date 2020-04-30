@@ -29,57 +29,72 @@ _AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
 
 class WriteTestModuleTest(csuite_test.TestCase):
 
-  def test_xml_is_valid(self):
-    package_name = 'package_name'
+  def test_output_contains_license(self):
+    out = io.StringIO()
+
+    generate_module.write_test_module('a.package.name', out)
+
+    self.assertIn('Copyright', out.getvalue())
+    self.assertIn('Android Open Source Project', out.getvalue())
+
+  def test_output_is_valid_xml(self):
+    out = io.StringIO()
+
+    generate_module.write_test_module('a.package.name', out)
+
+    self.assert_valid_xml(out.getvalue())
+
+  def test_output_contains_package_name(self):
+    package_name = 'a.package.name'
     out = io.StringIO()
 
     generate_module.write_test_module(package_name, out)
 
-    test_module_generated = out.getvalue()
-    self.assertTrue(self._contains_license(test_module_generated))
-    self.assertTrue(self._is_validate_xml(test_module_generated))
+    self.assertIn(package_name, out.getvalue())
 
-  def _contains_license(self, generated_str: bytes) -> bool:
-    return 'Copyright' in generated_str and \
-            'Android Open Source Project' in generated_str
-
-  def _is_validate_xml(self, xml_str: bytes) -> bool:
-    ET.parse(io.BytesIO(xml_str.encode('utf8')))
-    return True
+  def assert_valid_xml(self, xml_str: bytes) -> None:
+    try:
+      ET.parse(io.BytesIO(xml_str.encode('utf8')))
+    except ET.ParseError as e:
+      self.fail('Input \'%s\' is not a valid XML document: %s' % (xml_str, e))
 
 
 class WriteBuildModuleTest(csuite_test.TestCase):
 
-  def test_build_file_is_valid(self):
-    package_name = 'package_name'
+  def test_output_contains_license(self):
+    out = io.StringIO()
+
+    generate_module.write_build_module('a.package.name', out)
+
+    self.assertIn('Copyright', out.getvalue())
+    self.assertIn('Android Open Source Project', out.getvalue())
+
+  def test_output_is_valid_build_file(self):
+    package_name = 'a.package.name'
     out = io.StringIO()
 
     generate_module.write_build_module(package_name, out)
 
-    build_module_generated = out.getvalue()
-    self.assertTrue(self._contains_license(build_module_generated))
-    self.assertTrue(self._are_parentheses_balanced(build_module_generated))
-    self.assertIn('csuite_config', build_module_generated)
-    self.assertIn(package_name, build_module_generated)
+    out_str = out.getvalue()
+    self.assert_braces_balanced(out_str)
+    self.assertIn('csuite_config', out_str)
+    self.assertIn(package_name, out_str)
 
-  def _contains_license(self, generated_str: bytes) -> bool:
-    return 'Copyright' in generated_str and \
-            'Android Open Source Project' in generated_str
+  def assert_braces_balanced(self, generated_str: bytes) -> None:
+    """Checks whether all braces in the provided string are balanced."""
+    count = 0
 
-  def _are_parentheses_balanced(self, generated_str: bytes) -> bool:
-    """Returns whether all parentheses in the provided string are balanced."""
-    parenthese_count = 0
+    for c in generated_str:
+      if c == '{':
+        count += 1
+      elif c == '}':
+        count -= 1
 
-    for elem in generated_str:
-      if elem == '{':
-        parenthese_count += 1
-      elif elem == '}':
-        parenthese_count -= 1
+      if count < 0:
+        break
 
-      if parenthese_count < 0:
-        return False
-
-    return parenthese_count == 0
+    self.assertEqual(count, 0,
+                     'Braces in \'%s\' are not balanced' % generated_str)
 
 
 class ParsePackageListTest(csuite_test.TestCase):
