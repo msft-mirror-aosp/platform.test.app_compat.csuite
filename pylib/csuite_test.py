@@ -17,7 +17,7 @@
 
 import argparse
 import sys
-from typing import Text
+from typing import Any, Sequence, Text
 import unittest
 
 # Export the TestCase class to reduce the number of imports tests have to list.
@@ -34,17 +34,50 @@ def get_device_serial() -> Text:
   return _DEVICE_SERIAL
 
 
-def main():
-  global _DEVICE_SERIAL
+def create_arg_parser(add_help: bool = False) -> argparse.ArgumentParser:
+  """Creates a new parser that can handle the default command-line flags.
+
+  The object returned by this function can be used by other modules that want to
+  add their own command-line flags. The returned parser is intended to be passed
+  to the 'parents' argument of ArgumentParser and extend the set of default
+  flags with additional ones.
+
+  Args:
+    add_help: whether to add an option which simply displays the parser’s help
+      message; this is typically false when used from other modules that want to
+      use the returned parser as a parent argument parser.
+
+  Returns:
+    A new arg parser that can handle the default flags expected by this module.
+  """
 
   # The below flags are passed in by the TF Python test runner.
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(add_help=add_help)
+
   parser.add_argument('-s', '--serial', help='the device serial')
   parser.add_argument(
       '--test-output-file',
       help='the file in which to store the test results',
       required=True)
-  args, unknown = parser.parse_known_args(sys.argv)
+
+  return parser
+
+
+def run_tests(args: Any, unittest_argv: Sequence[Text]) -> None:
+  """Executes a set of Python unit tests.
+
+  This function is typically used by modules that extend command-line flags.
+  Callers create their own argument parser with this module's parser as a parent
+  and parse the command-line. The resulting object is will contain the
+  attributes expected by this module and is used to call this method.
+
+  Args:
+    args: an object that contains at least the set of attributes defined in
+      objects returned when using the default argument parser.
+    unittest_argv: the list of command-line arguments to forward to
+      unittest.main.
+  """
+  global _DEVICE_SERIAL
 
   _DEVICE_SERIAL = args.serial
 
@@ -64,4 +97,11 @@ def main():
 
     # Setting verbosity is required to generate output that the TradeFed test
     # runner can parse.
-    unittest.TestProgram(verbosity=3, testRunner=TestRunner, argv=unknown)
+    unittest.TestProgram(verbosity=3, testRunner=TestRunner, argv=unittest_argv)
+
+
+def main():
+  """Executes a set of Python unit tests."""
+  args, unittest_argv = create_arg_parser(add_help=True).parse_known_args(
+      sys.argv)
+  run_tests(args, unittest_argv)
