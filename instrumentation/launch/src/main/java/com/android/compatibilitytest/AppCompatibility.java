@@ -39,6 +39,8 @@ import android.view.KeyEvent;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.internal.util.Preconditions;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -138,61 +140,58 @@ public final class AppCompatibility {
     @Test
     public void testAppStability() throws Exception {
         String packageName = mArgs.getString(PACKAGE_TO_LAUNCH);
-        if (packageName != null) {
-            Log.d(TAG, "Launching app " + packageName);
-            Intent intent = getLaunchIntentForPackage(packageName);
-            if (intent == null) {
-                Log.w(TAG, String.format("Skipping %s; no launch intent", packageName));
-                return;
-            }
-            long startTime = System.currentTimeMillis();
-            launchActivity(packageName, intent);
+        Preconditions.checkStringNotEmpty(
+                packageName,
+                "Missing argument, use %s to specify the package to launch",
+                PACKAGE_TO_LAUNCH);
 
-            if (mArgs.getString(ARG_DISMISS_DIALOG, "false").equals("true")) {
-                // Attempt to dismiss any dialogs which some apps display to 'gracefully' handle
-                // errors. The dialog prevents the app from crashing thereby hiding issues. The
-                // first key event is to select a default button on the error dialog if any while
-                // the second event pushes the button.
-                IntStream.range(0, 2)
-                        .forEach(i -> mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER));
-                // Give the app process enough time to terminate after dismissing the error.
-                Thread.sleep(DELAY_AFTER_KEYEVENT_MILLIS);
-            }
-
-            checkDropbox(startTime, packageName);
-            if (mAppErrors.containsKey(packageName)) {
-                StringBuilder message =
-                        new StringBuilder("Error(s) detected for package: ").append(packageName);
-                List<String> errors = mAppErrors.get(packageName);
-                for (int i = 0; i < MAX_NUM_CRASH_SNIPPET && i < errors.size(); i++) {
-                    String err = errors.get(i);
-                    message.append("\n\n");
-                    // limit the size of each crash snippet
-                    message.append(truncate(err, MAX_CRASH_SNIPPET_LINES));
-                }
-                if (errors.size() > MAX_NUM_CRASH_SNIPPET) {
-                    message.append(
-                            String.format(
-                                    "\n... %d more errors omitted ...",
-                                    errors.size() - MAX_NUM_CRASH_SNIPPET));
-                }
-                Assert.fail(message.toString());
-            }
-            // last check: see if app process is still running
-            Assert.assertTrue(
-                    "app package \""
-                            + packageName
-                            + "\" no longer found in running "
-                            + "tasks, but no explicit crashes were detected; check logcat for "
-                            + "details",
-                    processStillUp(packageName));
-        } else {
-            Log.d(
-                    TAG,
-                    "Missing argument, use "
-                            + PACKAGE_TO_LAUNCH
-                            + " to specify the package to launch");
+        Log.d(TAG, "Launching app " + packageName);
+        Intent intent = getLaunchIntentForPackage(packageName);
+        if (intent == null) {
+            Log.w(TAG, String.format("Skipping %s; no launch intent", packageName));
+            return;
         }
+        long startTime = System.currentTimeMillis();
+        launchActivity(packageName, intent);
+
+        if (mArgs.getString(ARG_DISMISS_DIALOG, "false").equals("true")) {
+            // Attempt to dismiss any dialogs which some apps display to 'gracefully' handle
+            // errors. The dialog prevents the app from crashing thereby hiding issues. The
+            // first key event is to select a default button on the error dialog if any while
+            // the second event pushes the button.
+            IntStream.range(0, 2)
+                    .forEach(i -> mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER));
+            // Give the app process enough time to terminate after dismissing the error.
+            Thread.sleep(DELAY_AFTER_KEYEVENT_MILLIS);
+        }
+
+        checkDropbox(startTime, packageName);
+        if (mAppErrors.containsKey(packageName)) {
+            StringBuilder message =
+                    new StringBuilder("Error(s) detected for package: ").append(packageName);
+            List<String> errors = mAppErrors.get(packageName);
+            for (int i = 0; i < MAX_NUM_CRASH_SNIPPET && i < errors.size(); i++) {
+                String err = errors.get(i);
+                message.append("\n\n");
+                // limit the size of each crash snippet
+                message.append(truncate(err, MAX_CRASH_SNIPPET_LINES));
+            }
+            if (errors.size() > MAX_NUM_CRASH_SNIPPET) {
+                message.append(
+                        String.format(
+                                "\n... %d more errors omitted ...",
+                                errors.size() - MAX_NUM_CRASH_SNIPPET));
+            }
+            Assert.fail(message.toString());
+        }
+        // last check: see if app process is still running
+        Assert.assertTrue(
+                "app package \""
+                        + packageName
+                        + "\" no longer found in running "
+                        + "tasks, but no explicit crashes were detected; check logcat for "
+                        + "details",
+                processStillUp(packageName));
     }
 
     /**
