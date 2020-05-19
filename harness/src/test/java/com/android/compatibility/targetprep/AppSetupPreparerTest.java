@@ -56,7 +56,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 @RunWith(JUnit4.class)
@@ -373,8 +372,8 @@ public final class AppSetupPreparerTest {
     public void setUp_testFileNameOptionSet_forwardsToInstaller() throws Exception {
         IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        ArgumentCaptor<String> stringArgCaptor = ArgumentCaptor.forClass(String.class);
-        doNothing().when(installer).addTestFileName(stringArgCaptor.capture());
+        ArgumentCaptor<File> captor = ArgumentCaptor.forClass(File.class);
+        doNothing().when(installer).addTestFile(captor.capture());
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setInstaller(installer)
@@ -384,16 +383,16 @@ public final class AppSetupPreparerTest {
 
         preparer.setUp(NULL_DEVICE, buildInfo);
 
-        List<String> values = stringArgCaptor.getAllValues();
-        assertThat(values).containsExactly("additional1.apk", "additional2.apk");
+        assertThat(captor.getAllValues())
+                .containsAllOf(new File("additional1.apk"), new File("additional2.apk"));
     }
 
     @Test
     public void setUp_installArgOptionSet_forwardsToInstaller() throws Exception {
         IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        ArgumentCaptor<String> stringArgCaptor = ArgumentCaptor.forClass(String.class);
-        doNothing().when(installer).addInstallArg(stringArgCaptor.capture());
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        doNothing().when(installer).addInstallArg(captor.capture());
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setInstaller(installer)
@@ -403,8 +402,7 @@ public final class AppSetupPreparerTest {
 
         preparer.setUp(NULL_DEVICE, buildInfo);
 
-        List<String> values = stringArgCaptor.getAllValues();
-        assertThat(values).containsExactly("-arg1", "-arg2");
+        assertThat(captor.getAllValues()).containsExactly("-arg1", "-arg2");
     }
 
     @Test
