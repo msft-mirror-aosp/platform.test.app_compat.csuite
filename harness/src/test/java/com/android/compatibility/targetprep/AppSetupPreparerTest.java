@@ -30,6 +30,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -44,6 +45,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.internal.stubbing.answers.AnswersWithDelay;
 import org.mockito.stubbing.Answer;
 
@@ -53,6 +55,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 
 @RunWith(JUnit4.class)
 public final class AppSetupPreparerTest {
@@ -360,11 +363,32 @@ public final class AppSetupPreparerTest {
     public void setUp_testFileNameOptionSet_forwardsToUnderlyingPreparer() throws Exception {
         AppSetupPreparer preparer = createPreparer();
         IBuildInfo buildInfo = createValidBuildInfo();
-        new OptionSetter(preparer).setOptionValue("test-file-name", "additional.apk");
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_TEST_FILE_NAME, "additional1.apk");
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_TEST_FILE_NAME, "additional2.apk");
+        ArgumentCaptor<String> stringArgCaptor = ArgumentCaptor.forClass(String.class);
 
         preparer.setUp(NULL_DEVICE, buildInfo);
 
-        verify(mMockAppInstallSetup).addTestFileName("additional.apk");
+        verify(mMockAppInstallSetup, atLeast(2)).addTestFileName(stringArgCaptor.capture());
+        List<String> values = stringArgCaptor.getAllValues();
+        assertThat(values).contains("additional1.apk");
+        assertThat(values).contains("additional2.apk");
+    }
+
+    @Test
+    public void setUp_installArgOptionSet_forwardsToUnderlyingPreparer() throws Exception {
+        AppSetupPreparer preparer = createPreparer();
+        IBuildInfo buildInfo = createValidBuildInfo();
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_INSTALL_ARG, "-arg1");
+        setPreparerOption(preparer, AppSetupPreparer.OPTION_INSTALL_ARG, "-arg2");
+        ArgumentCaptor<String> stringArgCaptor = ArgumentCaptor.forClass(String.class);
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+
+        verify(mMockAppInstallSetup, atLeast(2)).addInstallArg(stringArgCaptor.capture());
+        List<String> values = stringArgCaptor.getAllValues();
+        assertThat(values).contains("-arg1");
+        assertThat(values).contains("-arg2");
     }
 
     @Test

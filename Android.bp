@@ -20,9 +20,6 @@ python_defaults {
         },
         py3: {
             enabled: true,
-            // TODO(hzalek): Remove this once b/146057182 is resolved as not
-            // using the embedded_launcher is dangerous.
-            embedded_launcher: false,
         },
     },
 }

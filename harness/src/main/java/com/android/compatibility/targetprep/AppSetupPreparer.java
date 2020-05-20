@@ -61,14 +61,22 @@ public final class AppSetupPreparer implements ITargetPreparer {
     static final String OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS =
             "exponential-backoff-multiplier-seconds";
 
+    @VisibleForTesting static final String OPTION_TEST_FILE_NAME = "test-file-name";
+    @VisibleForTesting static final String OPTION_INSTALL_ARG = "install-arg";
     @VisibleForTesting static final String OPTION_SETUP_TIMEOUT_MILLIS = "setup-timeout-millis";
-
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
 
     @Option(
-            name = "test-file-name",
+            name = OPTION_TEST_FILE_NAME,
             description = "the name of an apk file to be installed on device. Can be repeated.")
-    private Collection<String> mTestFileNames = new ArrayList<String>();
+    private final Collection<String> mTestFileNames = new ArrayList<String>();
+
+    @Option(
+            name = OPTION_INSTALL_ARG,
+            description =
+                    "Additional arguments to be passed to install command, "
+                            + "including leading dash, e.g. \"-d\"")
+    private final Collection<String> mInstallArgs = new ArrayList<>();
 
     @Option(name = "package-name", description = "Package name of the app being tested.")
     private String mPackageName;
@@ -210,6 +218,10 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
         for (String testFileName : mTestFileNames) {
             mTestAppInstallSetup.addTestFileName(testFileName);
+        }
+
+        for (String installArg : mInstallArgs) {
+            mTestAppInstallSetup.addInstallArg(installArg);
         }
 
         if (apkFilePaths.size() == 1) {
