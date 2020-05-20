@@ -18,11 +18,11 @@
 import io
 import os
 from xml.etree import cElementTree as ET
+from pyfakefs import fake_filesystem_unittest
 import csuite_test
 
 import generate_module
 
-from pyfakefs import fake_filesystem_unittest
 
 _AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
 
@@ -32,7 +32,8 @@ class WriteTestModuleTest(csuite_test.TestCase):
   def test_output_contains_license(self):
     out = io.StringIO()
 
-    generate_module.write_test_module('a.package.name', out)
+    generate_module.write_module(generate_module.DEFAULT_BUILD_MODULE_TEMPLATE,
+                                 'a.package.name', out)
 
     self.assertIn('Copyright', out.getvalue())
     self.assertIn('Android Open Source Project', out.getvalue())
@@ -40,7 +41,8 @@ class WriteTestModuleTest(csuite_test.TestCase):
   def test_output_is_valid_xml(self):
     out = io.StringIO()
 
-    generate_module.write_test_module('a.package.name', out)
+    generate_module.write_module(generate_module.DEFAULT_TEST_MODULE_TEMPLATE,
+                                 'a.package.name', out)
 
     self.assert_valid_xml(out.getvalue())
 
@@ -48,7 +50,8 @@ class WriteTestModuleTest(csuite_test.TestCase):
     package_name = 'a.package.name'
     out = io.StringIO()
 
-    generate_module.write_test_module(package_name, out)
+    generate_module.write_module(generate_module.DEFAULT_TEST_MODULE_TEMPLATE,
+                                 'a.package.name', out)
 
     self.assertIn(package_name, out.getvalue())
 
@@ -64,7 +67,8 @@ class WriteBuildModuleTest(csuite_test.TestCase):
   def test_output_contains_license(self):
     out = io.StringIO()
 
-    generate_module.write_build_module('a.package.name', out)
+    generate_module.write_module(generate_module.DEFAULT_BUILD_MODULE_TEMPLATE,
+                                 'a.package.name', out)
 
     self.assertIn('Copyright', out.getvalue())
     self.assertIn('Android Open Source Project', out.getvalue())
@@ -73,7 +77,8 @@ class WriteBuildModuleTest(csuite_test.TestCase):
     package_name = 'a.package.name'
     out = io.StringIO()
 
-    generate_module.write_build_module(package_name, out)
+    generate_module.write_module(generate_module.DEFAULT_BUILD_MODULE_TEMPLATE,
+                                 'a.package.name', out)
 
     out_str = out.getvalue()
     self.assert_braces_balanced(out_str)
@@ -141,7 +146,7 @@ class ParseArgsTest(fake_filesystem_unittest.TestCase):
 
     with self.assertRaises(SystemExit):
       generate_module.parse_args(
-          ['--package_list', package_list_file_path, '--root_dir', root_dir],
+          ['--package-list', package_list_file_path, '--root-dir', root_dir],
           out=io.StringIO(),
           err=io.StringIO())
 
@@ -155,7 +160,41 @@ class ParseArgsTest(fake_filesystem_unittest.TestCase):
 
     with self.assertRaises(SystemExit):
       generate_module.parse_args(
-          ['--package_list', package_list_file_path, '--root_dir', root_dir],
+          ['--package-list', package_list_file_path, '--root-dir', root_dir],
+          out=io.StringIO(),
+          err=io.StringIO())
+
+  def test_test_module_template_file_not_exist(self):
+    package_list_file_path = '/test/package_list.txt'
+    package_name1 = 'package_name_1'
+    package_name2 = 'package_name_2'
+    self.fs.create_file(
+        package_list_file_path, contents=(package_name1 + '\n' + package_name2))
+    root_dir = '/test/modules'
+    os.makedirs(root_dir)
+    template_file_path = '/test/template.txt'
+
+    with self.assertRaises(SystemExit):
+      generate_module.parse_args(
+          ['--package-list', package_list_file_path, '--root-dir', root_dir,
+           '--test', template_file_path],
+          out=io.StringIO(),
+          err=io.StringIO())
+
+  def test_build_module_template_file_not_exist(self):
+    package_list_file_path = '/test/package_list.txt'
+    package_name1 = 'package_name_1'
+    package_name2 = 'package_name_2'
+    self.fs.create_file(
+        package_list_file_path, contents=(package_name1 + '\n' + package_name2))
+    root_dir = '/test/modules'
+    os.makedirs(root_dir)
+    template_file_path = '/test/template.txt'
+
+    with self.assertRaises(SystemExit):
+      generate_module.parse_args(
+          ['--package-list', package_list_file_path, '--root-dir', root_dir,
+           '--template', template_file_path],
           out=io.StringIO(),
           err=io.StringIO())
 
