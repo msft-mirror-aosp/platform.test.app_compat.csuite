@@ -233,6 +233,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         checkArgument(val >= 0, "%s (%s) must not be negative", name, val);
     }
 
+    @VisibleForTesting
     interface Sleeper {
         void sleep(Duration duration) throws InterruptedException;
     }
