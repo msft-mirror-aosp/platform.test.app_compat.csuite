@@ -133,6 +133,39 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
+    public void setUp_installAppUrisOptionDefault_doesNotInstall() throws Exception {
+        String appUri = "app://com.example.app";
+        IBuildInfo buildInfo = createValidBuildInfo();
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+        AppSetupPreparer preparer =
+                preparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, appUri)
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+
+        verify(installer, never()).addTestFile(new File(appUri));
+    }
+
+    @Test
+    public void setUp_installAppUrisOptionSet_installs() throws Exception {
+        String appUri = "app://com.example.app";
+        IBuildInfo buildInfo = createValidBuildInfo();
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+        AppSetupPreparer preparer =
+                preparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, appUri)
+                        .setOption(AppSetupPreparer.OPTION_INSTALL_APP_URIS, "true")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+
+        verify(installer).addTestFile(new File(appUri));
+    }
+
+    @Test
     public void tearDown_forwardsToInstaller() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         AppSetupPreparer preparer = preparerBuilder().setInstaller(installer).build();
