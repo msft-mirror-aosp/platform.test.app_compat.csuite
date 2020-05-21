@@ -67,6 +67,7 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
       return harness.run_and_wait([
           '--serial',
           csuite_test_utils.get_device_serial(), 'run', 'commandAndExit',
+          '--enable-module-dynamic-download',
           'launch', '--gcs-apk-dir',
           repo.get_path(), '-m', module_name
       ])
