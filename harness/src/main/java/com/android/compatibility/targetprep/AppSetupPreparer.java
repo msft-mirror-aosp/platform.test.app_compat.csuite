@@ -38,7 +38,7 @@ import com.google.common.util.concurrent.UncheckedTimeoutException;
 import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -64,14 +64,14 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @Option(
             name = OPTION_TEST_FILE_NAME,
             description = "the name of an apk file to be installed on device. Can be repeated.")
-    private final Collection<String> mTestFileNames = new ArrayList<String>();
+    private final List<File> mTestFiles = new ArrayList<>();
 
     @Option(
             name = OPTION_INSTALL_ARG,
             description =
                     "Additional arguments to be passed to install command, "
                             + "including leading dash, e.g. \"-d\"")
-    private final Collection<String> mInstallArgs = new ArrayList<>();
+    private final List<String> mInstallArgs = new ArrayList<>();
 
     @Option(name = "package-name", description = "Package name of the app being tested.")
     private String mPackageName;
@@ -191,8 +191,8 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 apkDir.isDirectory(),
                 String.format("GCS Apk Directory %s is not a directory", apkDir));
 
-        for (String testFileName : mTestFileNames) {
-            mTestAppInstallSetup.addTestFileName(testFileName);
+        for (File testFile : mTestFiles) {
+            mTestAppInstallSetup.addTestFile(testFile);
         }
 
         mTestAppInstallSetup.addTestFile(new File(apkDir, mPackageName));
