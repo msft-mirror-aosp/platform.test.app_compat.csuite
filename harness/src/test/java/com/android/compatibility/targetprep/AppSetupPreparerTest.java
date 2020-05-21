@@ -33,7 +33,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
@@ -76,6 +76,18 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
+    public void setUp_disableGcsInstallOptionSet_toleratesMissingApkDirOption() throws Exception {
+        IBuildInfo buildInfo = new BuildInfo();
+        buildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, null);
+        AppSetupPreparer preparer =
+                preparerBuilder()
+                        .setOption(AppSetupPreparer.OPTION_DISABLE_GCS_INSTALL, "true")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+    }
+
+    @Test
     public void setUp_gcsApkDirIsNotDir_throwsException() throws Exception {
         IBuildInfo buildInfo = new BuildInfo();
         File tempFile = tempFolder.newFile("temp_file_name");
@@ -102,6 +114,25 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
+    public void setUp_disableGcsInstallOptionSet_doesNotInstall() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+        AppSetupPreparer preparer =
+                preparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_DISABLE_GCS_INSTALL, "true")
+                        .build();
+        File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
+        File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
+        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "apk_name_1.apk");
+        IBuildInfo buildInfo = new BuildInfo();
+        buildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, gcsApkDir.getPath());
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+
+        verify(installer, never()).addTestFile(packageDir);
+    }
+
+    @Test
     public void tearDown_forwardsToInstaller() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         AppSetupPreparer preparer = preparerBuilder().setInstaller(installer).build();
@@ -109,7 +140,7 @@ public final class AppSetupPreparerTest {
 
         preparer.tearDown(testInfo, null);
 
-        verify(installer, times(1)).tearDown(testInfo, null);
+        verify(installer).tearDown(testInfo, null);
     }
 
     @Test
@@ -232,7 +263,7 @@ public final class AppSetupPreparerTest {
 
         preparer.setUp(NULL_DEVICE, buildInfo);
 
-        verify(installer, times(1)).setUp(any(), any());
+        verify(installer).setUp(any(), any());
     }
 
     @Test
@@ -248,7 +279,7 @@ public final class AppSetupPreparerTest {
 
         preparer.setUp(NULL_DEVICE, buildInfo);
 
-        verify(installer, times(1)).setUp(any(), any());
+        verify(installer).setUp(any(), any());
     }
 
     @Test

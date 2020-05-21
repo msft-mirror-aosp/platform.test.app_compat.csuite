@@ -109,6 +109,14 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "be applied to each retry attempt.")
     private long mSetupOnceTimeoutMillis = TimeUnit.MINUTES.toMillis(10);
 
+    @VisibleForTesting static final String OPTION_DISABLE_GCS_INSTALL = "disable-gcs-install";
+
+    @Option(
+            name = OPTION_DISABLE_GCS_INSTALL,
+            description =
+                    "Disables installation from the directory specified by --" + OPTION_GCS_APK_DIR)
+    private boolean mDisableGcsInstall = false;
+
     private final TestAppInstallSetup mTestAppInstallSetup;
     private final Sleeper mSleeper;
     private final TimeLimiter mTimeLimiter =
@@ -182,20 +190,22 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
-        // TODO(b/147159584): Use a utility to get dynamic options.
-        String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
-        checkNotNull(gcsApkDirOption, "Option %s is not set.", OPTION_GCS_APK_DIR);
+        if (!mDisableGcsInstall) {
+            // TODO(b/147159584): Use a utility to get dynamic options.
+            String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
+            checkNotNull(gcsApkDirOption, "Option %s is not set.", OPTION_GCS_APK_DIR);
 
-        File apkDir = new File(gcsApkDirOption);
-        checkArgument(
-                apkDir.isDirectory(),
-                String.format("GCS Apk Directory %s is not a directory", apkDir));
+            File apkDir = new File(gcsApkDirOption);
+            checkArgument(
+                    apkDir.isDirectory(),
+                    String.format("GCS Apk Directory %s is not a directory", apkDir));
+
+            mTestAppInstallSetup.addTestFile(new File(apkDir, mPackageName));
+        }
 
         for (File testFile : mTestFiles) {
             mTestAppInstallSetup.addTestFile(testFile);
         }
-
-        mTestAppInstallSetup.addTestFile(new File(apkDir, mPackageName));
 
         for (String installArg : mInstallArgs) {
             mTestAppInstallSetup.addInstallArg(installArg);
