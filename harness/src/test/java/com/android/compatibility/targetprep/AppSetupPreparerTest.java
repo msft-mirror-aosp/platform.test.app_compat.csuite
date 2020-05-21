@@ -17,7 +17,6 @@ package com.android.compatibility.targetprep;
 
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -29,8 +28,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.argThat;
-import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -60,9 +57,6 @@ import java.util.List;
 @RunWith(JUnit4.class)
 public final class AppSetupPreparerTest {
     private static final ITestDevice NULL_DEVICE = null;
-    private static final IBuildInfo NULL_BUILD_INFO = null;
-    private static final String NULL_PACKAGE_NAME = null;
-    private static final TestAppInstallSetup NULL_TEST_APP_INSTALL_SETUP = null;
     private static final String TEST_PACKAGE_NAME = "test.package.name";
     private static final Answer<Object> EMPTY_ANSWER = (i) -> null;
 
@@ -71,7 +65,6 @@ public final class AppSetupPreparerTest {
     private final IBuildInfo mBuildInfo = new BuildInfo();
     private final TestAppInstallSetup mMockAppInstallSetup = mock(TestAppInstallSetup.class);
     private FakeSleeper mFakeSleeper;
-    private Configuration mConfiguration = new Configuration(null, null);
 
     @Test
     public void setUp_gcsApkDirIsNull_throwsException()
@@ -93,45 +86,7 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
-    public void setUp_packageDirDoesNotExist_throwsError()
-            throws IOException, DeviceNotAvailableException, TargetSetupError {
-        AppSetupPreparer preparer = createPreparer();
-        File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        mBuildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, gcsApkDir.getPath());
-
-        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, mBuildInfo));
-    }
-
-    @Test
-    public void setUp_apkDoesNotExist() throws Exception {
-        AppSetupPreparer preparer = createPreparer();
-        File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "non_apk_file");
-        mBuildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, gcsApkDir.getPath());
-
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, mBuildInfo));
-    }
-
-    @Test
-    public void setUp_installSplitApk() throws Exception {
-        AppSetupPreparer preparer = createPreparer();
-        File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
-        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "apk_name_1.apk");
-        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "apk_name_2.apk");
-        mBuildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, gcsApkDir.getPath());
-
-        preparer.setUp(NULL_DEVICE, mBuildInfo);
-
-        verify(mMockAppInstallSetup).setAltDir(packageDir);
-        verify(mMockAppInstallSetup)
-                .addSplitApkFileNames(
-                        argThat(s -> s.contains("apk_name_1.apk") && s.contains("apk_name_2.apk")));
-        verify(mMockAppInstallSetup).setUp(any(), any());
-    }
-
-    @Test
-    public void setUp_installNonSplitApk() throws Exception {
+    public void setUp_installsApksInDirectory() throws Exception {
         AppSetupPreparer preparer = createPreparer();
         File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
         File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
@@ -140,13 +95,12 @@ public final class AppSetupPreparerTest {
 
         preparer.setUp(NULL_DEVICE, mBuildInfo);
 
-        verify(mMockAppInstallSetup).setAltDir(packageDir);
-        verify(mMockAppInstallSetup).addTestFileName("apk_name_1.apk");
+        verify(mMockAppInstallSetup).addTestFile(packageDir);
         verify(mMockAppInstallSetup).setUp(any(), any());
     }
 
     @Test
-    public void tearDown() throws Exception {
+    public void tearDown_forwardsToUnderlying() throws Exception {
         AppSetupPreparer preparer = createPreparer();
         TestInformation testInfo = TestInformation.newBuilder().build();
 
@@ -169,7 +123,7 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
-    public void setUp_exceedsRetryLimit_throwException() throws Exception {
+    public void setUp_exceedsRetryLimit_throwsException() throws Exception {
         AppSetupPreparer preparer = createPreparer();
         IBuildInfo buildInfo = createValidBuildInfo();
         setPreparerOption(preparer, AppSetupPreparer.OPTION_MAX_RETRY, "1");
@@ -366,13 +320,12 @@ public final class AppSetupPreparerTest {
         setPreparerOption(preparer, AppSetupPreparer.OPTION_TEST_FILE_NAME, "additional1.apk");
         setPreparerOption(preparer, AppSetupPreparer.OPTION_TEST_FILE_NAME, "additional2.apk");
         ArgumentCaptor<String> stringArgCaptor = ArgumentCaptor.forClass(String.class);
+        doNothing().when(mMockAppInstallSetup).addTestFileName(stringArgCaptor.capture());
 
         preparer.setUp(NULL_DEVICE, buildInfo);
 
-        verify(mMockAppInstallSetup, atLeast(2)).addTestFileName(stringArgCaptor.capture());
         List<String> values = stringArgCaptor.getAllValues();
-        assertThat(values).contains("additional1.apk");
-        assertThat(values).contains("additional2.apk");
+        assertThat(values).containsExactly("additional1.apk", "additional2.apk");
     }
 
     @Test
@@ -382,13 +335,12 @@ public final class AppSetupPreparerTest {
         setPreparerOption(preparer, AppSetupPreparer.OPTION_INSTALL_ARG, "-arg1");
         setPreparerOption(preparer, AppSetupPreparer.OPTION_INSTALL_ARG, "-arg2");
         ArgumentCaptor<String> stringArgCaptor = ArgumentCaptor.forClass(String.class);
+        doNothing().when(mMockAppInstallSetup).addInstallArg(stringArgCaptor.capture());
 
         preparer.setUp(NULL_DEVICE, buildInfo);
 
-        verify(mMockAppInstallSetup, atLeast(2)).addInstallArg(stringArgCaptor.capture());
         List<String> values = stringArgCaptor.getAllValues();
-        assertThat(values).contains("-arg1");
-        assertThat(values).contains("-arg2");
+        assertThat(values).containsExactly("-arg1", "-arg2");
     }
 
     @Test
