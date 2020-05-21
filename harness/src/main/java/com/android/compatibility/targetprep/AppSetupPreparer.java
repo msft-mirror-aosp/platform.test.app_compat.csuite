@@ -36,16 +36,11 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
@@ -196,38 +191,14 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 apkDir.isDirectory(),
                 String.format("GCS Apk Directory %s is not a directory", apkDir));
 
-        File packageDir = new File(apkDir.getPath(), mPackageName);
-        checkArgument(
-                packageDir.isDirectory(),
-                String.format("Package directory %s is not a directory", packageDir));
-
-        mTestAppInstallSetup.setAltDir(packageDir);
-
-        List<String> apkFilePaths;
-        try {
-            apkFilePaths = listApkFilePaths(packageDir);
-        } catch (IOException e) {
-            throw new TargetSetupError(
-                    String.format("Failed to access files in %s.", packageDir), e);
-        }
-
-        if (apkFilePaths.isEmpty()) {
-            throw new TargetSetupError(
-                    String.format("Failed to find apk files in %s.", packageDir));
-        }
-
         for (String testFileName : mTestFileNames) {
             mTestAppInstallSetup.addTestFileName(testFileName);
         }
 
+        mTestAppInstallSetup.addTestFile(new File(apkDir, mPackageName));
+
         for (String installArg : mInstallArgs) {
             mTestAppInstallSetup.addInstallArg(installArg);
-        }
-
-        if (apkFilePaths.size() == 1) {
-            mTestAppInstallSetup.addTestFileName(apkFilePaths.get(0));
-        } else {
-            mTestAppInstallSetup.addSplitApkFileNames(String.join(",", apkFilePaths));
         }
 
         mTestAppInstallSetup.setUp(device, buildInfo);
@@ -237,13 +208,6 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @Override
     public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         mTestAppInstallSetup.tearDown(testInfo, e);
-    }
-
-    private List<String> listApkFilePaths(File downloadDir) throws IOException {
-        return Files.walk(Paths.get(downloadDir.getPath()))
-                .map(x -> x.getFileName().toString())
-                .filter(s -> s.endsWith(".apk"))
-                .collect(Collectors.toList());
     }
 
     private void checkDeviceAvailable(ITestDevice device) throws DeviceNotAvailableException {
