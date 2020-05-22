@@ -36,16 +36,11 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
@@ -69,14 +64,14 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @Option(
             name = OPTION_TEST_FILE_NAME,
             description = "the name of an apk file to be installed on device. Can be repeated.")
-    private final Collection<String> mTestFileNames = new ArrayList<String>();
+    private final List<File> mTestFiles = new ArrayList<>();
 
     @Option(
             name = OPTION_INSTALL_ARG,
             description =
                     "Additional arguments to be passed to install command, "
                             + "including leading dash, e.g. \"-d\"")
-    private final Collection<String> mInstallArgs = new ArrayList<>();
+    private final List<String> mInstallArgs = new ArrayList<>();
 
     @Option(name = "package-name", description = "Package name of the app being tested.")
     private String mPackageName;
@@ -113,6 +108,14 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "Note that the timeout is not a global timeout and will "
                             + "be applied to each retry attempt.")
     private long mSetupOnceTimeoutMillis = TimeUnit.MINUTES.toMillis(10);
+
+    @VisibleForTesting static final String OPTION_DISABLE_GCS_INSTALL = "disable-gcs-install";
+
+    @Option(
+            name = OPTION_DISABLE_GCS_INSTALL,
+            description =
+                    "Disables installation from the directory specified by --" + OPTION_GCS_APK_DIR)
+    private boolean mDisableGcsInstall = false;
 
     private final TestAppInstallSetup mTestAppInstallSetup;
     private final Sleeper mSleeper;
@@ -187,47 +190,25 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
-        // TODO(b/147159584): Use a utility to get dynamic options.
-        String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
-        checkNotNull(gcsApkDirOption, "Option %s is not set.", OPTION_GCS_APK_DIR);
+        if (!mDisableGcsInstall) {
+            // TODO(b/147159584): Use a utility to get dynamic options.
+            String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
+            checkNotNull(gcsApkDirOption, "Option %s is not set.", OPTION_GCS_APK_DIR);
 
-        File apkDir = new File(gcsApkDirOption);
-        checkArgument(
-                apkDir.isDirectory(),
-                String.format("GCS Apk Directory %s is not a directory", apkDir));
+            File apkDir = new File(gcsApkDirOption);
+            checkArgument(
+                    apkDir.isDirectory(),
+                    String.format("GCS Apk Directory %s is not a directory", apkDir));
 
-        File packageDir = new File(apkDir.getPath(), mPackageName);
-        checkArgument(
-                packageDir.isDirectory(),
-                String.format("Package directory %s is not a directory", packageDir));
-
-        mTestAppInstallSetup.setAltDir(packageDir);
-
-        List<String> apkFilePaths;
-        try {
-            apkFilePaths = listApkFilePaths(packageDir);
-        } catch (IOException e) {
-            throw new TargetSetupError(
-                    String.format("Failed to access files in %s.", packageDir), e);
+            mTestAppInstallSetup.addTestFile(new File(apkDir, mPackageName));
         }
 
-        if (apkFilePaths.isEmpty()) {
-            throw new TargetSetupError(
-                    String.format("Failed to find apk files in %s.", packageDir));
-        }
-
-        for (String testFileName : mTestFileNames) {
-            mTestAppInstallSetup.addTestFileName(testFileName);
+        for (File testFile : mTestFiles) {
+            mTestAppInstallSetup.addTestFile(testFile);
         }
 
         for (String installArg : mInstallArgs) {
             mTestAppInstallSetup.addInstallArg(installArg);
-        }
-
-        if (apkFilePaths.size() == 1) {
-            mTestAppInstallSetup.addTestFileName(apkFilePaths.get(0));
-        } else {
-            mTestAppInstallSetup.addSplitApkFileNames(String.join(",", apkFilePaths));
         }
 
         mTestAppInstallSetup.setUp(device, buildInfo);
@@ -237,13 +218,6 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @Override
     public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         mTestAppInstallSetup.tearDown(testInfo, e);
-    }
-
-    private List<String> listApkFilePaths(File downloadDir) throws IOException {
-        return Files.walk(Paths.get(downloadDir.getPath()))
-                .map(x -> x.getFileName().toString())
-                .filter(s -> s.endsWith(".apk"))
-                .collect(Collectors.toList());
     }
 
     private void checkDeviceAvailable(ITestDevice device) throws DeviceNotAvailableException {
@@ -269,6 +243,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         checkArgument(val >= 0, "%s (%s) must not be negative", name, val);
     }
 
+    @VisibleForTesting
     interface Sleeper {
         void sleep(Duration duration) throws InterruptedException;
     }
