@@ -28,7 +28,7 @@ _ANDROID_BP_FILE_NAME = 'Android.bp'
 _ANDROID_XML_FILE_NAME = 'AndroidTest.xml'
 _AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
 
-_BUILD_MODULE_TEMPLATE = string.Template("""\
+DEFAULT_BUILD_MODULE_TEMPLATE = string.Template("""\
 // Copyright (C) 2019 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,7 +50,7 @@ csuite_config {
 }
 """)
 
-_TEST_MODULE_TEMPLATE = string.Template("""\
+DEFAULT_TEST_MODULE_TEMPLATE = string.Template("""\
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2019 The Android Open Source Project
 
@@ -84,18 +84,34 @@ _TEST_MODULE_TEMPLATE = string.Template("""\
 """)
 
 
-def generate_all_modules_from_config(package_list_file_path, root_dir):
+def generate_all_modules_from_config(package_list_file_path, root_dir,
+                                     build_module_template_file_path=None,
+                                     test_module_template_file_path=None):
   """Generate multiple test and build modules.
 
   Args:
     package_list_file_path: path of a file containing package names.
     root_dir: root directory that modules will be generated in.
+    build_module_template_file: path of a file containing build module template.
+    test_module_template_file_path: path of a file containing test module
+                                    template.
   """
+  build_module_template = DEFAULT_BUILD_MODULE_TEMPLATE
+  test_module_template = DEFAULT_TEST_MODULE_TEMPLATE
+  if build_module_template_file_path:
+    with open(build_module_template_file_path, 'r') as f:
+      build_module_template = string.Template(f.read())
+  if test_module_template_file_path:
+    with open(test_module_template_file_path, 'r') as f:
+      test_module_template = string.Template(f.read())
+
   remove_existing_package_files(root_dir)
 
   with open(package_list_file_path) as fp:
     for line in parse_package_list(fp):
-      _generate_module_files(line.strip(), root_dir)
+      _generate_module_files(line.strip(), root_dir,
+                             build_module_template,
+                             test_module_template)
 
 
 def remove_existing_package_files(root_dir):
@@ -129,12 +145,15 @@ def parse_package_list(package_list_file: IO[bytes]) -> Set[bytes]:
       yield package
 
 
-def _generate_module_files(package_name, root_dir):
+def _generate_module_files(package_name, root_dir, build_module_template,
+                           test_module_template):
   """Generate test and build modules for a single package.
 
   Args:
     package_name: package name of test and build modules.
     root_dir: root directory that modules will be generated in.
+    build_module_template: template for build module.
+    test_module_template: template for test module.
   """
   package_dir = _create_package_dir(root_dir, package_name)
 
@@ -142,10 +161,10 @@ def _generate_module_files(package_name, root_dir):
   test_module_path = os.path.join(package_dir, _ANDROID_XML_FILE_NAME)
 
   with open(build_module_path, 'w') as f:
-    write_build_module(package_name, f)
+    write_module(build_module_template, package_name, f)
 
   with open(test_module_path, 'w') as f:
-    write_test_module(package_name, f)
+    write_module(test_module_template, package_name, f)
 
 
 def _create_package_dir(root_dir, package_name):
@@ -155,15 +174,10 @@ def _create_package_dir(root_dir, package_name):
   return package_dir_path
 
 
-def write_build_module(package_name: Text, out_file: IO[bytes]) -> Text:
-  build_module = _BUILD_MODULE_TEMPLATE.substitute(
-      package_name=package_name, auto_generate_note=_AUTO_GENERATE_NOTE)
-  out_file.write(build_module)
-
-
-def write_test_module(package_name: Text, out_file: IO[bytes]) -> Text:
-  """Writes the test module for the provided package into a file."""
-  test_module = _TEST_MODULE_TEMPLATE.substitute(
+def write_module(template: string.Template, package_name: Text,
+                 out_file: IO[bytes]) -> Text:
+  """Writes the build or test module for the provided package into a file."""
+  test_module = template.substitute(
       package_name=package_name, auto_generate_note=_AUTO_GENERATE_NOTE)
   out_file.write(test_module)
 
@@ -194,15 +208,25 @@ def parse_args(args, out=sys.stdout, err=sys.stderr):
   """Parses the provided sequence of arguments."""
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      '--package_list',
+      '--package-list',
       type=_file_path,
       required=True,
       help='path of the file containing package names')
   parser.add_argument(
-      '--root_dir',
+      '--root-dir',
       type=_dir_path,
       required=True,
       help='path of the root directory that' + 'modules will be generated in')
+  parser.add_argument(
+      '--test-module-template',
+      type=_file_path,
+      required=False,
+      help='path of the file containing test module configuration template')
+  parser.add_argument(
+      '--build-module-template',
+      type=_file_path,
+      required=False,
+      help='path of the file containing build module configuration template')
 
   # We redirect stdout and stderr to improve testability since ArgumentParser
   # always writes to those files. More specifically, the TradeFed python test
@@ -213,7 +237,10 @@ def parse_args(args, out=sys.stdout, err=sys.stderr):
 
 def main():
   parser = parse_args(sys.argv[1:])
-  generate_all_modules_from_config(parser.package_list, parser.root_dir)
+  generate_all_modules_from_config(parser.package_list,
+                                   parser.root_dir,
+                                   parser.build_module_template,
+                                   parser.test_module_template)
 
 
 if __name__ == '__main__':
