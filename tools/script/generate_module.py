@@ -84,7 +84,8 @@ DEFAULT_TEST_MODULE_TEMPLATE = string.Template("""\
 """)
 
 
-def generate_all_modules_from_config(package_list_file_path, root_dir,
+def generate_all_modules_from_config(package_list_file_path,
+                                     root_dir,
                                      build_module_template_file_path=None,
                                      test_module_template_file_path=None):
   """Generate multiple test and build modules.
@@ -92,9 +93,10 @@ def generate_all_modules_from_config(package_list_file_path, root_dir,
   Args:
     package_list_file_path: path of a file containing package names.
     root_dir: root directory that modules will be generated in.
-    build_module_template_file: path of a file containing build module template.
+    build_module_template_file_path: path of a file containing build module
+      template.
     test_module_template_file_path: path of a file containing test module
-                                    template.
+      template.
   """
   build_module_template = DEFAULT_BUILD_MODULE_TEMPLATE
   test_module_template = DEFAULT_TEST_MODULE_TEMPLATE
@@ -109,8 +111,7 @@ def generate_all_modules_from_config(package_list_file_path, root_dir,
 
   with open(package_list_file_path) as fp:
     for line in parse_package_list(fp):
-      _generate_module_files(line.strip(), root_dir,
-                             build_module_template,
+      _generate_module_files(line.strip(), root_dir, build_module_template,
                              test_module_template)
 
 
@@ -237,8 +238,7 @@ def parse_args(args, out=sys.stdout, err=sys.stderr):
 
 def main():
   parser = parse_args(sys.argv[1:])
-  generate_all_modules_from_config(parser.package_list,
-                                   parser.root_dir,
+  generate_all_modules_from_config(parser.package_list, parser.root_dir,
                                    parser.build_module_template,
                                    parser.test_module_template)
 
