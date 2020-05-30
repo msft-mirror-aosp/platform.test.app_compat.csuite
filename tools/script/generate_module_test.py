@@ -18,11 +18,9 @@
 import io
 import os
 from xml.etree import cElementTree as ET
-from pyfakefs import fake_filesystem_unittest
 import csuite_test
-
 import generate_module
-
+from pyfakefs import fake_filesystem_unittest
 
 _AUTO_GENERATE_NOTE = 'THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY!'
 
@@ -175,11 +173,12 @@ class ParseArgsTest(fake_filesystem_unittest.TestCase):
     template_file_path = '/test/template.txt'
 
     with self.assertRaises(SystemExit):
-      generate_module.parse_args(
-          ['--package-list', package_list_file_path, '--root-dir', root_dir,
-           '--test', template_file_path],
-          out=io.StringIO(),
-          err=io.StringIO())
+      generate_module.parse_args([
+          '--package-list', package_list_file_path, '--root-dir', root_dir,
+          '--test', template_file_path
+      ],
+                                 out=io.StringIO(),
+                                 err=io.StringIO())
 
   def test_build_module_template_file_not_exist(self):
     package_list_file_path = '/test/package_list.txt'
@@ -192,11 +191,12 @@ class ParseArgsTest(fake_filesystem_unittest.TestCase):
     template_file_path = '/test/template.txt'
 
     with self.assertRaises(SystemExit):
-      generate_module.parse_args(
-          ['--package-list', package_list_file_path, '--root-dir', root_dir,
-           '--template', template_file_path],
-          out=io.StringIO(),
-          err=io.StringIO())
+      generate_module.parse_args([
+          '--package-list', package_list_file_path, '--root-dir', root_dir,
+          '--template', template_file_path
+      ],
+                                 out=io.StringIO(),
+                                 err=io.StringIO())
 
 
 class GenerateAllModulesFromConfigTest(fake_filesystem_unittest.TestCase):
