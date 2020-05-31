@@ -84,7 +84,7 @@ class CSuiteHarness(contextlib.AbstractContextManager):
 
       package_list_path.write_text(package_name + '\n')
 
-      flags = ['--package_list', package_list_path, '--root_dir', out_dir]
+      flags = ['--package-list', package_list_path, '--root-dir', out_dir]
 
       _run_command([self._generate_module_binary] + flags)
 
