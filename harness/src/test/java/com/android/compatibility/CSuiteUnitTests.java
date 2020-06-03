@@ -29,6 +29,8 @@ import org.junit.runners.Suite.SuiteClasses;
     AppLaunchTestTest.class,
     AppSetupPreparerTest.class,
     AppSetupPreparerConfigurationReceiverTest.class,
+    com.android.csuite.testing.CorrespondencesTest.class,
+    com.android.csuite.testing.MoreAssertsTest.class,
 })
 public final class CSuiteUnitTests {
     // Intentionally empty.
