@@ -119,4 +119,4 @@ for j in ${CSUITE_ROOT}/android-csuite/testcases/*.jar; do
     JAR_PATH=${JAR_PATH}:$j
 done
 
-java $RDBG_FLAG -cp ${JAR_PATH} -DMTS_ROOT=${CSUITE_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
+java $RDBG_FLAG -cp ${JAR_PATH} -DCSUITE_ROOT=${CSUITE_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
