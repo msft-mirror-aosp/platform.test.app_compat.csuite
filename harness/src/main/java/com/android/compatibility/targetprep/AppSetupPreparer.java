@@ -227,7 +227,8 @@ public final class AppSetupPreparer implements ITargetPreparer {
             // recover but that is currently not supported in TradeFed.
             if (device.getProperty("any_key") == null) {
                 throw new DeviceNotAvailableException(
-                        "getprop command failed. Might have lost connection to the device.");
+                        "getprop command failed. Might have lost connection to the device.",
+                        device.getSerialNumber());
             }
             return;
         }
