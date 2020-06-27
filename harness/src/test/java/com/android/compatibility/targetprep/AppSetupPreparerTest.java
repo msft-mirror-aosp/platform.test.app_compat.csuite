@@ -513,7 +513,7 @@ public final class AppSetupPreparerTest {
     private static ITestDevice createUnavailableDevice() throws Exception {
         ITestDevice device = mock(ITestDevice.class);
         when(device.getProperty(any())).thenReturn(null);
-        doThrow(new DeviceNotAvailableException("_"))
+        doThrow(new DeviceNotAvailableException("_", "serial"))
                 .when(device)
                 .waitForDeviceAvailable(anyLong());
         return device;
