@@ -19,4 +19,5 @@ android_test_helper_app {
     ],
     sdk_version: "test_current",
     min_sdk_version: "29",
+    target_sdk_version: "29",
 }
