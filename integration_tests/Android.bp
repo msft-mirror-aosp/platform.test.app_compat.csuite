@@ -38,7 +38,6 @@ genrule {
         "cp $(location :csuite-tradefed) $${CSUITE_TOOLS} && " +
         "cp $${ANDROID_HOST_OUT}/framework/csuite-tradefed.jar $${CSUITE_TOOLS} && " +
         "cp $${ANDROID_HOST_OUT}/framework/tradefed.jar $${CSUITE_TOOLS} && " +
-        "cp $${ANDROID_HOST_OUT}/framework/hosttestlib.jar $${CSUITE_TOOLS} && " +
         "cp $${ANDROID_HOST_OUT}/framework/compatibility-host-util.jar $${CSUITE_TOOLS} && " +
         // We skip copying the csuite-tradefed-tests jar since its location is
         // not straight-forward to deduce and not really necessary.
