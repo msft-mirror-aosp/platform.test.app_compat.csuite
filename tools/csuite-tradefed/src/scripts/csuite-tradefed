@@ -83,7 +83,6 @@ JAR_DIR=${CSUITE_ROOT}/android-csuite/tools
 TRADEFED_JAR="tradefed"
 
 JARS="tradefed
-  hosttestlib
   compatibility-host-util
   csuite-tradefed
   csuite-tradefed-tests"
