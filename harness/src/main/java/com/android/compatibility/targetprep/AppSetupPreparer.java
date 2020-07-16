@@ -117,6 +117,14 @@ public final class AppSetupPreparer implements ITargetPreparer {
                     "Disables installation from the directory specified by --" + OPTION_GCS_APK_DIR)
     private boolean mDisableGcsInstall = false;
 
+    @VisibleForTesting static final String OPTION_INSTALL_APP_URIS = "install-app-uris";
+
+    @Option(
+            name = OPTION_INSTALL_APP_URIS,
+            description =
+                    "Enables installation of test files that are unresolved app:// references.")
+    private boolean mInstallAppUris = false;
+
     private final TestAppInstallSetup mTestAppInstallSetup;
     private final Sleeper mSleeper;
     private final TimeLimiter mTimeLimiter =
@@ -204,6 +212,9 @@ public final class AppSetupPreparer implements ITargetPreparer {
         }
 
         for (File testFile : mTestFiles) {
+            if (!mInstallAppUris && testFile.getPath().startsWith("app:")) {
+                continue;
+            }
             mTestAppInstallSetup.addTestFile(testFile);
         }
 
