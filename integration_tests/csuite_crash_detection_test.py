@@ -23,6 +23,13 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
   def setUp(self):
     super(CrashDetectionTest, self).setUp()
     self.adb = csuite_test_utils.Adb()
+    self.repo = csuite_test_utils.PackageRepository()
+    self.harness = csuite_test_utils.CSuiteHarness()
+
+  def tearDown(self):
+    super(CrashDetectionTest, self).tearDown()
+    self.harness.cleanup()
+    self.repo.cleanup()
 
   def test_no_crash_test_passes(self):
     test_app_package = 'android.csuite.nocrashtestapp'
@@ -51,26 +58,28 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
   def run_test(self, test_app_package, test_app_module):
     """Set up and run the launcher for a given test app."""
 
-    with csuite_test_utils.CSuiteHarness(
-    ) as harness, csuite_test_utils.PackageRepository() as repo:
+    # We don't check the return code since adb returns non-zero exit code if
+    # the package does not exist.
+    self.adb.uninstall(test_app_package, check=False)
+    self.assert_package_not_installed(test_app_package)
 
-      # We don't check the return code since adb returns non-zero exit code if
-      # the package does not exist.
-      self.adb.uninstall(test_app_package, check=False)
-      self.assert_package_not_installed(test_app_package)
+    module_name = self.harness.add_module(test_app_package)
+    self.repo.add_package_apks(
+        test_app_package, csuite_test_utils.get_test_app_apks(test_app_module))
 
-      module_name = harness.add_module(test_app_package)
-      repo.add_package_apks(
-          test_app_package,
-          csuite_test_utils.get_test_app_apks(test_app_module))
+    return self.harness.run_and_wait([
+        '--serial',
+        csuite_test_utils.get_device_serial(),
+        'run',
+        'commandAndExit',
+        'launch',
+        '-m',
+        module_name,
+        '--enable-module-dynamic-download',
+    ] + self.get_extra_launcher_flags())
 
-      return harness.run_and_wait([
-          '--serial',
-          csuite_test_utils.get_device_serial(), 'run', 'commandAndExit',
-          '--enable-module-dynamic-download',
-          'launch', '--gcs-apk-dir',
-          repo.get_path(), '-m', module_name
-      ])
+  def get_extra_launcher_flags(self):
+    return ['--gcs-apk-dir', self.repo.get_path()]
 
   def expect_regex(self, s, regex):
     with self.subTest():
@@ -87,6 +96,21 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
     logcat_process = self.adb.run(['logcat', '-d', '-v', 'brief', '-s', tag])
     with self.subTest():
       self.assertIn('App launched', logcat_process.stdout)
+
+
+class CrashDetectionTestUsingAppUris(CrashDetectionTest):
+
+  def get_extra_launcher_flags(self):
+    preparer_class = 'com.android.compatibility.targetprep.AppSetupPreparer'
+    file_resolver_class = 'com.android.csuite.config.AppRemoteFileResolver'
+
+    return [
+        '--compatibility:test-arg=%s:disable-gcs-install:true' % preparer_class,
+        '--compatibility:test-arg=%s:install-app-uris:true' % preparer_class,
+        '--dynamic-download-args',
+        '%s:uri-template=file://%s/{package}' %
+        (file_resolver_class, self.repo.get_path())
+    ]
 
 
 if __name__ == '__main__':
