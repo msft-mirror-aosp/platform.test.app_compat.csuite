@@ -17,7 +17,6 @@
 package com.android.compatibility.targetprep;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
@@ -31,6 +30,7 @@ import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
@@ -41,6 +41,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import javax.annotation.Nullable;
 
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
@@ -108,14 +110,6 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "Note that the timeout is not a global timeout and will "
                             + "be applied to each retry attempt.")
     private long mSetupOnceTimeoutMillis = TimeUnit.MINUTES.toMillis(10);
-
-    @VisibleForTesting static final String OPTION_DISABLE_GCS_INSTALL = "disable-gcs-install";
-
-    @Option(
-            name = OPTION_DISABLE_GCS_INSTALL,
-            description =
-                    "Disables installation from the directory specified by --" + OPTION_GCS_APK_DIR)
-    private boolean mDisableGcsInstall = false;
 
     @VisibleForTesting static final String OPTION_INSTALL_APP_URIS = "install-app-uris";
 
@@ -198,16 +192,14 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
-        if (!mDisableGcsInstall) {
-            // TODO(b/147159584): Use a utility to get dynamic options.
-            String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
-            checkNotNull(gcsApkDirOption, "Option %s is not set.", OPTION_GCS_APK_DIR);
+        // TODO(b/147159584): Use a utility to get dynamic options.
+        @Nullable String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
 
+        if (!Strings.isNullOrEmpty(gcsApkDirOption)) {
             File apkDir = new File(gcsApkDirOption);
             checkArgument(
                     apkDir.isDirectory(),
                     String.format("GCS Apk Directory %s is not a directory", apkDir));
-
             mTestAppInstallSetup.addTestFile(new File(apkDir, mPackageName));
         }
 
