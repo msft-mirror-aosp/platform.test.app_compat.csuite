@@ -67,24 +67,14 @@ public final class AppSetupPreparerTest {
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Test
-    public void setUp_gcsApkDirIsNull_throwsException() throws Exception {
+    public void setUp_gcsApkDirOptionNotSet_doesNotInstall() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+        AppSetupPreparer preparer = preparerBuilder().setInstaller(installer).build();
         IBuildInfo buildInfo = new BuildInfo();
-        buildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, null);
-        AppSetupPreparer preparer = preparerBuilder().build();
-
-        assertThrows(NullPointerException.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
-    }
-
-    @Test
-    public void setUp_disableGcsInstallOptionSet_toleratesMissingApkDirOption() throws Exception {
-        IBuildInfo buildInfo = new BuildInfo();
-        buildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, null);
-        AppSetupPreparer preparer =
-                preparerBuilder()
-                        .setOption(AppSetupPreparer.OPTION_DISABLE_GCS_INSTALL, "true")
-                        .build();
 
         preparer.setUp(NULL_DEVICE, buildInfo);
+
+        verify(installer, never()).addTestFile(any());
     }
 
     @Test
@@ -111,25 +101,6 @@ public final class AppSetupPreparerTest {
 
         verify(installer).addTestFile(packageDir);
         verify(installer).setUp(any(), any());
-    }
-
-    @Test
-    public void setUp_disableGcsInstallOptionSet_doesNotInstall() throws Exception {
-        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        AppSetupPreparer preparer =
-                preparerBuilder()
-                        .setInstaller(installer)
-                        .setOption(AppSetupPreparer.OPTION_DISABLE_GCS_INSTALL, "true")
-                        .build();
-        File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
-        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "apk_name_1.apk");
-        IBuildInfo buildInfo = new BuildInfo();
-        buildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, gcsApkDir.getPath());
-
-        preparer.setUp(NULL_DEVICE, buildInfo);
-
-        verify(installer, never()).addTestFile(packageDir);
     }
 
     @Test
