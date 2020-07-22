@@ -105,7 +105,6 @@ class CrashDetectionTestUsingAppUris(CrashDetectionTest):
     file_resolver_class = 'com.android.csuite.config.AppRemoteFileResolver'
 
     return [
-        '--compatibility:test-arg=%s:disable-gcs-install:true' % preparer_class,
         '--compatibility:test-arg=%s:install-app-uris:true' % preparer_class,
         '--dynamic-download-args',
         '%s:uri-template=file://%s/{package}' %
