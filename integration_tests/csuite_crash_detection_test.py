@@ -67,6 +67,9 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
     self.repo.add_package_apks(
         test_app_package, csuite_test_utils.get_test_app_apks(test_app_module))
 
+    preparer_class = 'com.android.compatibility.targetprep.AppSetupPreparer'
+    file_resolver_class = 'com.android.csuite.config.AppRemoteFileResolver'
+
     return self.harness.run_and_wait([
         '--serial',
         csuite_test_utils.get_device_serial(),
@@ -76,10 +79,11 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
         '-m',
         module_name,
         '--enable-module-dynamic-download',
-    ] + self.get_extra_launcher_flags())
-
-  def get_extra_launcher_flags(self):
-    return ['--gcs-apk-dir', self.repo.get_path()]
+        '--compatibility:test-arg=%s:install-app-uris:true' % preparer_class,
+        '--dynamic-download-args',
+        '%s:uri-template=file://%s/{package}' %
+        (file_resolver_class, self.repo.get_path())
+    ])
 
   def expect_regex(self, s, regex):
     with self.subTest():
@@ -96,20 +100,6 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
     logcat_process = self.adb.run(['logcat', '-d', '-v', 'brief', '-s', tag])
     with self.subTest():
       self.assertIn('App launched', logcat_process.stdout)
-
-
-class CrashDetectionTestUsingAppUris(CrashDetectionTest):
-
-  def get_extra_launcher_flags(self):
-    preparer_class = 'com.android.compatibility.targetprep.AppSetupPreparer'
-    file_resolver_class = 'com.android.csuite.config.AppRemoteFileResolver'
-
-    return [
-        '--compatibility:test-arg=%s:install-app-uris:true' % preparer_class,
-        '--dynamic-download-args',
-        '%s:uri-template=file://%s/{package}' %
-        (file_resolver_class, self.repo.get_path())
-    ]
 
 
 if __name__ == '__main__':
