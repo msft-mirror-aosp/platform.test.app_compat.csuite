@@ -15,7 +15,6 @@
  */
 package com.android.compatibility;
 
-import com.android.compatibility.targetprep.AppSetupPreparerConfigurationReceiverTest;
 import com.android.compatibility.targetprep.AppSetupPreparerTest;
 import com.android.compatibility.testtype.AppLaunchTestTest;
 import com.android.csuite.config.AppRemoteFileResolverTest;
@@ -29,7 +28,6 @@ import org.junit.runners.Suite.SuiteClasses;
     AppCompatibilityTestTest.class,
     AppLaunchTestTest.class,
     AppRemoteFileResolverTest.class,
-    AppSetupPreparerConfigurationReceiverTest.class,
     AppSetupPreparerTest.class,
     com.android.csuite.testing.CorrespondencesTest.class,
     com.android.csuite.testing.MoreAssertsTest.class,
