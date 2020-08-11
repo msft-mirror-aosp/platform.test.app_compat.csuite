@@ -19,4 +19,5 @@
   <option name="plan" value="launch" />
 
   <option name="compatibility:module-metadata-include-filter" key="plan" value="app-launch" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="apollo" />
 </configuration>
