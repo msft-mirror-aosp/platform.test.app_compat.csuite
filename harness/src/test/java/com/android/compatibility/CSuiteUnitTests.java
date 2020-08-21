@@ -29,6 +29,7 @@ import org.junit.runners.Suite.SuiteClasses;
     AppLaunchTestTest.class,
     AppRemoteFileResolverTest.class,
     AppSetupPreparerTest.class,
+    com.android.compatibility.targetprep.SystemAppRemovalPreparerTest.class,
     com.android.csuite.testing.CorrespondencesTest.class,
     com.android.csuite.testing.MoreAssertsTest.class,
 })
