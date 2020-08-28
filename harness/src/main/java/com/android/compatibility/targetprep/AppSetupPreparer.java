@@ -48,7 +48,6 @@ import javax.annotation.Nullable;
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
 
-    public static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
     @VisibleForTesting static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
 
     @VisibleForTesting
@@ -189,18 +188,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
-        // TODO(b/147159584): Use a utility to get dynamic options.
-        @Nullable String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
-
         mTestAppInstallSetup.setAaptVersion(mAaptVersion);
-
-        if (!Strings.isNullOrEmpty(gcsApkDirOption)) {
-            File apkDir = new File(gcsApkDirOption);
-            checkArgument(
-                    apkDir.isDirectory(),
-                    String.format("GCS Apk Directory %s is not a directory", apkDir));
-            mTestAppInstallSetup.addTestFile(new File(apkDir, mPackageName));
-        }
 
         for (File testFile : mTestFiles) {
             mTestAppInstallSetup.addTestFile(testFile);
