@@ -20,4 +20,5 @@
 
   <option name="compatibility:module-metadata-include-filter" key="plan" value="app-launch" />
   <option name="compatibility:module-metadata-include-filter" key="plan" value="apollo" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="mada" />
 </configuration>

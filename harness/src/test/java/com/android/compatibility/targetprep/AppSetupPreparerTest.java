@@ -24,6 +24,7 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
+import com.android.tradefed.util.AaptParser.AaptVersion;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -421,6 +422,23 @@ public final class AppSetupPreparerTest {
         preparer.setUp(NULL_DEVICE, buildInfo);
 
         assertThat(captor.getAllValues()).containsExactly("-arg1", "-arg2");
+    }
+
+    @Test
+    public void setUp_aaptVersionOptionSet_forwardsToInstaller() throws Exception {
+        IBuildInfo buildInfo = createValidBuildInfo();
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+        ArgumentCaptor<AaptVersion> captor = ArgumentCaptor.forClass(AaptVersion.class);
+        doNothing().when(installer).setAaptVersion(captor.capture());
+        AppSetupPreparer preparer =
+                preparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_AAPT_VERSION, "AAPT2")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, buildInfo);
+
+        assertThat(captor.getValue()).isEqualTo(AaptVersion.AAPT2);
     }
 
     @Test

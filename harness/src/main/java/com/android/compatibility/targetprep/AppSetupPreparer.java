@@ -28,6 +28,7 @@ import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
+import com.android.tradefed.util.AaptParser.AaptVersion;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -62,11 +63,15 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting static final String OPTION_INSTALL_ARG = "install-arg";
     @VisibleForTesting static final String OPTION_SETUP_TIMEOUT_MILLIS = "setup-timeout-millis";
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
+    @VisibleForTesting static final String OPTION_AAPT_VERSION = "aapt-version";
 
     @Option(
             name = OPTION_TEST_FILE_NAME,
             description = "the name of an apk file to be installed on device. Can be repeated.")
     private final List<File> mTestFiles = new ArrayList<>();
+
+    @Option(name = OPTION_AAPT_VERSION, description = "The version of AAPT for APK parsing.")
+    private AaptVersion mAaptVersion = AaptVersion.AAPT;
 
     @Option(
             name = OPTION_INSTALL_ARG,
@@ -186,6 +191,8 @@ public final class AppSetupPreparer implements ITargetPreparer {
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         // TODO(b/147159584): Use a utility to get dynamic options.
         @Nullable String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
+
+        mTestAppInstallSetup.setAaptVersion(mAaptVersion);
 
         if (!Strings.isNullOrEmpty(gcsApkDirOption)) {
             File apkDir = new File(gcsApkDirOption);
