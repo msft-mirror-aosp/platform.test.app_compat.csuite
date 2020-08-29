@@ -28,6 +28,7 @@ import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
+import com.android.tradefed.util.AaptParser.AaptVersion;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -47,7 +48,6 @@ import javax.annotation.Nullable;
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
 
-    public static final String OPTION_GCS_APK_DIR = "gcs-apk-dir";
     @VisibleForTesting static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
 
     @VisibleForTesting
@@ -62,11 +62,15 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting static final String OPTION_INSTALL_ARG = "install-arg";
     @VisibleForTesting static final String OPTION_SETUP_TIMEOUT_MILLIS = "setup-timeout-millis";
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
+    @VisibleForTesting static final String OPTION_AAPT_VERSION = "aapt-version";
 
     @Option(
             name = OPTION_TEST_FILE_NAME,
             description = "the name of an apk file to be installed on device. Can be repeated.")
     private final List<File> mTestFiles = new ArrayList<>();
+
+    @Option(name = OPTION_AAPT_VERSION, description = "The version of AAPT for APK parsing.")
+    private AaptVersion mAaptVersion = AaptVersion.AAPT;
 
     @Option(
             name = OPTION_INSTALL_ARG,
@@ -184,16 +188,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
 
     private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
-        // TODO(b/147159584): Use a utility to get dynamic options.
-        @Nullable String gcsApkDirOption = buildInfo.getBuildAttributes().get(OPTION_GCS_APK_DIR);
-
-        if (!Strings.isNullOrEmpty(gcsApkDirOption)) {
-            File apkDir = new File(gcsApkDirOption);
-            checkArgument(
-                    apkDir.isDirectory(),
-                    String.format("GCS Apk Directory %s is not a directory", apkDir));
-            mTestAppInstallSetup.addTestFile(new File(apkDir, mPackageName));
-        }
+        mTestAppInstallSetup.setAaptVersion(mAaptVersion);
 
         for (File testFile : mTestFiles) {
             mTestAppInstallSetup.addTestFile(testFile);

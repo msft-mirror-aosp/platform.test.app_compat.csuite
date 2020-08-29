@@ -15,7 +15,6 @@
  */
 package com.android.compatibility.targetprep;
 
-import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
@@ -24,6 +23,7 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
+import com.android.tradefed.util.AaptParser.AaptVersion;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -33,7 +33,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
@@ -53,6 +52,7 @@ import org.mockito.stubbing.Answer;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -61,52 +61,15 @@ import java.util.Map;
 @RunWith(JUnit4.class)
 public final class AppSetupPreparerTest {
     private static final ITestDevice NULL_DEVICE = null;
+    private static final IBuildInfo NULL_BUILD_INFO = null;
     private static final String TEST_PACKAGE_NAME = "test.package.name";
     private static final Answer<Object> EMPTY_ANSWER = (i) -> null;
 
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Test
-    public void setUp_gcsApkDirOptionNotSet_doesNotInstall() throws Exception {
-        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        AppSetupPreparer preparer = preparerBuilder().setInstaller(installer).build();
-        IBuildInfo buildInfo = new BuildInfo();
-
-        preparer.setUp(NULL_DEVICE, buildInfo);
-
-        verify(installer, never()).addTestFile(any());
-    }
-
-    @Test
-    public void setUp_gcsApkDirIsNotDir_throwsException() throws Exception {
-        IBuildInfo buildInfo = new BuildInfo();
-        File tempFile = tempFolder.newFile("temp_file_name");
-        buildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, tempFile.getPath());
-        AppSetupPreparer preparer = preparerBuilder().build();
-
-        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
-    }
-
-    @Test
-    public void setUp_installsApksInDirectory() throws Exception {
-        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        AppSetupPreparer preparer = preparerBuilder().setInstaller(installer).build();
-        File gcsApkDir = tempFolder.newFolder("gcs_apk_dir");
-        File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
-        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "apk_name_1.apk");
-        IBuildInfo buildInfo = new BuildInfo();
-        buildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, gcsApkDir.getPath());
-
-        preparer.setUp(NULL_DEVICE, buildInfo);
-
-        verify(installer).addTestFile(packageDir);
-        verify(installer).setUp(any(), any());
-    }
-
-    @Test
     public void setUp_unresolvedAppUri_installs() throws Exception {
         String appUri = "app://com.example.app";
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         AppSetupPreparer preparer =
                 preparerBuilder()
@@ -114,7 +77,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, appUri)
                         .build();
 
-        preparer.setUp(NULL_DEVICE, buildInfo);
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
 
         verify(installer).addTestFile(new File(appUri));
     }
@@ -132,7 +95,6 @@ public final class AppSetupPreparerTest {
 
     @Test
     public void setUp_withinRetryLimit_doesNotThrowException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doThrow(new TargetSetupError("Still failing"))
                 .doNothing()
@@ -144,12 +106,11 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, buildInfo);
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
     }
 
     @Test
     public void setUp_exceedsRetryLimit_throwsException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doThrow(new TargetSetupError("Still failing"))
                 .doThrow(new TargetSetupError("Still failing"))
@@ -162,23 +123,22 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_negativeTimeout_throwsException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "-1")
                         .build();
 
-        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+        assertThrows(
+                IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_withinTimeout_doesNotThrowException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
@@ -187,12 +147,11 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "1000")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, buildInfo);
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
     }
 
     @Test
     public void setUp_exceedsTimeout_throwsException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
@@ -201,12 +160,11 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_timesOutWithoutExceedingRetryLimit_doesNotThrowException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
                 .doNothing()
@@ -219,12 +177,11 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, buildInfo);
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
     }
 
     @Test
     public void setUp_timesOutAndExceedsRetryLimit_doesNotThrowException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
@@ -234,12 +191,11 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_zeroMaxRetry_runsOnce() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doNothing().when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
@@ -248,14 +204,13 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "0")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, buildInfo);
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
 
         verify(installer).setUp(any(), any());
     }
 
     @Test
     public void setUp_positiveMaxRetryButNoException_runsOnlyOnce() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doNothing().when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
@@ -264,24 +219,23 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, buildInfo);
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
 
         verify(installer).setUp(any(), any());
     }
 
     @Test
     public void setUp_negativeMaxRetry_throwsException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder().setOption(AppSetupPreparer.OPTION_MAX_RETRY, "-1").build();
 
-        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+        assertThrows(
+                IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_deviceDisconnectedAndCheckDeviceAvailable_throwsDeviceNotAvailableException()
             throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setInstaller(
@@ -291,13 +245,13 @@ public final class AppSetupPreparerTest {
                         .build();
         ITestDevice device = createUnavailableDevice();
 
-        assertThrows(DeviceNotAvailableException.class, () -> preparer.setUp(device, buildInfo));
+        assertThrows(
+                DeviceNotAvailableException.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_deviceConnectedAndCheckDeviceAvailable_doesNotChangeException()
             throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setInstaller(
@@ -307,13 +261,12 @@ public final class AppSetupPreparerTest {
                         .build();
         ITestDevice device = createAvailableDevice();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_deviceDisconnectedAndNotCheckDeviceAvailable_doesNotChangeException()
             throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setInstaller(
@@ -323,13 +276,12 @@ public final class AppSetupPreparerTest {
                         .build();
         ITestDevice device = createUnavailableDevice();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_deviceNotAvailableAndWaitEnabled_throwsDeviceNotAvailableException()
             throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setInstaller(
@@ -339,12 +291,12 @@ public final class AppSetupPreparerTest {
                         .build();
         ITestDevice device = createUnavailableDevice();
 
-        assertThrows(DeviceNotAvailableException.class, () -> preparer.setUp(device, buildInfo));
+        assertThrows(
+                DeviceNotAvailableException.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_deviceAvailableAndWaitEnabled_doesNotChangeException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setInstaller(
@@ -354,12 +306,11 @@ public final class AppSetupPreparerTest {
                         .build();
         ITestDevice device = createAvailableDevice();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_deviceNotAvailableAndWaitDisabled_doesNotChangeException() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setInstaller(
@@ -369,13 +320,12 @@ public final class AppSetupPreparerTest {
                         .build();
         ITestDevice device = createUnavailableDevice();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_negativeExponentialBackoffMultiplier_throwsIllegalArgumentException()
             throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setOption(
@@ -383,12 +333,12 @@ public final class AppSetupPreparerTest {
                                 "-1")
                         .build();
 
-        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+        assertThrows(
+                IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
     }
 
     @Test
     public void setUp_testFileNameOptionSet_forwardsToInstaller() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         ArgumentCaptor<File> captor = ArgumentCaptor.forClass(File.class);
         doNothing().when(installer).addTestFile(captor.capture());
@@ -399,7 +349,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, "additional2.apk")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, buildInfo);
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
 
         assertThat(captor.getAllValues())
                 .containsAllOf(new File("additional1.apk"), new File("additional2.apk"));
@@ -407,7 +357,6 @@ public final class AppSetupPreparerTest {
 
     @Test
     public void setUp_installArgOptionSet_forwardsToInstaller() throws Exception {
-        IBuildInfo buildInfo = createValidBuildInfo();
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         doNothing().when(installer).addInstallArg(captor.capture());
@@ -418,15 +367,30 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_INSTALL_ARG, "-arg2")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, buildInfo);
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
 
         assertThat(captor.getAllValues()).containsExactly("-arg1", "-arg2");
     }
 
     @Test
+    public void setUp_aaptVersionOptionSet_forwardsToInstaller() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+        ArgumentCaptor<AaptVersion> captor = ArgumentCaptor.forClass(AaptVersion.class);
+        doNothing().when(installer).setAaptVersion(captor.capture());
+        AppSetupPreparer preparer =
+                preparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_AAPT_VERSION, "AAPT2")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+
+        assertThat(captor.getValue()).isEqualTo(AaptVersion.AAPT2);
+    }
+
+    @Test
     public void setUp_zeroExponentialBackoffMultiplier_noSleepBetweenRetries() throws Exception {
         FakeSleeper fakeSleeper = new FakeSleeper();
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setSleeper(fakeSleeper)
@@ -436,14 +400,13 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
         assertThat(fakeSleeper.getSleepHistory().get(0)).isEqualTo(Duration.ofSeconds(0));
     }
 
     @Test
     public void setUp_positiveExponentialBackoffMultiplier_sleepsBetweenRetries() throws Exception {
         FakeSleeper fakeSleeper = new FakeSleeper();
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setSleeper(fakeSleeper)
@@ -453,7 +416,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "3")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
         assertThat(fakeSleeper.getSleepHistory().get(0)).isEqualTo(Duration.ofSeconds(3));
         assertThat(fakeSleeper.getSleepHistory().get(1)).isEqualTo(Duration.ofSeconds(9));
         assertThat(fakeSleeper.getSleepHistory().get(2)).isEqualTo(Duration.ofSeconds(27));
@@ -462,7 +425,6 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_interruptedDuringBackoff_throwsException() throws Exception {
         FakeSleeper fakeSleeper = new FakeInterruptedSleeper();
-        IBuildInfo buildInfo = createValidBuildInfo();
         AppSetupPreparer preparer =
                 preparerBuilder()
                         .setSleeper(fakeSleeper)
@@ -473,7 +435,8 @@ public final class AppSetupPreparerTest {
                         .build();
 
         try {
-            assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, buildInfo));
+            assertThrows(
+                    TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
             assertThat(fakeSleeper.getSleepHistory().size()).isEqualTo(1);
         } finally {
@@ -488,13 +451,13 @@ public final class AppSetupPreparerTest {
         return installer;
     }
 
-    private IBuildInfo createValidBuildInfo() throws Exception {
-        IBuildInfo buildInfo = new BuildInfo();
-        File gcsApkDir = tempFolder.newFolder("any");
-        File packageDir = new File(gcsApkDir.getPath(), TEST_PACKAGE_NAME);
-        createPackageFile(gcsApkDir, TEST_PACKAGE_NAME, "test.apk");
-        buildInfo.addBuildAttribute(AppSetupPreparer.OPTION_GCS_APK_DIR, gcsApkDir.getPath());
-        return buildInfo;
+    private File createPackageFile(String packageName, String apkName) throws IOException {
+        Path packageDir =
+                Files.createDirectories(
+                        Paths.get(tempFolder.newFolder("any").getAbsolutePath(), packageName));
+        Files.createFile(packageDir.resolve(apkName));
+
+        return packageDir.toFile();
     }
 
     private static ITestDevice createUnavailableDevice() throws Exception {
@@ -513,15 +476,6 @@ public final class AppSetupPreparerTest {
         doNothing().when(device).waitForDeviceAvailable(anyLong());
 
         return device;
-    }
-
-    private static File createPackageFile(File parentDir, String packageName, String apkName)
-            throws IOException {
-        File packageDir =
-                Files.createDirectories(Paths.get(parentDir.getAbsolutePath(), packageName))
-                        .toFile();
-
-        return Files.createFile(Paths.get(packageDir.getAbsolutePath(), apkName)).toFile();
     }
 
     private static class FakeSleeper implements AppSetupPreparer.Sleeper {
