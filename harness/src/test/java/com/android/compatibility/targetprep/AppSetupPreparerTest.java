@@ -72,7 +72,7 @@ public final class AppSetupPreparerTest {
         String appUri = "app://com.example.app";
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, appUri)
                         .build();
@@ -85,7 +85,7 @@ public final class AppSetupPreparerTest {
     @Test
     public void tearDown_forwardsToInstaller() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        AppSetupPreparer preparer = preparerBuilder().setInstaller(installer).build();
+        AppSetupPreparer preparer = new PreparerBuilder().setInstaller(installer).build();
         TestInformation testInfo = TestInformation.newBuilder().build();
 
         preparer.tearDown(testInfo, null);
@@ -101,7 +101,7 @@ public final class AppSetupPreparerTest {
                 .when(installer)
                 .setUp(any(), any());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
@@ -118,7 +118,7 @@ public final class AppSetupPreparerTest {
                 .when(installer)
                 .setUp(any(), any());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
@@ -129,7 +129,7 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_negativeTimeout_throwsException() throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "-1")
                         .build();
 
@@ -142,7 +142,7 @@ public final class AppSetupPreparerTest {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "1000")
                         .build();
@@ -155,7 +155,7 @@ public final class AppSetupPreparerTest {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
                         .build();
@@ -171,7 +171,7 @@ public final class AppSetupPreparerTest {
                 .when(installer)
                 .setUp(any(), any());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
@@ -185,7 +185,7 @@ public final class AppSetupPreparerTest {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
@@ -199,7 +199,7 @@ public final class AppSetupPreparerTest {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doNothing().when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "0")
                         .build();
@@ -214,7 +214,7 @@ public final class AppSetupPreparerTest {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doNothing().when(installer).setUp(any(), any());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
@@ -227,7 +227,7 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_negativeMaxRetry_throwsException() throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder().setOption(AppSetupPreparer.OPTION_MAX_RETRY, "-1").build();
+                new PreparerBuilder().setOption(AppSetupPreparer.OPTION_MAX_RETRY, "-1").build();
 
         assertThrows(
                 IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
@@ -237,7 +237,7 @@ public final class AppSetupPreparerTest {
     public void setUp_deviceDisconnectedAndCheckDeviceAvailable_throwsDeviceNotAvailableException()
             throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
                                         new TargetSetupError("Connection reset by peer.")))
@@ -253,7 +253,7 @@ public final class AppSetupPreparerTest {
     public void setUp_deviceConnectedAndCheckDeviceAvailable_doesNotChangeException()
             throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
                                         new TargetSetupError("Connection reset by peer.")))
@@ -268,7 +268,7 @@ public final class AppSetupPreparerTest {
     public void setUp_deviceDisconnectedAndNotCheckDeviceAvailable_doesNotChangeException()
             throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
                                         new TargetSetupError("Connection reset by peer.")))
@@ -283,7 +283,7 @@ public final class AppSetupPreparerTest {
     public void setUp_deviceNotAvailableAndWaitEnabled_throwsDeviceNotAvailableException()
             throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
                                         new TargetSetupError("Connection reset by peer.")))
@@ -298,7 +298,7 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_deviceAvailableAndWaitEnabled_doesNotChangeException() throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
                                         new TargetSetupError("Connection reset by peer.")))
@@ -312,7 +312,7 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_deviceNotAvailableAndWaitDisabled_doesNotChangeException() throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
                                         new TargetSetupError("Connection reset by peer.")))
@@ -327,7 +327,7 @@ public final class AppSetupPreparerTest {
     public void setUp_negativeExponentialBackoffMultiplier_throwsIllegalArgumentException()
             throws Exception {
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setOption(
                                 AppSetupPreparer.OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS,
                                 "-1")
@@ -343,7 +343,7 @@ public final class AppSetupPreparerTest {
         ArgumentCaptor<File> captor = ArgumentCaptor.forClass(File.class);
         doNothing().when(installer).addTestFile(captor.capture());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, "additional1.apk")
                         .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, "additional2.apk")
@@ -361,7 +361,7 @@ public final class AppSetupPreparerTest {
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         doNothing().when(installer).addInstallArg(captor.capture());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_INSTALL_ARG, "-arg1")
                         .setOption(AppSetupPreparer.OPTION_INSTALL_ARG, "-arg2")
@@ -378,7 +378,7 @@ public final class AppSetupPreparerTest {
         ArgumentCaptor<AaptVersion> captor = ArgumentCaptor.forClass(AaptVersion.class);
         doNothing().when(installer).setAaptVersion(captor.capture());
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_AAPT_VERSION, "AAPT2")
                         .build();
@@ -392,7 +392,7 @@ public final class AppSetupPreparerTest {
     public void setUp_zeroExponentialBackoffMultiplier_noSleepBetweenRetries() throws Exception {
         FakeSleeper fakeSleeper = new FakeSleeper();
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setSleeper(fakeSleeper)
                         .setInstaller(mockInstallerThatThrows(new TargetSetupError("Oops")))
                         .setOption(
@@ -408,7 +408,7 @@ public final class AppSetupPreparerTest {
     public void setUp_positiveExponentialBackoffMultiplier_sleepsBetweenRetries() throws Exception {
         FakeSleeper fakeSleeper = new FakeSleeper();
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setSleeper(fakeSleeper)
                         .setInstaller(mockInstallerThatThrows(new TargetSetupError("Oops")))
                         .setOption(
@@ -426,7 +426,7 @@ public final class AppSetupPreparerTest {
     public void setUp_interruptedDuringBackoff_throwsException() throws Exception {
         FakeSleeper fakeSleeper = new FakeInterruptedSleeper();
         AppSetupPreparer preparer =
-                preparerBuilder()
+                new PreparerBuilder()
                         .setSleeper(fakeSleeper)
                         .setInstaller(mockInstallerThatThrows(new TargetSetupError("Oops")))
                         .setOption(
@@ -521,7 +521,7 @@ public final class AppSetupPreparerTest {
         }
 
         AppSetupPreparer build() throws ConfigurationException {
-            AppSetupPreparer preparer = new AppSetupPreparer(null, mInstaller, mSleeper);
+            AppSetupPreparer preparer = new AppSetupPreparer(mInstaller, mSleeper);
             OptionSetter optionSetter = new OptionSetter(preparer);
 
             for (Map.Entry<String, String> e : mOptions.entries()) {
@@ -530,9 +530,5 @@ public final class AppSetupPreparerTest {
 
             return preparer;
         }
-    }
-
-    private static PreparerBuilder preparerBuilder() {
-        return new PreparerBuilder().setOption("package-name", TEST_PACKAGE_NAME);
     }
 }

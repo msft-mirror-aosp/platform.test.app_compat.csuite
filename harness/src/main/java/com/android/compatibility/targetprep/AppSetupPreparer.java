@@ -31,7 +31,6 @@ import com.android.tradefed.targetprep.TestAppInstallSetup;
 import com.android.tradefed.util.AaptParser.AaptVersion;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
@@ -43,7 +42,6 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import javax.annotation.Nullable;
 
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
@@ -78,9 +76,6 @@ public final class AppSetupPreparer implements ITargetPreparer {
                     "Additional arguments to be passed to install command, "
                             + "including leading dash, e.g. \"-d\"")
     private final List<String> mInstallArgs = new ArrayList<>();
-
-    @Option(name = "package-name", description = "Package name of the app being tested.")
-    private String mPackageName;
 
     @Option(name = OPTION_MAX_RETRY, description = "Max number of retries upon TargetSetupError.")
     private int mMaxRetry = 0;
@@ -121,13 +116,11 @@ public final class AppSetupPreparer implements ITargetPreparer {
             SimpleTimeLimiter.create(Executors.newCachedThreadPool());
 
     public AppSetupPreparer() {
-        this(null, new TestAppInstallSetup(), Sleepers.DefaultSleeper.INSTANCE);
+        this(new TestAppInstallSetup(), Sleepers.DefaultSleeper.INSTANCE);
     }
 
     @VisibleForTesting
-    public AppSetupPreparer(
-            String packageName, TestAppInstallSetup testAppInstallSetup, Sleeper sleeper) {
-        mPackageName = packageName;
+    public AppSetupPreparer(TestAppInstallSetup testAppInstallSetup, Sleeper sleeper) {
         mTestAppInstallSetup = testAppInstallSetup;
         mSleeper = sleeper;
     }
