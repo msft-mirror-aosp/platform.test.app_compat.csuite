@@ -65,6 +65,7 @@ public final class CheckGmsPreparer implements ITargetPreparer {
             throws DeviceNotAvailableException {
         CommandResult res = testInfo.getDevice().executeShellV2Command(CHECK_GMS_COMMAND);
         if (res.getExitCode() == 0) {
+            CLog.d("Detected a running GMS process with PID: %s", res.getStdout());
             return true;
         }
 
