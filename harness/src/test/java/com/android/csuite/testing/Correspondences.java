@@ -29,17 +29,11 @@ import com.google.common.truth.Correspondence;
 public final class Correspondences {
 
     private static final Correspondence<Object, Class<?>> INSTANCE_OF =
-            new Correspondence<>() {
-                @Override
-                public boolean compare(Object obj, Class<?> clazz) {
-                    return clazz.isInstance(obj);
-                }
-
-                @Override
-                public String toString() {
-                    return "is an instance of";
-                }
-            };
+            Correspondence.from(
+                    (Object obj, Class<?> clazz) -> {
+                        return clazz.isInstance(obj);
+                    },
+                    "is an instance of");
 
     /**
      * Returns a {@link Correspondence} that determines whether elements are instances of the class
