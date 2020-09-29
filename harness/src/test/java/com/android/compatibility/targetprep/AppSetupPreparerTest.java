@@ -352,7 +352,7 @@ public final class AppSetupPreparerTest {
         preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
 
         assertThat(captor.getAllValues())
-                .containsAllOf(new File("additional1.apk"), new File("additional2.apk"));
+                .containsAtLeast(new File("additional1.apk"), new File("additional2.apk"));
     }
 
     @Test
