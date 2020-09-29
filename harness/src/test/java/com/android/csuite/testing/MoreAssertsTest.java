@@ -67,7 +67,7 @@ public final class MoreAssertsTest {
                             throw expected;
                         });
 
-        assertThat(actual).isSameAs(expected);
+        assertThat(actual).isSameInstanceAs(expected);
     }
 
     @Test
@@ -81,6 +81,6 @@ public final class MoreAssertsTest {
                             throw expected;
                         });
 
-        assertThat(actual).isSameAs(expected);
+        assertThat(actual).isSameInstanceAs(expected);
     }
 }
