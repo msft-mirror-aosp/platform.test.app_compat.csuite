@@ -75,6 +75,7 @@ DEFAULT_TEST_MODULE_TEMPLATE = string.Template("""\
         <option name="test-file-name" value="csuite-launch-instrumentation.apk"/>
         <option name="test-file-name" value="app://${package_name}"/>
     </target_preparer>
+    <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
