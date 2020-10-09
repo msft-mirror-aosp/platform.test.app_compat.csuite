@@ -97,6 +97,7 @@ public class AppLaunchTest
     private static final String ARG_DISMISS_DIALOG = "ARG_DISMISS_DIALOG";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
+    private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
 
     private ITestDevice mDevice;
     private LogcatReceiver mLogcat;
@@ -128,18 +129,23 @@ public class AppLaunchTest
      * the package being tested (provided as a parameter).
      */
     protected InstrumentationTest createInstrumentationTest(String packageBeingTested) {
-        InstrumentationTest instrTest = new InstrumentationTest();
+        InstrumentationTest instrumentationTest = new InstrumentationTest();
 
-        instrTest.setPackageName(LAUNCH_TEST_PACKAGE);
-        instrTest.setConfiguration(mConfiguration);
-        instrTest.addInstrumentationArg(PACKAGE_TO_LAUNCH, packageBeingTested);
-        instrTest.setRunnerName(LAUNCH_TEST_RUNNER);
-        instrTest.setDevice(mDevice);
-        instrTest.addInstrumentationArg(
+        instrumentationTest.setPackageName(LAUNCH_TEST_PACKAGE);
+        instrumentationTest.setConfiguration(mConfiguration);
+        instrumentationTest.addInstrumentationArg(PACKAGE_TO_LAUNCH, packageBeingTested);
+        instrumentationTest.setRunnerName(LAUNCH_TEST_RUNNER);
+        instrumentationTest.setDevice(mDevice);
+        instrumentationTest.addInstrumentationArg(
                 APP_LAUNCH_TIMEOUT_LABEL, Integer.toString(mAppLaunchTimeoutMs));
-        instrTest.addInstrumentationArg(ARG_DISMISS_DIALOG, Boolean.toString(mDismissDialog));
+        instrumentationTest.addInstrumentationArg(
+                ARG_DISMISS_DIALOG, Boolean.toString(mDismissDialog));
 
-        return instrTest;
+        int testTimeoutMs = BASE_INSTRUMENTATION_TEST_TIMEOUT_MS + mAppLaunchTimeoutMs * 2;
+        instrumentationTest.setShellTimeout(testTimeoutMs);
+        instrumentationTest.setTestTimeout(testTimeoutMs);
+
+        return instrumentationTest;
     }
 
     /*
