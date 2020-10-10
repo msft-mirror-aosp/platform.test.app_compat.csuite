@@ -78,36 +78,6 @@ public final class AppLaunchTestTest {
     }
 
     @Test
-    public void run_gmsProcessPresent_doNotThrow() throws DeviceNotAvailableException {
-        InstrumentationTest instrumentationTest = createFailingInstrumentationTest();
-        ITestDevice mMockDevice = mock(ITestDevice.class);
-        when(mMockDevice.executeShellV2Command("pidof com.google.android.gms"))
-                .thenReturn(createSuccessfulCommandResult());
-        AppLaunchTest appLaunchTest =
-                createLaunchTestWithInstrumentation(instrumentationTest, 0, true);
-        appLaunchTest.setDevice(mMockDevice);
-
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
-
-        verifyFailedAndEndedCall(mMockListener);
-    }
-
-    @Test
-    public void run_gmsProcessAbsent_throwException() throws DeviceNotAvailableException {
-        InstrumentationTest instrumentationTest = createFailingInstrumentationTest();
-        ITestDevice mMockDevice = mock(ITestDevice.class);
-        when(mMockDevice.executeShellV2Command("pidof com.google.android.gms"))
-                .thenReturn(createFailedCommandResult());
-        AppLaunchTest appLaunchTest =
-                createLaunchTestWithInstrumentation(instrumentationTest, 0, true);
-        appLaunchTest.setDevice(mMockDevice);
-
-        assertThrows(
-                DeviceNotAvailableException.class,
-                () -> appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener));
-    }
-
-    @Test
     public void run_packageResetSuccess() throws DeviceNotAvailableException {
         ITestDevice mMockDevice = mock(ITestDevice.class);
         when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
@@ -405,13 +375,8 @@ public final class AppLaunchTestTest {
 
     private AppLaunchTest createLaunchTestWithInstrumentation(
             InstrumentationTest instrumentation, int retryCount) {
-        return createLaunchTestWithInstrumentation(instrumentation, retryCount, false);
-    }
-
-    private AppLaunchTest createLaunchTestWithInstrumentation(
-            InstrumentationTest instrumentation, int retryCount, boolean checkGms) {
         AppLaunchTest appLaunchTest =
-                new AppLaunchTest(TEST_PACKAGE_NAME, retryCount, checkGms) {
+                new AppLaunchTest(TEST_PACKAGE_NAME, retryCount) {
                     @Override
                     protected InstrumentationTest createInstrumentationTest(
                             String packageBeingTested) {

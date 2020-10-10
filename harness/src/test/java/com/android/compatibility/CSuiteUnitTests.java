@@ -25,7 +25,6 @@ import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
 @SuiteClasses({
-    AppCompatibilityTestTest.class,
     AppLaunchTestTest.class,
     AppRemoteFileResolverTest.class,
     AppSetupPreparerTest.class,
