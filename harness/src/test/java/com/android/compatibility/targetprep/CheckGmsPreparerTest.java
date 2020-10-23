@@ -197,18 +197,12 @@ public final class CheckGmsPreparerTest {
     }
 
     private static Correspondence<LogItem, String> createContainsErrorLogCorrespondence() {
-        return new Correspondence<>() {
-            @Override
-            public boolean compare(LogItem actual, String expected) {
-                return actual.getLogLevel() == LogLevel.ERROR
-                        && actual.getMessage().contains(expected);
-            }
-
-            @Override
-            public String toString() {
-                return "has an error log that contains";
-            }
-        };
+        return Correspondence.from(
+                (LogItem actual, String expected) -> {
+                    return actual.getLogLevel() == LogLevel.ERROR
+                            && actual.getMessage().contains(expected);
+                },
+                "has an error log that contains");
     }
 
     private static ITestDevice createDeviceWithGmsAbsentAndRecoverable() throws Exception {
