@@ -21,13 +21,8 @@
 // dependencies in the tools attribute when we should be using the 'srcs'
 // attribute. Second, we're accessing jars using a path relative to a known
 // artifact location instead of using the Soong 'location' feature.
-//
-// Normally we would just use java_genrule_host to avoid these hacks but can't
-// do that since Soong currently complains when a python_host_test depends on
-// that target since, although compatible, the arch variants (x86_64 and
-// common) don't exactly match.
 
-genrule {
+java_genrule_host {
     name: "csuite_standalone_zip",
     cmd: "ANDROID_CSUITE=$(genDir)/android-csuite && " +
         "CSUITE_TOOLS=$${ANDROID_CSUITE}/tools && " +
@@ -37,8 +32,8 @@ genrule {
         "rm -rf $${CSUITE_TESTCASES} && mkdir -p $${CSUITE_TESTCASES} && " +
         "cp $(location :csuite-tradefed) $${CSUITE_TOOLS} && " +
         "cp $${ANDROID_HOST_OUT}/framework/csuite-tradefed.jar $${CSUITE_TOOLS} && " +
-        "cp $${ANDROID_HOST_OUT}/framework/tradefed.jar $${CSUITE_TOOLS} && " +
-        "cp $${ANDROID_HOST_OUT}/framework/compatibility-host-util.jar $${CSUITE_TOOLS} && " +
+        "cp $(location :tradefed) $${CSUITE_TOOLS} && " +
+        "cp $(location :compatibility-host-util) $${CSUITE_TOOLS} && " +
         // We skip copying the csuite-tradefed-tests jar since its location is
         // not straight-forward to deduce and not really necessary.
         "touch $${CSUITE_TOOLS}/csuite-tradefed-tests.jar && " +
@@ -49,6 +44,8 @@ genrule {
     out: ["csuite-standalone.zip"],
     srcs: [
         ":csuite-launch-instrumentation",
+        ":tradefed",
+        ":compatibility-host-util",
     ],
     tools: [
         "soong_zip",
@@ -65,8 +62,8 @@ python_library_host {
     defaults: [
         "csuite_python_defaults",
     ],
-    data: [
-        ":csuite_standalone_zip",
+    java_data: [
+        "csuite_standalone_zip",
     ],
     libs: [
         "csuite_test",
