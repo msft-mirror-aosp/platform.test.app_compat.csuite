@@ -142,8 +142,9 @@ public final class AppCompatibility {
         String packageName = mArgs.getString(PACKAGE_TO_LAUNCH);
         Preconditions.checkStringNotEmpty(
                 packageName,
-                "Missing argument, use %s to specify the package to launch",
-                PACKAGE_TO_LAUNCH);
+                String.format(
+                        "Missing argument, use %s to specify the package to launch",
+                        PACKAGE_TO_LAUNCH));
 
         Log.d(TAG, "Launching app " + packageName);
         Intent intent = getLaunchIntentForPackage(packageName);
