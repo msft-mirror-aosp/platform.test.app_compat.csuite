@@ -23,6 +23,9 @@ java_library_host {
     libs: [
         "tradefed",
     ],
+    static_libs: [
+        "compatibility-tradefed",
+    ]
 }
 
 java_test_host {
@@ -35,7 +38,9 @@ java_test_host {
         "tradefed",
     ],
     static_libs: [
+        "compatibility-tradefed",
         "guava-testlib",
+        "jimfs",
         "mockito-host",
         "objenesis",
         "testng",
