@@ -16,9 +16,7 @@
 <configuration description="C-Suite Compatibility Launch Test Plan">
   <include name="csuite-base" />
 
-  <option name="plan" value="launch" />
+  <option name="plan" value="class-a-first-party" />
 
-  <option name="compatibility:module-metadata-include-filter" key="plan" value="app-launch" />
-  <option name="compatibility:module-metadata-include-filter" key="plan" value="apollo" />
-  <option name="compatibility:module-metadata-include-filter" key="plan" value="mada" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="class-a-first-party" />
 </configuration>

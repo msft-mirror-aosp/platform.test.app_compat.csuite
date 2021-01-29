@@ -1,7 +1,7 @@
 {
   "presubmit": [
     {
-      "name": "csuite-harness-tests",
+      "name": "generate_module_test",
       "host": true
     }
   ]
