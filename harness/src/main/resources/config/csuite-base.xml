@@ -35,4 +35,5 @@
   <target_preparer class="com.android.csuite.config.ModuleGenerator" />
 
   <object type="PACKAGE_NAME_PROVIDER" class="com.android.csuite.core.CommandLinePackageNameProvider" />
+  <object type="PACKAGE_NAME_PROVIDER" class="com.android.csuite.core.FileBasedPackageNameProvider" />
 </configuration>
