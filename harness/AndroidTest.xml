@@ -15,6 +15,6 @@ limitations under the License.
 -->
 <configuration description="Executes the C-Suite harness unit tests">
   <test class="com.android.tradefed.testtype.HostTest" >
-    <option name="class" value="com.android.compatibility.CSuiteUnitTests" />
+    <option name="class" value="com.android.csuite.CSuiteUnitTests" />
   </test>
 </configuration>

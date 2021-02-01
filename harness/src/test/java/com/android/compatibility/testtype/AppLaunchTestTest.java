@@ -38,6 +38,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertThrows;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -80,7 +81,7 @@ public final class AppLaunchTestTest {
     public void run_packageResetSuccess() throws DeviceNotAvailableException {
         ITestDevice mMockDevice = mock(ITestDevice.class);
         when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
-                .thenReturn(new CommandResult(CommandStatus.SUCCESS));
+                .thenReturn(createSuccessfulCommandResult());
         AppLaunchTest appLaunchTest = createLaunchTestWithMockDevice(mMockDevice);
 
         appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
@@ -92,7 +93,7 @@ public final class AppLaunchTestTest {
     public void run_packageResetError() throws DeviceNotAvailableException {
         ITestDevice mMockDevice = mock(ITestDevice.class);
         when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
-                .thenReturn(new CommandResult(CommandStatus.FAILED));
+                .thenReturn(createFailedCommandResult());
         AppLaunchTest appLaunchTest = createLaunchTestWithMockDevice(mMockDevice);
 
         appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
@@ -103,7 +104,7 @@ public final class AppLaunchTestTest {
     @Test
     public void run_testRetry_passedAfterTwoFailings() throws Exception {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTestAfterFailing(2);
-        AppLaunchTest appLaunchTest = createLaunchTestWithRetry(instrumentationTest, 2);
+        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest, 2);
 
         appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
@@ -113,7 +114,7 @@ public final class AppLaunchTestTest {
     @Test
     public void run_testRetry_failedAfterThreeFailings() throws Exception {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTestAfterFailing(3);
-        AppLaunchTest appLaunchTest = createLaunchTestWithRetry(instrumentationTest, 2);
+        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest, 2);
 
         appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
@@ -369,24 +370,10 @@ public final class AppLaunchTestTest {
     }
 
     private AppLaunchTest createLaunchTestWithInstrumentation(InstrumentationTest instrumentation) {
-        AppLaunchTest appLaunchTest =
-                new AppLaunchTest(TEST_PACKAGE_NAME) {
-                    @Override
-                    protected InstrumentationTest createInstrumentationTest(
-                            String packageBeingTested) {
-                        return instrumentation;
-                    }
-
-                    @Override
-                    protected CommandResult resetPackage() throws DeviceNotAvailableException {
-                        return new CommandResult(CommandStatus.SUCCESS);
-                    }
-                };
-        appLaunchTest.setDevice(mock(ITestDevice.class));
-        return appLaunchTest;
+        return createLaunchTestWithInstrumentation(instrumentation, 0);
     }
 
-    private AppLaunchTest createLaunchTestWithRetry(
+    private AppLaunchTest createLaunchTestWithInstrumentation(
             InstrumentationTest instrumentation, int retryCount) {
         AppLaunchTest appLaunchTest =
                 new AppLaunchTest(TEST_PACKAGE_NAME, retryCount) {
@@ -398,7 +385,7 @@ public final class AppLaunchTestTest {
 
                     @Override
                     protected CommandResult resetPackage() throws DeviceNotAvailableException {
-                        return new CommandResult(CommandStatus.SUCCESS);
+                        return createSuccessfulCommandResult();
                     }
                 };
         appLaunchTest.setDevice(mock(ITestDevice.class));
@@ -406,7 +393,7 @@ public final class AppLaunchTestTest {
     }
 
     private AppLaunchTest createLaunchTestWithMockDevice(ITestDevice device) {
-        AppLaunchTest appLaunchTest = new AppLaunchTest(TEST_PACKAGE_NAME);
+        AppLaunchTest appLaunchTest = new AppLaunchTest(TEST_PACKAGE_NAME, 0);
         appLaunchTest.setDevice(device);
         return appLaunchTest;
     }
@@ -429,5 +416,17 @@ public final class AppLaunchTestTest {
         inOrder.verify(listener, times(1))
                 .testEnded(anyObject(), anyLong(), (Map<String, String>) any());
         inOrder.verify(listener, times(1)).testRunEnded(anyLong(), (HashMap<String, Metric>) any());
+    }
+
+    private CommandResult createSuccessfulCommandResult() {
+        CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
+        commandResult.setExitCode(0);
+        return commandResult;
+    }
+
+    private CommandResult createFailedCommandResult() {
+        CommandResult commandResult = new CommandResult(CommandStatus.FAILED);
+        commandResult.setExitCode(1);
+        return commandResult;
     }
 }
