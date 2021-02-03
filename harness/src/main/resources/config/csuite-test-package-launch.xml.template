@@ -16,7 +16,6 @@
 <configuration description="Installs a test package with -t arg and check for launch crashes">
     <option name="package-name" value="{package}"/>
     <target_preparer class="com.android.compatibility.targetprep.AppSetupPreparer">
-        <option name="test-file-name" value="csuite-launch-instrumentation.apk"/>
         <option name="test-file-name" value="app://{package}"/>
         <option name="install-arg" value="-t"/>
     </target_preparer>
