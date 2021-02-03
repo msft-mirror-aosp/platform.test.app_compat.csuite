@@ -15,7 +15,6 @@
  */
 package com.android.compatibility.targetprep;
 
-import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
 
@@ -29,17 +28,12 @@ import com.android.tradefed.util.CommandStatus;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.io.Files;
 
-import java.io.File;
 import java.util.Map;
 
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
@@ -54,8 +48,6 @@ public final class SystemAppRemovalPreparerTest {
             "rm -r " + SYSTEM_APP_INSTALL_DIRECTORY;
     private static final String REMOVE_APP_DATA_COMMAND_PREFIX = "rm -r /data/data";
     private static final String MOUNT_COMMAND_PREFIX = "mount";
-
-    @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Test
     public void setUp_packageNameIsNull_throws() throws Exception {
@@ -254,101 +246,6 @@ public final class SystemAppRemovalPreparerTest {
     }
 
     @Test
-    public void setUp_removePackagePermissionAdbPullFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
-        ITestDevice device = createGoodDeviceWithSystemAppInstalled();
-        Mockito.when(
-                        device.pullFile(
-                                ArgumentMatchers.eq(SystemAppRemovalPreparer.PACKAGE_XML_PATH)))
-                .thenThrow(new DeviceNotAvailableException(""));
-
-        assertThrows(DeviceNotAvailableException.class, () -> preparer.setUp(device, null));
-    }
-
-    @Test
-    public void setUp_removePackagePermissionAdbPushThrows_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
-        ITestDevice device = createGoodDeviceWithSystemAppInstalled();
-        Mockito.when(
-                        device.pushFile(
-                                ArgumentMatchers.any(),
-                                ArgumentMatchers.eq(SystemAppRemovalPreparer.PACKAGE_XML_PATH)))
-                .thenThrow(new DeviceNotAvailableException(""));
-
-        assertThrows(DeviceNotAvailableException.class, () -> preparer.setUp(device, null));
-    }
-
-    @Test
-    public void setUp_removePackagePermissionAdbPushFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
-        ITestDevice device = createGoodDeviceWithSystemAppInstalled();
-        Mockito.when(
-                        device.pushFile(
-                                ArgumentMatchers.any(),
-                                ArgumentMatchers.eq(SystemAppRemovalPreparer.PACKAGE_XML_PATH)))
-                .thenReturn(false);
-
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
-    }
-
-    @Test
-    public void setUp_packageHasNoGrantedPermission_doesNotChangePackageXml() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
-        String packageXmlContent =
-                "        line1\n"
-                        + "        <item name=\"com.some.package.name.PERMISSION_NAME\" "
-                        + "package=\"unrelated.package\" protection=\"2\" />\n"
-                        + "        line3\n";
-        ITestDevice device = createGoodDeviceWithSystemAppInstalled(packageXmlContent);
-        ArgumentCaptor<File> captor = ArgumentCaptor.forClass(File.class);
-        Mockito.when(
-                        device.pushFile(
-                                captor.capture(),
-                                ArgumentMatchers.eq(SystemAppRemovalPreparer.PACKAGE_XML_PATH)))
-                .thenReturn(true);
-
-        preparer.setUp(device, null);
-
-        assertThat(Files.toByteArray(captor.getValue()))
-                .isEqualTo(packageXmlContent.getBytes("UTF-8"));
-    }
-
-    @Test
-    public void setUp_packageHasGrantedPermission_permissionIsRemoved() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
-        String packageXmlContent =
-                String.format(
-                        "        line1\n"
-                                + "        <item name=\"com.some.package.name.PERMISSION_NAME\" "
-                                + "package=\"unrelated.package\" protection=\"2\" />\n"
-                                + "        <item name=\"com.some.package.name.PERMISSION_NAME\" "
-                                + "package=\"%s\" protection=\"2\" />\n"
-                                + "        line3\n",
-                        TEST_PACKAGE_NAME);
-        String expectedPackageXmlContentModified =
-                "        line1\n"
-                        + "        <item name=\"com.some.package.name.PERMISSION_NAME\" "
-                        + "package=\"unrelated.package\" protection=\"2\" />\n"
-                        + "        line3\n";
-        ITestDevice device = createGoodDeviceWithSystemAppInstalled(packageXmlContent);
-        ArgumentCaptor<File> captor = ArgumentCaptor.forClass(File.class);
-        Mockito.when(
-                        device.pushFile(
-                                captor.capture(),
-                                ArgumentMatchers.eq(SystemAppRemovalPreparer.PACKAGE_XML_PATH)))
-                .thenReturn(true);
-
-        preparer.setUp(device, null);
-
-        assertThat(Files.toByteArray(captor.getValue()))
-                .isEqualTo(expectedPackageXmlContentModified.getBytes("UTF-8"));
-        Mockito.verify(device, Mockito.times(1))
-                .pushFile(
-                        Mockito.any(),
-                        Mockito.startsWith(SystemAppRemovalPreparer.PACKAGE_XML_PATH));
-    }
-
-    @Test
     public void setUp_packageIsSystemApp_appRemoved() throws Exception {
         SystemAppRemovalPreparer preparer = preparerBuilder().build();
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
@@ -359,8 +256,44 @@ public final class SystemAppRemovalPreparerTest {
                 .executeShellV2Command(Mockito.startsWith(REMOVE_SYSTEM_APP_COMMAND_PREFIX));
         Mockito.verify(device, Mockito.times(1))
                 .executeShellV2Command(Mockito.startsWith(REMOVE_APP_DATA_COMMAND_PREFIX));
+    }
+
+    @Test
+    public void setUp_noUpdatePackagePresent_appRemoved() throws Exception {
+        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+        int numberOfUpdates = 0;
+        ITestDevice device = createGoodDeviceWithSystemAppInstalled(numberOfUpdates);
+
+        preparer.setUp(device, null);
+
+        Mockito.verify(device, Mockito.times(numberOfUpdates + 1))
+                .uninstallPackage(TEST_PACKAGE_NAME);
         Mockito.verify(device, Mockito.times(1))
-                .pullFile(Mockito.startsWith(SystemAppRemovalPreparer.PACKAGE_XML_PATH));
+                .executeShellV2Command(Mockito.startsWith(REMOVE_SYSTEM_APP_COMMAND_PREFIX));
+    }
+
+    @Test
+    public void setUp_someUpdatePackagesPresent_appRemoved() throws Exception {
+        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+        int numberOfUpdates = 2;
+        ITestDevice device = createGoodDeviceWithSystemAppInstalled(numberOfUpdates);
+
+        preparer.setUp(device, null);
+
+        Mockito.verify(device, Mockito.times(numberOfUpdates + 1))
+                .uninstallPackage(TEST_PACKAGE_NAME);
+        Mockito.verify(device, Mockito.times(1))
+                .executeShellV2Command(Mockito.startsWith(REMOVE_SYSTEM_APP_COMMAND_PREFIX));
+    }
+
+    @Test
+    public void setUp_tooManyUpdatePackagesPresent_throwsException() throws Exception {
+        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+        ITestDevice device =
+                createGoodDeviceWithSystemAppInstalled(
+                        SystemAppRemovalPreparer.MAX_NUMBER_OF_UPDATES + 1);
+
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
     }
 
     private static final class PreparerBuilder {
@@ -399,17 +332,25 @@ public final class SystemAppRemovalPreparerTest {
     }
 
     private ITestDevice createGoodDeviceWithSystemAppInstalled() throws Exception {
-        return createGoodDeviceWithSystemAppInstalled("");
+        return createGoodDeviceWithSystemAppInstalled(1);
     }
 
-    private ITestDevice createGoodDeviceWithSystemAppInstalled(String packageXmlContent)
+    private ITestDevice createGoodDeviceWithSystemAppInstalled(int numberOfUpdatesInstalled)
             throws Exception {
         ITestDevice device = Mockito.mock(ITestDevice.class);
         CommandResult commandResult;
 
-        // Prepare local package xml file
-        File packageXml = tempFolder.newFile("packages.xml");
-        Files.write(packageXmlContent.getBytes("UTF-8"), packageXml);
+        // Uninstall updates
+        String uninstallFailureMessage = "Failure [DELETE_FAILED_INTERNAL_ERROR]";
+        if (numberOfUpdatesInstalled == 0) {
+            Mockito.when(device.uninstallPackage(TEST_PACKAGE_NAME))
+                    .thenReturn(uninstallFailureMessage);
+        } else {
+            String[] uninstallResults = new String[numberOfUpdatesInstalled];
+            uninstallResults[numberOfUpdatesInstalled - 1] = uninstallFailureMessage;
+            Mockito.when(device.uninstallPackage(TEST_PACKAGE_NAME))
+                    .thenReturn(null, uninstallResults);
+        }
 
         // List package
         commandResult = createSuccessfulCommandResult();
@@ -450,17 +391,6 @@ public final class SystemAppRemovalPreparerTest {
                         device.executeShellV2Command(
                                 ArgumentMatchers.startsWith(REMOVE_APP_DATA_COMMAND_PREFIX)))
                 .thenReturn(createSuccessfulCommandResult());
-
-        // Remove package permission
-        Mockito.when(
-                        device.pullFile(
-                                ArgumentMatchers.eq(SystemAppRemovalPreparer.PACKAGE_XML_PATH)))
-                .thenReturn(packageXml);
-        Mockito.when(
-                        device.pushFile(
-                                ArgumentMatchers.any(),
-                                ArgumentMatchers.eq(SystemAppRemovalPreparer.PACKAGE_XML_PATH)))
-                .thenReturn(true);
 
         // Restart framework
         Mockito.when(device.executeShellV2Command(ArgumentMatchers.eq("start")))
