@@ -31,4 +31,6 @@
   <target_preparer class="com.android.compatibility.targetprep.AppSetupPreparer">
       <option name="test-file-name" value="csuite-launch-instrumentation.apk"/>
   </target_preparer>
+  <!-- Cleans generated module files after test -->
+  <target_preparer class="com.android.csuite.config.ModuleGenerator" />
 </configuration>
