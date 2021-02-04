@@ -17,7 +17,6 @@
   <test class="com.android.csuite.config.ModuleGenerator"  >
     <option name="template" value="config/csuite-test-package-launch.xml.template" />
   </test>
-  <target_preparer class="com.android.csuite.config.ModuleGenerator" />
   <include name="csuite-base" />
   <option name="plan" value="csuite-test-package-launch" />
 </configuration>
