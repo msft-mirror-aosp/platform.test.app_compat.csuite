@@ -17,7 +17,10 @@
 package com.android.csuite.config;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.csuite.core.PackageNameProvider;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -33,6 +36,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Resources;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -58,13 +62,33 @@ import java.util.Set;
  * go/sharding-hack-for-module-gen. Note that since the generate step is executed as a test instance
  * and cleanup step is executed as a target preparer, there should be no saved states between
  * generating and cleaning up module files.
+ *
+ * <p>This module generator collects package names from all PackageNameProvider objects specified in
+ * the test configs.
+ *
+ * <h2>Syntax and usage</h2>
+ *
+ * <p>References to package name providers in TradeFed test configs must have the following syntax:
+ *
+ * <blockquote>
+ *
+ * <b>&lt;object type="PACKAGE_NAME_PROVIDER" class="</b><i>provider_class_name</i><b>"/&gt;</b>
+ *
+ * </blockquote>
+ *
+ * where <i>provider_class_name</i> is the fully-qualified class name of an PackageNameProvider
+ * implementation class.
  */
 public final class ModuleGenerator
-        implements IRemoteTest, IShardableTest, IBuildReceiver, ITargetPreparer {
+        implements IRemoteTest,
+                IShardableTest,
+                IBuildReceiver,
+                ITargetPreparer,
+                IConfigurationReceiver {
 
     @VisibleForTesting static final String MODULE_FILE_EXTENSION = ".config";
     @VisibleForTesting static final String OPTION_TEMPLATE = "template";
-    @VisibleForTesting static final String OPTION_PACKAGE = "package";
+    @VisibleForTesting static final String PACKAGE_NAME_PROVIDER = "PACKAGE_NAME_PROVIDER";
     private static final String TEMPLATE_PACKAGE_PATTERN = "\\{package\\}";
     private static final Collection<IRemoteTest> NOT_SPLITABLE = null;
 
@@ -74,16 +98,15 @@ public final class ModuleGenerator
             importance = Importance.ALWAYS)
     private String mTemplate;
 
-    @Option(name = OPTION_PACKAGE, description = "App package names.")
-    private final Set<String> mPackages = new HashSet<>();
-
     private final TestDirectoryProvider mTestDirectoryProvider;
     private final ResourceLoader mResourceLoader;
     private final FileSystem mFileSystem;
     private IBuildInfo mBuildInfo;
+    private IConfiguration mConfiguration;
 
-    public ModuleGenerator(Set<String> mPackages) {
-        this(FileSystems.getDefault());
+    @Override
+    public void setConfiguration(IConfiguration configuration) {
+        mConfiguration = configuration;
     }
 
     public ModuleGenerator() {
@@ -132,7 +155,7 @@ public final class ModuleGenerator
             // Executes the generate step.
             generateModules();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to generate modules", e);
+            throw new UncheckedIOException("Failed to generate modules", e);
         }
 
         return NOT_SPLITABLE;
@@ -145,14 +168,26 @@ public final class ModuleGenerator
         // preparer, it is not considered as a IBuildReceiver instance.
         mBuildInfo = testInfo.getBuildInfo();
 
-        // Executes the clean up step.
-        cleanUpModules();
+        try {
+            // Executes the clean up step.
+            cleanUpModules();
+        } catch (IOException ioException) {
+            throw new UncheckedIOException("Failed to clean up generated modules", ioException);
+        }
+    }
+
+    private Set<String> getPackageNames() throws IOException {
+        Set<String> packages = new HashSet<>();
+        for (Object provider : mConfiguration.getConfigurationObjectList(PACKAGE_NAME_PROVIDER)) {
+            packages.addAll(((PackageNameProvider) provider).get());
+        }
+        return packages;
     }
 
     private void generateModules() throws IOException {
         String templateContent = mResourceLoader.load(mTemplate);
 
-        for (String packageName : mPackages) {
+        for (String packageName : getPackageNames()) {
             validatePackageName(packageName);
             Files.write(
                     getModulePath(packageName),
@@ -160,17 +195,19 @@ public final class ModuleGenerator
         }
     }
 
-    private void cleanUpModules() {
-        mPackages.forEach(
-                packageName -> {
-                    try {
-                        Files.delete(getModulePath(packageName));
-                    } catch (IOException ioException) {
-                        CLog.e(
-                                "Failed to delete the generated module for package " + packageName,
-                                ioException);
-                    }
-                });
+    private void cleanUpModules() throws IOException {
+        getPackageNames()
+                .forEach(
+                        packageName -> {
+                            try {
+                                Files.delete(getModulePath(packageName));
+                            } catch (IOException ioException) {
+                                CLog.e(
+                                        "Failed to delete the generated module for package "
+                                                + packageName,
+                                        ioException);
+                            }
+                        });
     }
 
     private Path getModulePath(String packageName) throws IOException {

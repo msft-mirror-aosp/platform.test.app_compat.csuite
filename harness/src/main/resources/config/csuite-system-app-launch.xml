@@ -17,7 +17,6 @@
   <test class="com.android.csuite.config.ModuleGenerator"  >
     <option name="template" value="config/csuite-system-app-launch.xml.template" />
   </test>
-  <target_preparer class="com.android.csuite.config.ModuleGenerator" />
   <include name="csuite-base" />
   <option name="plan" value="csuite-system-app-launch" />
 </configuration>

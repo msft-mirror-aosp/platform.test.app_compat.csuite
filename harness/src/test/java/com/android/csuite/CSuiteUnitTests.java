@@ -27,6 +27,8 @@ import org.junit.runners.Suite.SuiteClasses;
     com.android.compatibility.testtype.AppLaunchTestTest.class,
     com.android.csuite.config.AppRemoteFileResolverTest.class,
     com.android.csuite.config.ModuleGeneratorTest.class,
+    com.android.csuite.core.CommandLinePackageNameProviderTest.class,
+    com.android.csuite.core.FileBasedPackageNameProviderTest.class,
     com.android.csuite.testing.CorrespondencesTest.class,
     com.android.csuite.testing.MoreAssertsTest.class,
 })
