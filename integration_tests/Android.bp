@@ -22,6 +22,10 @@
 // attribute. Second, we're accessing jars using a path relative to a known
 // artifact location instead of using the Soong 'location' feature.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_genrule_host {
     name: "csuite_standalone_zip",
     cmd: "ANDROID_CSUITE=$(genDir)/android-csuite && " +
