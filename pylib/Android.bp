@@ -27,6 +27,10 @@
 // that target since, although compatible, the arch variants (x86_64 and
 // common) don't exactly match.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_library_host {
     name: "csuite_test",
     srcs: [
