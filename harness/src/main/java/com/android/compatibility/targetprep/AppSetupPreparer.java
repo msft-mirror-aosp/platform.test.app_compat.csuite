@@ -18,6 +18,7 @@ package com.android.compatibility.targetprep;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.android.csuite.core.SystemPackageUninstaller;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -42,7 +43,6 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
 
@@ -61,6 +61,9 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting static final String OPTION_SETUP_TIMEOUT_MILLIS = "setup-timeout-millis";
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
     @VisibleForTesting static final String OPTION_AAPT_VERSION = "aapt-version";
+
+    @Option(name = "package-name", description = "Package name of testing app.")
+    private String mPackageName;
 
     @Option(
             name = OPTION_TEST_FILE_NAME,
@@ -144,6 +147,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 ITargetPreparer handler =
                         mTimeLimiter.newProxy(
                                 new ITargetPreparer() {
+                                    @Override
                                     public void setUp(ITestDevice device, IBuildInfo buildInfo)
                                             throws DeviceNotAvailableException, BuildError,
                                                     TargetSetupError {
@@ -182,6 +186,10 @@ public final class AppSetupPreparer implements ITargetPreparer {
     private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         mTestAppInstallSetup.setAaptVersion(mAaptVersion);
+
+        if (mPackageName != null) {
+            SystemPackageUninstaller.uninstallPackage(mPackageName, device);
+        }
 
         for (File testFile : mTestFiles) {
             mTestAppInstallSetup.addTestFile(testFile);
