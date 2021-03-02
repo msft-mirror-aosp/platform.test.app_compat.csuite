@@ -47,20 +47,28 @@ public final class SystemAppUninstallerTest {
     public void uninstallPackage_packageNameIsNull_throws() throws Exception {
         assertThrows(
                 NullPointerException.class,
-                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, null));
+                () ->
+                        SystemPackageUninstaller.uninstallPackage(
+                                null, createGoodDeviceWithAppNotInstalled()));
+    }
+
+    @Test
+    public void uninstallPackage_frameworkNotRunning_startsFrameworkOrThrows() throws Exception {
+        ITestDevice device = createGoodDeviceWithAppNotInstalled();
+        Mockito.when(
+                        device.executeShellV2Command(
+                                ArgumentMatchers.eq(SystemPackageUninstaller.PM_CHECK_COMMAND)))
+                .thenReturn(createFailedCommandResult());
+
+        assertThrows(
+                TargetSetupError.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
+        Mockito.verify(device, Mockito.times(1)).executeShellV2Command(Mockito.eq("start"));
     }
 
     @Test
     public void uninstallPackage_packageIsNotInstalled_doesNotRemove() throws Exception {
-        ITestDevice device = createGoodDeviceWithSystemAppInstalled();
-        // Mock the device as if the test package does not exist on device
-        CommandResult commandResult = createSuccessfulCommandResult();
-        commandResult.setStdout("");
-        Mockito.when(
-                        device.executeShellV2Command(
-                                ArgumentMatchers.startsWith(
-                                        CHECK_PACKAGE_INSTALLED_COMMAND_PREFIX)))
-                .thenReturn(commandResult);
+        ITestDevice device = createGoodDeviceWithAppNotInstalled();
 
         SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
@@ -306,6 +314,18 @@ public final class SystemAppUninstallerTest {
         return device;
     }
 
+    private ITestDevice createGoodDeviceWithAppNotInstalled() throws Exception {
+        ITestDevice device = createGoodDeviceWithSystemAppInstalled();
+        CommandResult commandResult = createSuccessfulCommandResult();
+        commandResult.setStdout("");
+        Mockito.when(
+                        device.executeShellV2Command(
+                                ArgumentMatchers.startsWith(
+                                        CHECK_PACKAGE_INSTALLED_COMMAND_PREFIX)))
+                .thenReturn(commandResult);
+        return device;
+    }
+
     private ITestDevice createGoodDeviceWithSystemAppInstalled() throws Exception {
         return createGoodDeviceWithSystemAppInstalled(1);
     }
@@ -314,6 +334,12 @@ public final class SystemAppUninstallerTest {
             throws Exception {
         ITestDevice device = Mockito.mock(ITestDevice.class);
         CommandResult commandResult;
+
+        // Is framework running
+        Mockito.when(
+                        device.executeShellV2Command(
+                                ArgumentMatchers.eq(SystemPackageUninstaller.PM_CHECK_COMMAND)))
+                .thenReturn(createSuccessfulCommandResult());
 
         // Uninstall updates
         String uninstallFailureMessage = "Failure [DELETE_FAILED_INTERNAL_ERROR]";
