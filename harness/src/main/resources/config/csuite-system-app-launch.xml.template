@@ -15,7 +15,6 @@
 -->
 <configuration description="Reinstalls a system app and check for launch crashes.">
     <option name="package-name" value="{package}"/>
-    <target_preparer class="com.android.compatibility.targetprep.SystemAppRemovalPreparer"/>
     <target_preparer class="com.android.compatibility.targetprep.AppSetupPreparer">
         <option name="test-file-name" value="app://{package}"/>
     </target_preparer>

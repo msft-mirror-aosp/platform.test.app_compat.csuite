@@ -13,23 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.compatibility.targetprep;
-
+package com.android.csuite.core;
 
 import static org.testng.Assert.assertThrows;
 
-import com.android.tradefed.config.ConfigurationException;
-import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ListMultimap;
 
-import java.util.Map;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +32,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
-public final class SystemAppRemovalPreparerTest {
+public final class SystemAppUninstallerTest {
     private static final ITestDevice NULL_DEVICE = null;
     private static final String TEST_PACKAGE_NAME = "test.package.name";
     private static final String SYSTEM_APP_INSTALL_DIRECTORY = "/system/app";
@@ -50,15 +44,14 @@ public final class SystemAppRemovalPreparerTest {
     private static final String MOUNT_COMMAND_PREFIX = "mount";
 
     @Test
-    public void setUp_packageNameIsNull_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = new SystemAppRemovalPreparer();
-
-        assertThrows(NullPointerException.class, () -> preparer.setUp(null, null));
+    public void uninstallPackage_packageNameIsNull_throws() throws Exception {
+        assertThrows(
+                NullPointerException.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, null));
     }
 
     @Test
-    public void setUp_packageIsNotInstalled_doesNotRemove() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_packageIsNotInstalled_doesNotRemove() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         // Mock the device as if the test package does not exist on device
         CommandResult commandResult = createSuccessfulCommandResult();
@@ -69,14 +62,14 @@ public final class SystemAppRemovalPreparerTest {
                                         CHECK_PACKAGE_INSTALLED_COMMAND_PREFIX)))
                 .thenReturn(commandResult);
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(0)).executeShellV2Command(Mockito.startsWith("rm"));
     }
 
     @Test
-    public void setUp_differentPackageWithSameNamePrefixInstalled_doesNotRemove() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_differentPackageWithSameNamePrefixInstalled_doesNotRemove()
+            throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         // Mock the device as if the test package does not exist on device
         CommandResult commandResult = createSuccessfulCommandResult();
@@ -87,14 +80,13 @@ public final class SystemAppRemovalPreparerTest {
                                         CHECK_PACKAGE_INSTALLED_COMMAND_PREFIX)))
                 .thenReturn(commandResult);
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(0)).executeShellV2Command(Mockito.startsWith("rm"));
     }
 
     @Test
-    public void setUp_checkPackageInstalledCommandFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_checkPackageInstalledCommandFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(
                         device.executeShellV2Command(
@@ -102,12 +94,13 @@ public final class SystemAppRemovalPreparerTest {
                                         CHECK_PACKAGE_INSTALLED_COMMAND_PREFIX)))
                 .thenReturn(createFailedCommandResult());
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                TargetSetupError.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_getInstallDirectoryCommandFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_getInstallDirectoryCommandFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(
                         device.executeShellV2Command(
@@ -115,94 +108,97 @@ public final class SystemAppRemovalPreparerTest {
                                         GET_PACKAGE_INSTALL_PATH_COMMAND_PREFIX)))
                 .thenReturn(createFailedCommandResult());
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                TargetSetupError.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_packageIsNotSystemApp_doesNotRemove() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_packageIsNotSystemApp_doesNotRemove() throws Exception {
         ITestDevice device = createGoodDeviceWithUserAppInstalled();
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(0)).executeShellV2Command(Mockito.startsWith("rm"));
     }
 
     @Test
-    public void setUp_adbAlreadyRooted_doesNotRootAgain() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_adbAlreadyRooted_doesNotRootAgain() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(device.isAdbRoot()).thenReturn(true);
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(0)).enableAdbRoot();
     }
 
     @Test
-    public void setUp_adbNotAlreadyRooted_rootAdbAndThenUnroot() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_adbNotAlreadyRooted_rootAdbAndThenUnroot() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(device.isAdbRoot()).thenReturn(false);
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(1)).enableAdbRoot();
         Mockito.verify(device, Mockito.times(1)).disableAdbRoot();
     }
 
     @Test
-    public void setUp_adbRootCommandFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_adbRootCommandFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(device.enableAdbRoot()).thenThrow(new DeviceNotAvailableException());
 
-        assertThrows(DeviceNotAvailableException.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                DeviceNotAvailableException.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_adbRootFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_adbRootFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(device.enableAdbRoot()).thenReturn(false);
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                TargetSetupError.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_adbDisableRootCommandFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_adbDisableRootCommandFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(device.disableAdbRoot()).thenThrow(new DeviceNotAvailableException());
 
-        assertThrows(DeviceNotAvailableException.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                DeviceNotAvailableException.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_adbDisableRootFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_adbDisableRootFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(device.disableAdbRoot()).thenReturn(false);
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                TargetSetupError.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_adbRemountFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_adbRemountFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.doThrow(new DeviceNotAvailableException()).when(device).remountSystemWritable();
 
-        assertThrows(DeviceNotAvailableException.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                DeviceNotAvailableException.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_adbRemounted_mountReadOnlyAfterwards() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_adbRemounted_mountReadOnlyAfterwards() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.doNothing().when(device).remountSystemWritable();
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(1)).remountSystemWritable();
         Mockito.verify(device, Mockito.times(1))
@@ -210,47 +206,47 @@ public final class SystemAppRemovalPreparerTest {
     }
 
     @Test
-    public void setUp_mountReadOnlyFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_mountReadOnlyFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(
                         device.executeShellV2Command(
                                 ArgumentMatchers.startsWith(MOUNT_COMMAND_PREFIX)))
                 .thenReturn(createFailedCommandResult());
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                TargetSetupError.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_removePackageInstallDirectoryFailed_throws() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_removePackageInstallDirectoryFailed_throws() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(
                         device.executeShellV2Command(
                                 ArgumentMatchers.startsWith(REMOVE_SYSTEM_APP_COMMAND_PREFIX)))
                 .thenReturn(createFailedCommandResult());
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
+        assertThrows(
+                TargetSetupError.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     @Test
-    public void setUp_removePackageDataDirectoryFailed_doesNotThrow() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_removePackageDataDirectoryFailed_doesNotThrow() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
         Mockito.when(
                         device.executeShellV2Command(
                                 ArgumentMatchers.startsWith(REMOVE_APP_DATA_COMMAND_PREFIX)))
                 .thenReturn(createFailedCommandResult());
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
     }
 
     @Test
-    public void setUp_packageIsSystemApp_appRemoved() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_packageIsSystemApp_appRemoved() throws Exception {
         ITestDevice device = createGoodDeviceWithSystemAppInstalled();
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(1))
                 .executeShellV2Command(Mockito.startsWith(REMOVE_SYSTEM_APP_COMMAND_PREFIX));
@@ -259,12 +255,11 @@ public final class SystemAppRemovalPreparerTest {
     }
 
     @Test
-    public void setUp_noUpdatePackagePresent_appRemoved() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_noUpdatePackagePresent_appRemoved() throws Exception {
         int numberOfUpdates = 0;
         ITestDevice device = createGoodDeviceWithSystemAppInstalled(numberOfUpdates);
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(numberOfUpdates + 1))
                 .uninstallPackage(TEST_PACKAGE_NAME);
@@ -273,12 +268,11 @@ public final class SystemAppRemovalPreparerTest {
     }
 
     @Test
-    public void setUp_someUpdatePackagesPresent_appRemoved() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_someUpdatePackagesPresent_appRemoved() throws Exception {
         int numberOfUpdates = 2;
         ITestDevice device = createGoodDeviceWithSystemAppInstalled(numberOfUpdates);
 
-        preparer.setUp(device, null);
+        SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device);
 
         Mockito.verify(device, Mockito.times(numberOfUpdates + 1))
                 .uninstallPackage(TEST_PACKAGE_NAME);
@@ -287,33 +281,14 @@ public final class SystemAppRemovalPreparerTest {
     }
 
     @Test
-    public void setUp_tooManyUpdatePackagesPresent_throwsException() throws Exception {
-        SystemAppRemovalPreparer preparer = preparerBuilder().build();
+    public void uninstallPackage_tooManyUpdatePackagesPresent_throwsException() throws Exception {
         ITestDevice device =
                 createGoodDeviceWithSystemAppInstalled(
-                        SystemAppRemovalPreparer.MAX_NUMBER_OF_UPDATES + 1);
+                        SystemPackageUninstaller.MAX_NUMBER_OF_UPDATES + 1);
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, null));
-    }
-
-    private static final class PreparerBuilder {
-        private final ListMultimap<String, String> mOptions = ArrayListMultimap.create();
-
-        PreparerBuilder setOption(String key, String value) {
-            mOptions.put(key, value);
-            return this;
-        }
-
-        SystemAppRemovalPreparer build() throws ConfigurationException {
-            SystemAppRemovalPreparer preparer = new SystemAppRemovalPreparer();
-            OptionSetter optionSetter = new OptionSetter(preparer);
-
-            for (Map.Entry<String, String> e : mOptions.entries()) {
-                optionSetter.setOptionValue(e.getKey(), e.getValue());
-            }
-
-            return preparer;
-        }
+        assertThrows(
+                TargetSetupError.class,
+                () -> SystemPackageUninstaller.uninstallPackage(TEST_PACKAGE_NAME, device));
     }
 
     private ITestDevice createGoodDeviceWithUserAppInstalled() throws Exception {
@@ -408,11 +383,6 @@ public final class SystemAppRemovalPreparerTest {
                 .thenReturn(createSuccessfulCommandResult());
 
         return device;
-    }
-
-    private static PreparerBuilder preparerBuilder() {
-        return new PreparerBuilder()
-                .setOption(SystemAppRemovalPreparer.OPTION_PACKAGE_NAME, TEST_PACKAGE_NAME);
     }
 
     private static CommandResult createSuccessfulCommandResult() {
