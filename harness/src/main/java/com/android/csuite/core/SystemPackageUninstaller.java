@@ -44,10 +44,26 @@ public final class SystemPackageUninstaller {
     static final String SYSPROP_SYS_BOOT_COMPLETED = "sys.boot_completed";
     static final long WAIT_FOR_BOOT_COMPLETE_TIMEOUT_MILLIS = 1000 * 60;
     @VisibleForTesting static final int MAX_NUMBER_OF_UPDATES = 100;
+    @VisibleForTesting static final String PM_CHECK_COMMAND = "pm path android";
 
     public static void uninstallPackage(String packageName, ITestDevice device)
             throws TargetSetupError, DeviceNotAvailableException {
         checkNotNull(packageName);
+
+        if (!isPackageManagerRunning(device)) {
+            CLog.w(
+                    "Package manager is not available on the device."
+                            + " Attempting to recover it by restarting the framework.");
+            runAsRoot(
+                    device,
+                    () -> {
+                        stopFramework(device);
+                        startFramework(device);
+                    });
+            if (!isPackageManagerRunning(device)) {
+                throw new TargetSetupError("The package manager failed to start.");
+            }
+        }
 
         if (!isPackageInstalled(packageName, device)) {
             CLog.i("Package %s is not installed.", packageName);
@@ -234,6 +250,11 @@ public final class SystemPackageUninstaller {
                 String.format("rm -r %s", dataPath),
                 String.format(
                         "Failed to remove system app data %s from %s", packageName, dataPath));
+    }
+
+    private static boolean isPackageManagerRunning(ITestDevice device)
+            throws DeviceNotAvailableException {
+        return device.executeShellV2Command(PM_CHECK_COMMAND).getStatus() == CommandStatus.SUCCESS;
     }
 
     private static boolean isPackageInstalled(String packageName, ITestDevice device)
