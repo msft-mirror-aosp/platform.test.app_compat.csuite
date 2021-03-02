@@ -83,16 +83,28 @@ public final class SystemAppRemovalPreparer implements ITargetPreparer {
 
         runWithWritableFilesystem(
                 device,
-                () -> {
-                    stopFramework(device);
-                    removePackageInstallDirectory(packageInstallDirectory, device);
-                    removePackageData(mPackageName, device);
-                    startFramework(device);
-                });
+                () ->
+                        runWithFrameworkOff(
+                                device,
+                                () -> {
+                                    removePackageInstallDirectory(packageInstallDirectory, device);
+                                    removePackageData(mPackageName, device);
+                                }));
     }
 
     private interface PreparerTask {
         void run() throws TargetSetupError, DeviceNotAvailableException;
+    }
+
+    private static void runWithFrameworkOff(ITestDevice device, PreparerTask action)
+            throws TargetSetupError, DeviceNotAvailableException {
+        stopFramework(device);
+
+        try {
+            action.run();
+        } finally {
+            startFramework(device);
+        }
     }
 
     private static void runWithWritableFilesystem(ITestDevice device, PreparerTask action)
@@ -209,7 +221,9 @@ public final class SystemAppRemovalPreparer implements ITargetPreparer {
         // only uninstalls the latest update. To remove all update packages we can
         // call uninstall repeatedly until the command fails.
         for (int i = 0; i < MAX_NUMBER_OF_UPDATES; i++) {
-            if (device.uninstallPackage(packageName) != null) {
+            String errMsg = device.uninstallPackage(packageName);
+            if (errMsg != null) {
+                CLog.d("Completed removing updates as the uninstall command returned: %s", errMsg);
                 return;
             }
             CLog.i("Removed an update package for %s", packageName);
