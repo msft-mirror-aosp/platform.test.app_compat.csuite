@@ -61,13 +61,18 @@ public final class SystemAppRemovalPreparer implements ITargetPreparer {
             throws TargetSetupError, DeviceNotAvailableException {
         checkNotNull(mPackageName);
 
+        if (!isPackageInstalled(mPackageName, device)) {
+            CLog.i("Package %s is not installed.", mPackageName);
+            return;
+        }
+
         // Attempts to uninstall the package/updates from user partition.
         // This method should be called before the other methods and requires
         // the framework to be running.
         removePackageUpdates(mPackageName, device);
 
         if (!isPackageInstalled(mPackageName, device)) {
-            CLog.i("Package %s is not installed.", mPackageName);
+            CLog.i("Package %s has been removed.", mPackageName);
             return;
         }
 
