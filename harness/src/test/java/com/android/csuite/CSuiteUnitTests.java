@@ -23,12 +23,12 @@ import org.junit.runners.Suite.SuiteClasses;
 @SuiteClasses({
     com.android.compatibility.targetprep.AppSetupPreparerTest.class,
     com.android.compatibility.targetprep.CheckGmsPreparerTest.class,
-    com.android.compatibility.targetprep.SystemAppRemovalPreparerTest.class,
     com.android.compatibility.testtype.AppLaunchTestTest.class,
     com.android.csuite.config.AppRemoteFileResolverTest.class,
     com.android.csuite.config.ModuleGeneratorTest.class,
     com.android.csuite.core.CommandLinePackageNameProviderTest.class,
     com.android.csuite.core.FileBasedPackageNameProviderTest.class,
+    com.android.csuite.core.SystemAppUninstallerTest.class,
     com.android.csuite.testing.CorrespondencesTest.class,
     com.android.csuite.testing.MoreAssertsTest.class,
 })
