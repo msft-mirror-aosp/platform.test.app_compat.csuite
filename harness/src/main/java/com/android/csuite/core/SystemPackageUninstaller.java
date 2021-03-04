@@ -14,89 +14,106 @@
  * limitations under the License.
  */
 
-package com.android.compatibility.targetprep;
+package com.android.csuite.core;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.config.Option;
-import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.stream.Collectors;
 
 /**
  * Uninstalls a system app.
  *
- * <p>This preparer class may not restore the uninstalled system app after test completes.
+ * <p>This utility class may not restore the uninstalled system app after test completes.
  *
- * <p>The preparer may disable dm verity on some devices, and it does not re-enable it after
+ * <p>The class may disable dm verity on some devices, and it does not re-enable it after
  * uninstalling a system app.
  */
-public final class SystemAppRemovalPreparer implements ITargetPreparer {
+public final class SystemPackageUninstaller {
     @VisibleForTesting static final String OPTION_PACKAGE_NAME = "package-name";
-    @VisibleForTesting static final String PACKAGE_XML_PATH = "/data/system/packages.xml";
-    private static final String PACKAGE_PERMISSION_PATTERN =
-            "\\s+<item name=\".*\" package=\"%s\".*/>";
     static final String SYSPROP_DEV_BOOTCOMPLETE = "dev.bootcomplete";
     static final String SYSPROP_SYS_BOOT_COMPLETED = "sys.boot_completed";
     static final long WAIT_FOR_BOOT_COMPLETE_TIMEOUT_MILLIS = 1000 * 60;
+    @VisibleForTesting static final int MAX_NUMBER_OF_UPDATES = 100;
+    @VisibleForTesting static final String PM_CHECK_COMMAND = "pm path android";
 
-    @Option(
-            name = OPTION_PACKAGE_NAME,
-            description = "The package name of the system app to be removed.",
-            importance = Importance.ALWAYS)
-    private String mPackageName;
-
-    /** {@inheritDoc} */
-    @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+    public static void uninstallPackage(String packageName, ITestDevice device)
             throws TargetSetupError, DeviceNotAvailableException {
-        checkNotNull(mPackageName);
+        checkNotNull(packageName);
 
-        if (!isPackageInstalled(mPackageName, device)) {
-            CLog.i("Package %s is not installed.", mPackageName);
+        if (!isPackageManagerRunning(device)) {
+            CLog.w(
+                    "Package manager is not available on the device."
+                            + " Attempting to recover it by restarting the framework.");
+            runAsRoot(
+                    device,
+                    () -> {
+                        stopFramework(device);
+                        startFramework(device);
+                    });
+            if (!isPackageManagerRunning(device)) {
+                throw new TargetSetupError("The package manager failed to start.");
+            }
+        }
+
+        if (!isPackageInstalled(packageName, device)) {
+            CLog.i("Package %s is not installed.", packageName);
             return;
         }
 
-        String packageInstallDirectory = getPackageInstallDirectory(mPackageName, device);
-        CLog.d("Install directory for package %s is %s", mPackageName, packageInstallDirectory);
+        // Attempts to uninstall the package/updates from user partition.
+        // This method should be called before the other methods and requires
+        // the framework to be running.
+        removePackageUpdates(packageName, device);
+
+        if (!isPackageInstalled(packageName, device)) {
+            CLog.i("Package %s has been removed.", packageName);
+            return;
+        }
+
+        String packageInstallDirectory = getPackageInstallDirectory(packageName, device);
+        CLog.d("Install directory for package %s is %s", packageName, packageInstallDirectory);
 
         if (!isPackagePathSystemApp(packageInstallDirectory)) {
-            CLog.w("%s is not a system app, skipping", mPackageName);
+            CLog.w("%s is not a system app, skipping", packageName);
             return;
         }
 
-        CLog.i("Uninstalling system app %s", mPackageName);
+        CLog.i("Uninstalling system app %s", packageName);
 
         runWithWritableFilesystem(
                 device,
-                () -> {
-                    removePackageInstallDirectory(packageInstallDirectory, device);
-                    removePackageData(mPackageName, device);
-                    removePackagePermissions(mPackageName, device);
-
-                    // Restart Android framework for the above deletion to take effect.
-                    restartFramework(device);
-                });
+                () ->
+                        runWithFrameworkOff(
+                                device,
+                                () -> {
+                                    removePackageInstallDirectory(packageInstallDirectory, device);
+                                    removePackageData(packageName, device);
+                                }));
     }
 
     private interface PreparerTask {
         void run() throws TargetSetupError, DeviceNotAvailableException;
+    }
+
+    private static void runWithFrameworkOff(ITestDevice device, PreparerTask action)
+            throws TargetSetupError, DeviceNotAvailableException {
+        stopFramework(device);
+
+        try {
+            action.run();
+        } finally {
+            startFramework(device);
+        }
     }
 
     private static void runWithWritableFilesystem(ITestDevice device, PreparerTask action)
@@ -138,7 +155,7 @@ public final class SystemAppRemovalPreparer implements ITargetPreparer {
         }
     }
 
-    private static void restartFramework(ITestDevice device)
+    private static void stopFramework(ITestDevice device)
             throws TargetSetupError, DeviceNotAvailableException {
         // 'stop' is a blocking command.
         executeShellCommandOrThrow(device, "stop", "Failed to stop framework");
@@ -148,8 +165,13 @@ public final class SystemAppRemovalPreparer implements ITargetPreparer {
         // when adb is rooted.
         device.setProperty(SYSPROP_SYS_BOOT_COMPLETED, "0");
         device.setProperty(SYSPROP_DEV_BOOTCOMPLETE, "0");
+    }
+
+    private static void startFramework(ITestDevice device)
+            throws TargetSetupError, DeviceNotAvailableException {
         // 'start' is a non-blocking command.
         executeShellCommandOrThrow(device, "start", "Failed to start framework");
+        // This wait only blocks if the boot completed flags are set to 0.
         device.waitForBootComplete(WAIT_FOR_BOOT_COMPLETE_TIMEOUT_MILLIS);
     }
 
@@ -189,45 +211,6 @@ public final class SystemAppRemovalPreparer implements ITargetPreparer {
         return packagePath.startsWith("/system/") || packagePath.startsWith("/product/");
     }
 
-    /**
-     * Removes system app's unchangeable permissions.
-     *
-     * <p>Some system apps may have 'unchangeable permissions' which cannot be modified through any
-     * public APIs. We have to edit the packages.xml to force remove them. If we don't remove them,
-     * the re-installation of the package will fail.
-     */
-    private static void removePackagePermissions(String packageName, ITestDevice device)
-            throws TargetSetupError, DeviceNotAvailableException {
-        CLog.d("Revoking package permissions for %s", packageName);
-        Path packageXml = device.pullFile(PACKAGE_XML_PATH).toPath();
-        if (packageXml == null) {
-            throw new TargetSetupError(
-                    String.format("Failed to pull package xml from device: %s", PACKAGE_XML_PATH));
-        }
-
-        try {
-            Files.write(
-                    packageXml,
-                    Files.readAllLines(packageXml, StandardCharsets.UTF_8)
-                            .stream()
-                            .filter(
-                                    line ->
-                                            !line.matches(
-                                                    String.format(
-                                                            PACKAGE_PERMISSION_PATTERN,
-                                                            packageName)))
-                            .collect(Collectors.toList()),
-                    StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new TargetSetupError(e.getMessage(), e);
-        }
-
-        if (!device.pushFile(packageXml.toFile(), PACKAGE_XML_PATH)) {
-            throw new TargetSetupError(
-                    String.format("Failed to push package xml from %s", packageXml));
-        }
-    }
-
     private static void removePackageInstallDirectory(
             String packageInstallDirectory, ITestDevice device)
             throws TargetSetupError, DeviceNotAvailableException {
@@ -239,6 +222,25 @@ public final class SystemAppRemovalPreparer implements ITargetPreparer {
                         "Failed to remove system app package path %s", packageInstallDirectory));
     }
 
+    private static void removePackageUpdates(String packageName, ITestDevice device)
+            throws TargetSetupError, DeviceNotAvailableException {
+        CLog.i("Removing package updates for %s", packageName);
+
+        // A system package may have update packages. If so, each `adb uninstall` call
+        // only uninstalls the latest update. To remove all update packages we can
+        // call uninstall repeatedly until the command fails.
+        for (int i = 0; i < MAX_NUMBER_OF_UPDATES; i++) {
+            String errMsg = device.uninstallPackage(packageName);
+            if (errMsg != null) {
+                CLog.d("Completed removing updates as the uninstall command returned: %s", errMsg);
+                return;
+            }
+            CLog.i("Removed an update package for %s", packageName);
+        }
+
+        throw new TargetSetupError("Too many updates were uninstalled. Something must be wrong.");
+    }
+
     private static void removePackageData(String packageName, ITestDevice device)
             throws DeviceNotAvailableException {
         String dataPath = String.format("/data/data/%s", packageName);
@@ -248,6 +250,11 @@ public final class SystemAppRemovalPreparer implements ITargetPreparer {
                 String.format("rm -r %s", dataPath),
                 String.format(
                         "Failed to remove system app data %s from %s", packageName, dataPath));
+    }
+
+    private static boolean isPackageManagerRunning(ITestDevice device)
+            throws DeviceNotAvailableException {
+        return device.executeShellV2Command(PM_CHECK_COMMAND).getStatus() == CommandStatus.SUCCESS;
     }
 
     private static boolean isPackageInstalled(String packageName, ITestDevice device)

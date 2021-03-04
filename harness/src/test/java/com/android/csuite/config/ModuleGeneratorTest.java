@@ -20,7 +20,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
 
+import com.android.csuite.core.PackageNameProvider;
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
@@ -29,8 +32,8 @@ import com.android.tradefed.invoker.TestInformation;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.StringSubject;
@@ -41,12 +44,15 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RunWith(JUnit4.class)
 public final class ModuleGeneratorTest {
@@ -55,16 +61,16 @@ public final class ModuleGeneratorTest {
     private static final String PACKAGE_PLACEHOLDER = "{package}";
     private static final Exception NO_EXCEPTION = null;
 
-    private final FileSystem mFileSystem = Jimfs.newFileSystem(Configuration.unix());
+    private final FileSystem mFileSystem =
+            Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
 
     @Test
-    public void tearDown_packageOptionIsSet_deletesGeneratedModules() throws Exception {
+    public void tearDown_packageNamesProvided_deletesGeneratedModules() throws Exception {
         Path testsDir = createTestsDir();
         ModuleGenerator generator1 =
                 createGeneratorBuilder()
                         .setTestsDir(testsDir)
                         .addPackage(TEST_PACKAGE_NAME1)
-                        .addPackage(TEST_PACKAGE_NAME1) // Simulate duplicate package option
                         .addPackage(TEST_PACKAGE_NAME2)
                         .build();
         generator1.split();
@@ -72,7 +78,6 @@ public final class ModuleGeneratorTest {
                 createGeneratorBuilder()
                         .setTestsDir(testsDir)
                         .addPackage(TEST_PACKAGE_NAME1)
-                        .addPackage(TEST_PACKAGE_NAME1) // Simulate duplicate package option
                         .addPackage(TEST_PACKAGE_NAME2)
                         .build();
 
@@ -82,7 +87,7 @@ public final class ModuleGeneratorTest {
     }
 
     @Test
-    public void tearDown_packageOptionIsNotSet_doesNotThrowError() throws Exception {
+    public void tearDown_packageNamesNotProvided_doesNotThrowError() throws Exception {
         ModuleGenerator generator = createGeneratorBuilder().setTestsDir(createTestsDir()).build();
         generator.split();
 
@@ -105,14 +110,15 @@ public final class ModuleGeneratorTest {
     }
 
     @Test
-    public void split_packageOptionContainsDuplicates_ignoreDuplicates() throws Exception {
+    public void split_multiplePackageNameProviders_generateModulesForAll() throws Exception {
         Path testsDir = createTestsDir();
         ModuleGenerator generator =
                 createGeneratorBuilder()
                         .setTestsDir(testsDir)
-                        .addPackage(TEST_PACKAGE_NAME1)
-                        .addPackage(TEST_PACKAGE_NAME1) // Simulate duplicate package option
-                        .addPackage(TEST_PACKAGE_NAME2)
+                        .addPackageNameProvider(() -> ImmutableSet.of(TEST_PACKAGE_NAME1))
+                        // Simulates package providers providing duplicated package names.
+                        .addPackageNameProvider(() -> ImmutableSet.of(TEST_PACKAGE_NAME1))
+                        .addPackageNameProvider(() -> ImmutableSet.of(TEST_PACKAGE_NAME2))
                         .build();
 
         generator.split();
@@ -124,7 +130,22 @@ public final class ModuleGeneratorTest {
     }
 
     @Test
-    public void split_packageOptionNotSet_doesNotGenerate() throws Exception {
+    public void split_packageNameProviderThrowsException_throwsException() throws Exception {
+        Path testsDir = createTestsDir();
+        ModuleGenerator generator =
+                createGeneratorBuilder()
+                        .setTestsDir(testsDir)
+                        .addPackageNameProvider(
+                                () -> {
+                                    throw new IOException();
+                                })
+                        .build();
+
+        assertThrows(UncheckedIOException.class, () -> generator.split());
+    }
+
+    @Test
+    public void split_packageNamesNotProvided_doesNotGenerate() throws Exception {
         Path testsDir = createTestsDir();
         ModuleGenerator generator = createGeneratorBuilder().setTestsDir(testsDir).build();
 
@@ -230,13 +251,19 @@ public final class ModuleGeneratorTest {
 
     private static final class GeneratorBuilder {
         private final ListMultimap<String, String> mOptions = ArrayListMultimap.create();
-        private final List<String> mPackages = new ArrayList<>();
+        private final Set<String> mPackages = new HashSet<>();
+        private final List<PackageNameProvider> mPackageNameProviders = new ArrayList<>();
         private Path mTestsDir;
         private String mTemplateContent;
         private FileSystem mFileSystem;
 
         GeneratorBuilder addPackage(String packageName) {
             mPackages.add(packageName);
+            return this;
+        }
+
+        GeneratorBuilder addPackageNameProvider(PackageNameProvider packageNameProvider) {
+            mPackageNameProviders.add(packageNameProvider);
             return this;
         }
 
@@ -270,9 +297,13 @@ public final class ModuleGeneratorTest {
                 optionSetter.setOptionValue(entry.getKey(), entry.getValue());
             }
 
-            for (String packageName : mPackages) {
-                optionSetter.setOptionValue(ModuleGenerator.OPTION_PACKAGE, packageName);
-            }
+            List<PackageNameProvider> packageNameProviders = new ArrayList<>(mPackageNameProviders);
+            packageNameProviders.add(() -> mPackages);
+
+            IConfiguration configuration = new Configuration("name", "description");
+            configuration.setConfigurationObjectList(
+                    ModuleGenerator.PACKAGE_NAME_PROVIDER, packageNameProviders);
+            generator.setConfiguration(configuration);
 
             return generator;
         }
