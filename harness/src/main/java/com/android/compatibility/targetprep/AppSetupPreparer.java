@@ -71,7 +71,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
     private final List<File> mTestFiles = new ArrayList<>();
 
     @Option(name = OPTION_AAPT_VERSION, description = "The version of AAPT for APK parsing.")
-    private AaptVersion mAaptVersion = AaptVersion.AAPT;
+    private AaptVersion mAaptVersion = AaptVersion.AAPT2;
 
     @Option(
             name = OPTION_INSTALL_ARG,
