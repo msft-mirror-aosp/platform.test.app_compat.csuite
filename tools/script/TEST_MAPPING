@@ -1,8 +1,0 @@
-{
-  "presubmit": [
-    {
-      "name": "generate_module_test",
-      "host": true
-    }
-  ]
-}
