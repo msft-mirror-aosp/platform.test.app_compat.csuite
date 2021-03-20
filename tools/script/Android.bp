@@ -38,7 +38,9 @@ python_test_host {
         "pyfakefs",
     ],
     test_config_template: "csuite_test_template.xml",
-    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
+    },
     defaults: [
         "csuite_python_defaults",
     ],
