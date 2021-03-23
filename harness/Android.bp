@@ -37,11 +37,9 @@ java_test_host {
     srcs: [
         "src/test/java/**/*.java",
     ],
-    libs: [
-        "csuite-harness",
-        "tradefed",
-    ],
     static_libs: [
+        "tradefed",
+        "csuite-harness",
         "compatibility-tradefed",
         "guava-testlib",
         "jimfs",
@@ -49,5 +47,7 @@ java_test_host {
         "objenesis",
         "testng",
     ],
-    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
+    },
 }
