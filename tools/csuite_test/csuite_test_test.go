@@ -24,19 +24,6 @@ import (
 
 var buildDir string
 
-func TestValidBpDoesNotThrowError(t *testing.T) {
-	ctx, config := createContextAndConfig(t, `
-    csuite_test {
-      name: "plan_name",
-      test_config_template: "test_config.xml.template"
-    }
-  `)
-
-	_, errs := ctx.PrepareBuildActions(config)
-
-	android.FailIfErrored(t, errs)
-}
-
 func TestBpContainsTestHostPropsThrowsError(t *testing.T) {
 	ctx, _ := createContextAndConfig(t, `
     csuite_test {
@@ -90,6 +77,34 @@ func TestBpMissingTemplatePathThrowsError(t *testing.T) {
 	android.FailIfNoMatchingErrors(t, `'test_config_template' is missing`, errs)
 }
 
+func TestValidBpMissingPlanIncludeDoesNotThrowError(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+    csuite_test {
+      name: "plan_name",
+      test_config_template: "test_config.xml.template"
+    }
+  `)
+
+	parseBpAndBuild(t, ctx, config)
+}
+
+func TestValidBpMissingPlanIncludeGeneratesPlanXmlWithoutPlaceholders(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+    csuite_test {
+      name: "plan_name",
+      test_config_template: "test_config.xml.template"
+    }
+  `)
+
+	parseBpAndBuild(t, ctx, config)
+
+	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	if strings.Contains(content, "{") || strings.Contains(content, "}") {
+		t.Errorf("The generated plan name contains a placeholder: %s", content)
+	}
+}
+
 func TestGeneratedTestPlanContainsPlanName(t *testing.T) {
 	ctx, config := createContextAndConfig(t, `
     csuite_test {
@@ -98,11 +113,8 @@ func TestGeneratedTestPlanContainsPlanName(t *testing.T) {
     }
   `)
 
-	_, parsingErrs := ctx.ParseBlueprintsFiles("Android.bp")
-	_, buildErrs := ctx.PrepareBuildActions(config)
+	parseBpAndBuild(t, ctx, config)
 
-	android.FailIfErrored(t, parsingErrs)
-	android.FailIfErrored(t, buildErrs)
 	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "plan_name") {
@@ -118,11 +130,8 @@ func TestGeneratedTestPlanContainsTemplatePath(t *testing.T) {
     }
   `)
 
-	_, parsingErrs := ctx.ParseBlueprintsFiles("Android.bp")
-	_, buildErrs := ctx.PrepareBuildActions(config)
+	parseBpAndBuild(t, ctx, config)
 
-	android.FailIfErrored(t, parsingErrs)
-	android.FailIfErrored(t, buildErrs)
 	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "config/plan_name.xml.template") {
@@ -138,17 +147,43 @@ func TestTemplateFileCopyRuleExists(t *testing.T) {
     }
   `)
 
-	_, parsingErrs := ctx.ParseBlueprintsFiles("Android.bp")
-	_, buildErrs := ctx.PrepareBuildActions(config)
+	parseBpAndBuild(t, ctx, config)
 
-	android.FailIfErrored(t, parsingErrs)
-	android.FailIfErrored(t, buildErrs)
 	params := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common").Rule("CSuite")
-	assertPathsContains(t, getAllInputPaths(params), "test_config.xml.template")
-	assertWritablePathsContainsRel(t, getAllOutputPaths(params), "config/plan_name.xml.template")
-	if !strings.HasPrefix(params.RuleParams.Command, "cp") {
-		t.Errorf("'cp' command is missing.")
+	assertFileCopyRuleExists(t, params, "test_config.xml.template", "config/plan_name.xml.template")
+}
+
+func TestGeneratedTestPlanContainsPlanInclude(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+    csuite_test {
+      name: "plan_name",
+      test_config_template: "test_config.xml.template",
+      test_plan_include: "include.xml"
+    }
+  `)
+
+	parseBpAndBuild(t, ctx, config)
+
+	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	if !strings.Contains(content, `"includes/plan_name.xml"`) {
+		t.Errorf("The plan include path is missing from the generated plan: %s", content)
 	}
+}
+
+func TestPlanIncludeFileCopyRuleExists(t *testing.T) {
+	ctx, config := createContextAndConfig(t, `
+    csuite_test {
+      name: "plan_name",
+      test_config_template: "test_config.xml.template",
+      test_plan_include: "include.xml"
+    }
+  `)
+
+	parseBpAndBuild(t, ctx, config)
+
+	params := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common").Rule("CSuite")
+	assertFileCopyRuleExists(t, params, "include.xml", "config/includes/plan_name.xml")
 }
 
 func TestMain(m *testing.M) {
@@ -160,6 +195,22 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(run())
+}
+
+func parseBpAndBuild(t *testing.T, ctx *android.TestContext, config android.Config) {
+	_, parsingErrs := ctx.ParseBlueprintsFiles("Android.bp")
+	_, buildErrs := ctx.PrepareBuildActions(config)
+
+	android.FailIfErrored(t, parsingErrs)
+	android.FailIfErrored(t, buildErrs)
+}
+
+func assertFileCopyRuleExists(t *testing.T, params android.TestingBuildParams, src string, dst string) {
+	assertPathsContains(t, getAllInputPaths(params), src)
+	assertWritablePathsContainsRel(t, getAllOutputPaths(params), dst)
+	if !strings.HasPrefix(params.RuleParams.Command, "cp") {
+		t.Errorf("'cp' command is missing.")
+	}
 }
 
 func assertPathsContains(t *testing.T, paths android.Paths, path string) {

@@ -32,6 +32,9 @@ type csuiteTestProperties struct {
 	// Local path to a module template xml file.
 	// The content of the template will be used to generate test modules at runtime.
 	Test_config_template *string `android:"path"`
+
+	// Local path to a test plan config xml to be included in the generated plan.
+	Test_plan_include *string `android:"path"`
 }
 
 type CSuiteTest struct {
@@ -40,38 +43,46 @@ type CSuiteTest struct {
 
 	// C-Suite test properties struct.
 	csuiteTestProperties csuiteTestProperties
-
-	// Local path to a xml config file to be included in the test plan.
-	Test_plan_include *string `android:"path"`
 }
 
-func (cSuiteTest *CSuiteTest) generateTestConfigTemplate(rule *android.RuleBuilder, ctx android.ModuleContext) android.ModuleGenPath {
+func (cSuiteTest *CSuiteTest) buildCopyConfigTemplateCommand(ctx android.ModuleContext, rule *android.RuleBuilder) string {
 	if cSuiteTest.csuiteTestProperties.Test_config_template == nil {
 		ctx.ModuleErrorf(`'test_config_template' is missing.`)
 	}
 	inputPath := android.PathForModuleSrc(ctx, *cSuiteTest.csuiteTestProperties.Test_config_template)
 	genPath := android.PathForModuleGen(ctx, planConfigDirName, ctx.ModuleName()+configTemplateFileExtension)
 	rule.Command().Textf("cp").Input(inputPath).Output(genPath)
-	return genPath
+	cSuiteTest.AddExtraResource(genPath)
+	return genPath.Rel()
 }
 
-func (cSuiteTest *CSuiteTest) generatePlanConfig(templatePathString string, ctx android.ModuleContext) android.ModuleGenPath {
+func (cSuiteTest *CSuiteTest) buildCopyPlanIncludeCommand(ctx android.ModuleContext, rule *android.RuleBuilder) string {
+	if cSuiteTest.csuiteTestProperties.Test_plan_include == nil {
+		return emptyPlanIncludePath
+	}
+	inputPath := android.PathForModuleSrc(ctx, *cSuiteTest.csuiteTestProperties.Test_plan_include)
+	genPath := android.PathForModuleGen(ctx, planConfigDirName, "includes", ctx.ModuleName()+".xml")
+	rule.Command().Textf("cp").Input(inputPath).Output(genPath)
+	cSuiteTest.AddExtraResource(genPath)
+	return strings.Replace(genPath.Rel(), "config/", "", -1)
+}
+
+func (cSuiteTest *CSuiteTest) buildWritePlanConfigRule(ctx android.ModuleContext, configTemplatePath string, planIncludePath string) {
 	planName := ctx.ModuleName()
+	content := strings.Replace(planTemplate, "{planName}", planName, -1)
+	content = strings.Replace(content, "{templatePath}", configTemplatePath, -1)
+	content = strings.Replace(content, "{planInclude}", planIncludePath, -1)
 	genPath := android.PathForModuleGen(ctx, planConfigDirName, planName+planFileExtension)
-	content := strings.Replace(planTemplateContent, "{planName}", planName, -1)
-	content = strings.Replace(content, "{templatePath}", templatePathString, -1)
 	android.WriteFileRule(ctx, genPath, content)
-	return genPath
+	cSuiteTest.AddExtraResource(genPath)
 }
 
 func (cSuiteTest *CSuiteTest) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	rule := android.NewRuleBuilder(pctx, ctx)
 
-	configTemplateOutputPath := cSuiteTest.generateTestConfigTemplate(rule, ctx)
-	cSuiteTest.AddExtraResource(configTemplateOutputPath)
-
-	planOutputFile := cSuiteTest.generatePlanConfig(configTemplateOutputPath.Rel(), ctx)
-	cSuiteTest.AddExtraResource(planOutputFile)
+	configTemplatePath := cSuiteTest.buildCopyConfigTemplateCommand(ctx, rule)
+	planIncludePath := cSuiteTest.buildCopyPlanIncludeCommand(ctx, rule)
+	cSuiteTest.buildWritePlanConfigRule(ctx, configTemplatePath, planIncludePath)
 
 	rule.Build("CSuite", "generate C-Suite config files")
 	cSuiteTest.TestHost.GenerateAndroidBuildActions(ctx)
@@ -90,10 +101,11 @@ func CSuiteTestFactory() android.Module {
 }
 
 const (
+	emptyPlanIncludePath        = `empty`
 	planConfigDirName           = `config`
 	configTemplateFileExtension = `.xml.template`
 	planFileExtension           = `.xml`
-	planTemplateContent         = `<?xml version="1.0" encoding="utf-8"?>
+	planTemplate                = `<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2020 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -113,6 +125,7 @@ const (
           <option name="template" value="{templatePath}" />
      </test>
      <include name="csuite-base" />
+     <include name="{planInclude}" />
      <option name="plan" value="{planName}" />
 </configuration>
 `
