@@ -1,8 +1,0 @@
-{
-  "presubmit": [
-    {
-      "name": "csuite-tradefed-tests",
-      "host": true
-    }
-  ]
-}
