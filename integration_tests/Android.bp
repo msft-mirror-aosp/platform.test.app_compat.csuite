@@ -110,4 +110,7 @@ python_test_host {
     defaults: [
         "csuite_python_defaults",
     ],
+    test_options: {
+        unit_test: false,
+    },
 }
