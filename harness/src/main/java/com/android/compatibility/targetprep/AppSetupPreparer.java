@@ -46,8 +46,6 @@ import java.util.concurrent.TimeUnit;
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
 
-    @VisibleForTesting static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
-
     @VisibleForTesting
     static final String OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS =
             "wait-for-device-available-seconds";
@@ -90,13 +88,6 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "A value n means the preparer will wait for n^(retry_count) "
                             + "seconds between retries.")
     private int mExponentialBackoffMultiplierSeconds = 0;
-
-    // TODO(yuexima): Remove this option after migrated to using
-    // OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS
-    @Option(
-            name = OPTION_CHECK_DEVICE_AVAILABLE,
-            description = "Whether to check device avilibility upon setUp failure.")
-    private boolean mCheckDeviceAvailable = false;
 
     @Option(
             name = OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS,
@@ -166,7 +157,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 currentException = new TargetSetupError(e.getMessage(), e);
             }
 
-            checkDeviceAvailable(device);
+            waitForDeviceAvailable(device);
             if (runCount > mMaxRetry) {
                 throw currentException;
             }
@@ -208,19 +199,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         mTestAppInstallSetup.tearDown(testInfo, e);
     }
 
-    private void checkDeviceAvailable(ITestDevice device) throws DeviceNotAvailableException {
-        if (mCheckDeviceAvailable) {
-            // Throw an exception for TF to retry the invocation if the device is no longer
-            // available since retrying would be useless. Ideally we would wait for the device to
-            // recover but that is currently not supported in TradeFed.
-            if (device.getProperty("any_key") == null) {
-                throw new DeviceNotAvailableException(
-                        "getprop command failed. Might have lost connection to the device.",
-                        device.getSerialNumber());
-            }
-            return;
-        }
-
+    private void waitForDeviceAvailable(ITestDevice device) throws DeviceNotAvailableException {
         if (mWaitForDeviceAvailableSeconds < 0) {
             return;
         }
