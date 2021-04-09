@@ -234,52 +234,6 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
-    public void setUp_deviceDisconnectedAndCheckDeviceAvailable_throwsDeviceNotAvailableException()
-            throws Exception {
-        AppSetupPreparer preparer =
-                new PreparerBuilder()
-                        .setInstaller(
-                                mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
-                        .setOption(AppSetupPreparer.OPTION_CHECK_DEVICE_AVAILABLE, "true")
-                        .build();
-        ITestDevice device = createUnavailableDevice();
-
-        assertThrows(
-                DeviceNotAvailableException.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
-    }
-
-    @Test
-    public void setUp_deviceConnectedAndCheckDeviceAvailable_doesNotChangeException()
-            throws Exception {
-        AppSetupPreparer preparer =
-                new PreparerBuilder()
-                        .setInstaller(
-                                mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
-                        .setOption(AppSetupPreparer.OPTION_CHECK_DEVICE_AVAILABLE, "true")
-                        .build();
-        ITestDevice device = createAvailableDevice();
-
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
-    }
-
-    @Test
-    public void setUp_deviceDisconnectedAndNotCheckDeviceAvailable_doesNotChangeException()
-            throws Exception {
-        AppSetupPreparer preparer =
-                new PreparerBuilder()
-                        .setInstaller(
-                                mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
-                        .setOption(AppSetupPreparer.OPTION_CHECK_DEVICE_AVAILABLE, "false")
-                        .build();
-        ITestDevice device = createUnavailableDevice();
-
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
-    }
-
-    @Test
     public void setUp_deviceNotAvailableAndWaitEnabled_throwsDeviceNotAvailableException()
             throws Exception {
         AppSetupPreparer preparer =
