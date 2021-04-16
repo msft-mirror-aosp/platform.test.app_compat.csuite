@@ -20,7 +20,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.android.csuite.core.SystemPackageUninstaller;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
@@ -59,6 +61,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting static final String OPTION_SETUP_TIMEOUT_MILLIS = "setup-timeout-millis";
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
     @VisibleForTesting static final String OPTION_AAPT_VERSION = "aapt-version";
+    @VisibleForTesting static final String OPTION_INCREMENTAL_INSTALL = "incremental";
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -77,6 +80,11 @@ public final class AppSetupPreparer implements ITargetPreparer {
                     "Additional arguments to be passed to install command, "
                             + "including leading dash, e.g. \"-d\"")
     private final List<String> mInstallArgs = new ArrayList<>();
+
+    @Option(
+            name = OPTION_INCREMENTAL_INSTALL,
+            description = "Enable packages to be installed incrementally.")
+    private boolean mIncrementalInstallation = false;
 
     @Option(name = OPTION_MAX_RETRY, description = "Max number of retries upon TargetSetupError.")
     private int mMaxRetry = 0;
@@ -177,6 +185,13 @@ public final class AppSetupPreparer implements ITargetPreparer {
     private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         mTestAppInstallSetup.setAaptVersion(mAaptVersion);
+
+        try {
+            OptionSetter setter = new OptionSetter(mTestAppInstallSetup);
+            setter.setOptionValue("incremental", String.valueOf(mIncrementalInstallation));
+        } catch(ConfigurationException e) {
+            throw new TargetSetupError(e.getMessage(), e);
+        }
 
         if (mPackageName != null) {
             SystemPackageUninstaller.uninstallPackage(mPackageName, device);
