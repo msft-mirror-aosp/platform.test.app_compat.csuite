@@ -16,6 +16,7 @@
 package com.android.compatibility.targetprep;
 
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.ArgsOptionParser;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -324,6 +325,23 @@ public final class AppSetupPreparerTest {
         preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
 
         assertThat(captor.getAllValues()).containsExactly("-arg1", "-arg2");
+    }
+
+    @Test
+    public void setUp_installIncrementalOptionSet_forwardsToInstaller() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+
+        AppSetupPreparer preparer =
+                new PreparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_INCREMENTAL_INSTALL, "true")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        String result = ArgsOptionParser.getOptionHelp(false, installer);
+        System.out.println(result);
+
+        assertThat(result).contains("incremental");
     }
 
     @Test
