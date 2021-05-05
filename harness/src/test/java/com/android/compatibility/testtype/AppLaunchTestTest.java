@@ -15,15 +15,19 @@
  */
 package com.android.compatibility.testtype;
 
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -38,12 +42,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.InOrder;
+import org.mockito.Mockito;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,6 +62,7 @@ public final class AppLaunchTestTest {
     private final ITestInvocationListener mMockListener = mock(ITestInvocationListener.class);
     private static final String TEST_PACKAGE_NAME = "package_name";
     private static final TestInformation NULL_TEST_INFORMATION = null;
+    @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Test
     public void run_testFailed() throws DeviceNotAvailableException {
@@ -75,6 +82,24 @@ public final class AppLaunchTestTest {
         appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         verifyPassedAndEndedCall(mMockListener);
+    }
+
+    @Test
+    public void run_takeScreenShot_savesToTestLog() throws Exception {
+        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
+        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
+        new OptionSetter(appLaunchTest)
+                .setOptionValue(AppLaunchTest.SCREENSHOT_AFTER_LAUNCH, "true");
+        ITestDevice mMockDevice = mock(ITestDevice.class);
+        appLaunchTest.setDevice(mMockDevice);
+        InputStreamSource screenshotData = new FileInputStreamSource(tempFolder.newFile());
+        when(mMockDevice.getScreenshot()).thenReturn(screenshotData);
+        when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
+
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+
+        Mockito.verify(mMockListener, times(1))
+                .testLog(Mockito.contains("screenshot"), Mockito.any(), Mockito.eq(screenshotData));
     }
 
     @Test
