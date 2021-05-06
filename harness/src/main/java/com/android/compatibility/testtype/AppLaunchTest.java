@@ -59,6 +59,12 @@ import java.util.Set;
 /** A test that verifies that a single app can be successfully launched. */
 public class AppLaunchTest
         implements IDeviceTest, IRemoteTest, IConfigurationReceiver, ITestFilterReceiver {
+    @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
+
+    @Option(
+            name = SCREENSHOT_AFTER_LAUNCH,
+            description = "Whether to take a screenshost after a package is launched.")
+    private boolean mScreenshotAfterLaunch;
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -202,6 +208,20 @@ public class AppLaunchTest
                 launchPackage(testInfo, result);
                 if (result.status == CompatibilityTestResult.STATUS_SUCCESS) {
                     break;
+                }
+            }
+
+            if (mScreenshotAfterLaunch) {
+                try (InputStreamSource screenSource = mDevice.getScreenshot()) {
+                    listener.testLog(
+                            mPackageName + "_screenshot_" + mDevice.getSerialNumber(),
+                            LogDataType.PNG,
+                            screenSource);
+                } catch (DeviceNotAvailableException e) {
+                    CLog.e(
+                            "Device %s became unavailable while capturing screenshot, %s",
+                            mDevice.getSerialNumber(), e.toString());
+                    throw e;
                 }
             }
         } finally {
