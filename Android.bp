@@ -1,4 +1,4 @@
-// Copyright (C) 2012 The Android Open Source Project
+// Copyright (C) 2020 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,17 +16,14 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test_helper_app {
-    name: "csuite-launch-instrumentation",
-    static_libs: ["androidx.test.rules"],
-    // Include all test java files.
-    srcs: ["src/**/*.java"],
-    // The value of min sdk version chosen here is the oldest sdk version we
-    // have tested. Lower version numbers should also work.
-    min_sdk_version: "29",
-    platform_apis: true,
-    manifest: "src/main/AndroidManifest.xml",
-    test_suites: [
-        "csuite",
-    ],
+python_defaults {
+    name: "csuite_python_defaults",
+    version: {
+        py2: {
+            enabled: false,
+        },
+        py3: {
+            enabled: true,
+        },
+    },
 }
