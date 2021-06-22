@@ -103,6 +103,25 @@ public final class AppLaunchTestTest {
     }
 
     @Test
+    public void run_recordScreen_savesToTestLog() throws Exception {
+        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
+        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
+        new OptionSetter(appLaunchTest).setOptionValue(AppLaunchTest.RECORD_SCREEN, "true");
+        ITestDevice mockDevice = mock(ITestDevice.class);
+        appLaunchTest.setDevice(mockDevice);
+        when(mockDevice.pullFile(Mockito.any())).thenReturn(tempFolder.newFile());
+        when(mockDevice.getSerialNumber()).thenReturn("SERIAL");
+        when(mockDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
+                .thenReturn(createSuccessfulCommandResult());
+        when(mockDevice.executeShellCommand("pidof screenrecord")).thenReturn("123");
+
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+
+        Mockito.verify(mMockListener, times(1))
+                .testLog(Mockito.contains("screenrecord"), Mockito.any(), Mockito.any());
+    }
+
+    @Test
     public void run_collectAppVersion_savesToTestLog() throws Exception {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
         AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
@@ -481,9 +500,13 @@ public final class AppLaunchTestTest {
     }
 
     private CommandResult createSuccessfulCommandResult() {
+        return createSuccessfulCommandResult("");
+    }
+
+    private CommandResult createSuccessfulCommandResult(String stdout) {
         CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
         commandResult.setExitCode(0);
-        commandResult.setStdout("");
+        commandResult.setStdout(stdout);
         commandResult.setStderr("");
         return commandResult;
     }
