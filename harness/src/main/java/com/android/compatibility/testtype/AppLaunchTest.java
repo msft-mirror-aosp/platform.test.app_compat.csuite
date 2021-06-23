@@ -60,11 +60,19 @@ import java.util.Set;
 public class AppLaunchTest
         implements IDeviceTest, IRemoteTest, IConfigurationReceiver, ITestFilterReceiver {
     @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
+    @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";
 
     @Option(
             name = SCREENSHOT_AFTER_LAUNCH,
             description = "Whether to take a screenshost after a package is launched.")
     private boolean mScreenshotAfterLaunch;
+
+    @Option(
+            name = COLLECT_APP_VERSION,
+            description =
+                    "Whether to collect package version information and store the information in"
+                            + " test log files.")
+    private boolean mCollectAppVersion;
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -201,6 +209,22 @@ public class AppLaunchTest
         result.packageName = mPackageName;
 
         try {
+            if (mCollectAppVersion) {
+                String versionCode = DeviceUtils.getPackageVersionCode(mDevice, mPackageName);
+                String versionName = DeviceUtils.getPackageVersionName(mDevice, mPackageName);
+                CLog.i(
+                        "Testing package %s versionCode=%s, versionName=%s",
+                        mPackageName, versionCode, versionName);
+                listener.testLog(
+                        String.format("%s_[versionCode=%s]", mPackageName, versionCode),
+                        LogDataType.TEXT,
+                        new ByteArrayInputStreamSource(versionCode.getBytes()));
+                listener.testLog(
+                        String.format("%s_[versionName=%s]", mPackageName, versionName),
+                        LogDataType.TEXT,
+                        new ByteArrayInputStreamSource(versionName.getBytes()));
+            }
+
             for (int i = 0; i <= mRetryCount; i++) {
                 result.status = null;
                 result.message = null;
@@ -445,5 +469,57 @@ public class AppLaunchTest
     @Override
     public Set<String> getExcludeFilters() {
         return Collections.unmodifiableSet(mExcludeFilters);
+    }
+
+    private static final class DeviceUtils {
+        @VisibleForTesting static final String UNKNOWN = "Unknown";
+
+        /**
+         * Gets the version name of a package installed on the device.
+         *
+         * @param packageName The full package name to query
+         * @return The package version name, or 'Unknown' if the package doesn't exist or the adb
+         *     command failed.
+         * @throws DeviceNotAvailableException
+         */
+        static String getPackageVersionName(ITestDevice device, String packageName)
+                throws DeviceNotAvailableException {
+            CommandResult cmdResult =
+                    device.executeShellV2Command(
+                            String.format("dumpsys package %s | grep versionName", packageName));
+
+            String prefix = "versionName=";
+
+            if (cmdResult.getStatus() != CommandStatus.SUCCESS
+                    || !cmdResult.getStdout().contains(prefix)) {
+                return UNKNOWN;
+            }
+
+            return cmdResult.getStdout().trim().substring(prefix.length());
+        }
+
+        /**
+         * Gets the version code of a package installed on the device.
+         *
+         * @param packageName The full package name to query
+         * @return The package version code, or 'Unknown' if the package doesn't exist or the adb
+         *     command failed.
+         * @throws DeviceNotAvailableException
+         */
+        static String getPackageVersionCode(ITestDevice device, String packageName)
+                throws DeviceNotAvailableException {
+            CommandResult cmdResult =
+                    device.executeShellV2Command(
+                            String.format("dumpsys package %s | grep versionCode", packageName));
+
+            String prefix = "versionCode=";
+
+            if (cmdResult.getStatus() != CommandStatus.SUCCESS
+                    || !cmdResult.getStdout().contains(prefix)) {
+                return UNKNOWN;
+            }
+
+            return cmdResult.getStdout().trim().split(" ")[0].substring(prefix.length());
+        }
     }
 }

@@ -90,16 +90,34 @@ public final class AppLaunchTestTest {
         AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
         new OptionSetter(appLaunchTest)
                 .setOptionValue(AppLaunchTest.SCREENSHOT_AFTER_LAUNCH, "true");
-        ITestDevice mMockDevice = mock(ITestDevice.class);
-        appLaunchTest.setDevice(mMockDevice);
+        ITestDevice mockDevice = mock(ITestDevice.class);
+        appLaunchTest.setDevice(mockDevice);
         InputStreamSource screenshotData = new FileInputStreamSource(tempFolder.newFile());
-        when(mMockDevice.getScreenshot()).thenReturn(screenshotData);
-        when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
+        when(mockDevice.getScreenshot()).thenReturn(screenshotData);
+        when(mockDevice.getSerialNumber()).thenReturn("SERIAL");
 
         appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.contains("screenshot"), Mockito.any(), Mockito.eq(screenshotData));
+    }
+
+    @Test
+    public void run_collectAppVersion_savesToTestLog() throws Exception {
+        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
+        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
+        new OptionSetter(appLaunchTest).setOptionValue(AppLaunchTest.COLLECT_APP_VERSION, "true");
+        ITestDevice mockDevice = mock(ITestDevice.class);
+        appLaunchTest.setDevice(mockDevice);
+        when(mockDevice.executeShellV2Command(Mockito.startsWith("dumpsys package")))
+                .thenReturn(createSuccessfulCommandResult());
+
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+
+        Mockito.verify(mMockListener, times(1))
+                .testLog(Mockito.contains("versionCode"), Mockito.any(), Mockito.any());
+        Mockito.verify(mMockListener, times(1))
+                .testLog(Mockito.contains("versionName"), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -446,12 +464,16 @@ public final class AppLaunchTestTest {
     private CommandResult createSuccessfulCommandResult() {
         CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
         commandResult.setExitCode(0);
+        commandResult.setStdout("");
+        commandResult.setStderr("");
         return commandResult;
     }
 
     private CommandResult createFailedCommandResult() {
         CommandResult commandResult = new CommandResult(CommandStatus.FAILED);
         commandResult.setExitCode(1);
+        commandResult.setStdout("");
+        commandResult.setStderr("error");
         return commandResult;
     }
 }
