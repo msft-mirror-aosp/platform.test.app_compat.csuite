@@ -168,7 +168,8 @@ public final class AppSetupPreparerTest {
         assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
     }
 
-    @Test
+    // TODO(yuexima): Temporally disabled because of high flakiness b/187506768
+    // @Test
     public void setUp_timesOutWithoutExceedingRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
