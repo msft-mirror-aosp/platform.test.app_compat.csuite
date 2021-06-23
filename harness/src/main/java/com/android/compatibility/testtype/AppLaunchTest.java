@@ -61,6 +61,8 @@ public class AppLaunchTest
         implements IDeviceTest, IRemoteTest, IConfigurationReceiver, ITestFilterReceiver {
     @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
     @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";
+    @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
+    @VisibleForTesting static final String GMS_PACKAGE_NAME = "com.google.android.gms";
 
     @Option(
             name = SCREENSHOT_AFTER_LAUNCH,
@@ -73,6 +75,13 @@ public class AppLaunchTest
                     "Whether to collect package version information and store the information in"
                             + " test log files.")
     private boolean mCollectAppVersion;
+
+    @Option(
+            name = COLLECT_GMS_VERSION,
+            description =
+                    "Whether to collect GMS core version information and store the information in"
+                            + " test log files.")
+    private boolean mCollectGmsVersion;
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -247,6 +256,24 @@ public class AppLaunchTest
                             mDevice.getSerialNumber(), e.toString());
                     throw e;
                 }
+            }
+
+            if (mCollectGmsVersion) {
+                String gmsVersionCode =
+                        DeviceUtils.getPackageVersionCode(mDevice, GMS_PACKAGE_NAME);
+                String gmsVersionName =
+                        DeviceUtils.getPackageVersionName(mDevice, GMS_PACKAGE_NAME);
+                CLog.i(
+                        "GMS core versionCode=%s, versionName=%s",
+                        mPackageName, gmsVersionCode, gmsVersionName);
+                listener.testLog(
+                        String.format("%s_[GMS_versionCode=%s]", mPackageName, gmsVersionCode),
+                        LogDataType.TEXT,
+                        new ByteArrayInputStreamSource(gmsVersionCode.getBytes()));
+                listener.testLog(
+                        String.format("%s_[GMS_versionName=%s]", mPackageName, gmsVersionName),
+                        LogDataType.TEXT,
+                        new ByteArrayInputStreamSource(gmsVersionName.getBytes()));
             }
         } finally {
             reportResult(listener, testDescription, result);
