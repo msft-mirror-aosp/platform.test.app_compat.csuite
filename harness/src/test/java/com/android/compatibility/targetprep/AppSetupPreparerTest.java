@@ -43,6 +43,7 @@ import static org.testng.Assert.assertThrows;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -156,6 +157,7 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
+    @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187380263
     public void setUp_exceedsTimeout_throwsException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
@@ -168,8 +170,8 @@ public final class AppSetupPreparerTest {
         assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
     }
 
-    // TODO(yuexima): Temporally disabled because of high flakiness b/187506768
-    // @Test
+    @Test
+    @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187506768
     public void setUp_timesOutWithoutExceedingRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
@@ -187,6 +189,7 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
+    @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187380263
     public void setUp_timesOutAndExceedsRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
