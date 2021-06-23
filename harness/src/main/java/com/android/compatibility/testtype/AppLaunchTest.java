@@ -31,6 +31,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.CompatibilityTestResult;
+import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
@@ -50,11 +51,14 @@ import org.json.JSONException;
 import org.junit.Assert;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /** A test that verifies that a single app can be successfully launched. */
 public class AppLaunchTest
@@ -63,6 +67,10 @@ public class AppLaunchTest
     @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
     @VisibleForTesting static final String GMS_PACKAGE_NAME = "com.google.android.gms";
+    @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
+
+    @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
+    private boolean mRecordScreen;
 
     @Option(
             name = SCREENSHOT_AFTER_LAUNCH,
@@ -238,7 +246,26 @@ public class AppLaunchTest
                 result.status = null;
                 result.message = null;
                 // Clear test result between retries.
-                launchPackage(testInfo, result);
+
+                if (mRecordScreen) {
+                    File video =
+                            DeviceUtils.runWithScreenRecording(
+                                    mDevice,
+                                    () -> {
+                                        launchPackage(testInfo, result);
+                                    });
+                    if (video != null) {
+                        listener.testLog(
+                                mPackageName + "_screenrecord_" + mDevice.getSerialNumber(),
+                                LogDataType.MP4,
+                                new FileInputStreamSource(video));
+                    } else {
+                        CLog.e("Failed to get screen recording.");
+                    }
+                } else {
+                    launchPackage(testInfo, result);
+                }
+
                 if (result.status == CompatibilityTestResult.STATUS_SUCCESS) {
                     break;
                 }
@@ -499,7 +526,78 @@ public class AppLaunchTest
     }
 
     private static final class DeviceUtils {
-        @VisibleForTesting static final String UNKNOWN = "Unknown";
+        static final String UNKNOWN = "Unknown";
+        private static final String VIDEO_PATH_ON_DEVICE = "/sdcard/screenrecord.mp4";
+        private static final int WAIT_FOR_SCREEN_RECORDING_START_MS = 10 * 1000;
+
+        static File runWithScreenRecording(ITestDevice device, RunnerTask action)
+                throws DeviceNotAvailableException {
+            // Start the recording thread in background
+            CompletableFuture<CommandResult> recordingFuture =
+                    CompletableFuture.supplyAsync(
+                                    () -> {
+                                        try {
+                                            return device.executeShellV2Command(
+                                                    String.format(
+                                                            "screenrecord %s",
+                                                            VIDEO_PATH_ON_DEVICE));
+                                        } catch (DeviceNotAvailableException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    })
+                            .whenComplete(
+                                    (commandResult, exception) -> {
+                                        if (exception != null) {
+                                            CLog.e(
+                                                    "Device was lost during screenrecording: %s",
+                                                    exception);
+                                        } else {
+                                            CLog.d(
+                                                    "Screenrecord command completed: %s",
+                                                    commandResult);
+                                        }
+                                    });
+
+            // Make sure the recording has started
+            String pid;
+            long start = System.currentTimeMillis();
+            while (true) {
+                if (System.currentTimeMillis() - start > WAIT_FOR_SCREEN_RECORDING_START_MS) {
+                    throw new RuntimeException(
+                            "Unnable to start screenrecord. Pid is not detected.");
+                }
+
+                String[] pids = device.executeShellCommand("pidof screenrecord").trim().split(" ");
+
+                if (pids.length > 0) {
+                    pid = pids[0];
+                    break;
+                }
+            }
+
+            File video = null;
+
+            try {
+                action.run();
+            } finally {
+                if (pid != null) {
+                    device.executeShellV2Command(String.format("kill -2 %s", pid));
+                    try {
+                        recordingFuture.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                    video = device.pullFile(VIDEO_PATH_ON_DEVICE);
+                    device.deleteFile(VIDEO_PATH_ON_DEVICE);
+                }
+            }
+
+            return video;
+        }
+
+        interface RunnerTask {
+            void run() throws DeviceNotAvailableException;
+        }
 
         /**
          * Gets the version name of a package installed on the device.
