@@ -64,6 +64,7 @@ public final class AppCompatibility {
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
     private static final String APP_LAUNCH_TIMEOUT_MSECS = "app_launch_timeout_ms";
     private static final String ARG_DISMISS_DIALOG = "ARG_DISMISS_DIALOG";
+    private static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
     private static final Set<String> DROPBOX_TAGS = new HashSet<>();
     private static final int MAX_CRASH_SNIPPET_LINES = 20;
     private static final int MAX_NUM_CRASH_SNIPPET = 3;
@@ -273,7 +274,13 @@ public final class AppCompatibility {
                         packageName, intent.toString()));
 
         // Launch Activity
-        mContext.startActivity(intent);
+        if (mArgs.getString(ENABLE_SPLASH_SCREEN, "false").equals("true")) {
+            Bundle bundle = new Bundle();
+            bundle.putInt("android.activity.splashScreenStyle", 1);
+            mContext.startActivity(intent, bundle);
+        } else {
+            mContext.startActivity(intent);
+        }
 
         try {
             // artificial delay: in case app crashes after doing some work during launch
