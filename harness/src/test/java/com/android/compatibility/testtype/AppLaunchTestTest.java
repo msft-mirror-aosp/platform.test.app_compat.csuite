@@ -121,6 +121,25 @@ public final class AppLaunchTestTest {
     }
 
     @Test
+    public void run_collectGmsVersion_savesToTestLog() throws Exception {
+        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
+        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
+        new OptionSetter(appLaunchTest).setOptionValue(AppLaunchTest.COLLECT_GMS_VERSION, "true");
+        ITestDevice mockDevice = mock(ITestDevice.class);
+        appLaunchTest.setDevice(mockDevice);
+        when(mockDevice.executeShellV2Command(
+                        Mockito.startsWith("dumpsys package " + AppLaunchTest.GMS_PACKAGE_NAME)))
+                .thenReturn(createSuccessfulCommandResult());
+
+        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+
+        Mockito.verify(mMockListener, times(1))
+                .testLog(Mockito.contains("GMS_versionCode"), Mockito.any(), Mockito.any());
+        Mockito.verify(mMockListener, times(1))
+                .testLog(Mockito.contains("GMS_versionName"), Mockito.any(), Mockito.any());
+    }
+
+    @Test
     public void run_packageResetSuccess() throws DeviceNotAvailableException {
         ITestDevice mMockDevice = mock(ITestDevice.class);
         when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
