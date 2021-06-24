@@ -68,6 +68,7 @@ public class AppLaunchTest
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
     @VisibleForTesting static final String GMS_PACKAGE_NAME = "com.google.android.gms";
     @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
+    @VisibleForTesting static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -90,6 +91,13 @@ public class AppLaunchTest
                     "Whether to collect GMS core version information and store the information in"
                             + " test log files.")
     private boolean mCollectGmsVersion;
+
+    @Option(
+            name = ENABLE_SPLASH_SCREEN,
+            description =
+                    "Whether to enable splash screen when launching an package from the"
+                            + " instrumentation test.")
+    private boolean mEnableSplashScreen;
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -162,6 +170,8 @@ public class AppLaunchTest
                 APP_LAUNCH_TIMEOUT_LABEL, Integer.toString(mAppLaunchTimeoutMs));
         instrumentationTest.addInstrumentationArg(
                 ARG_DISMISS_DIALOG, Boolean.toString(mDismissDialog));
+        instrumentationTest.addInstrumentationArg(
+                ENABLE_SPLASH_SCREEN, Boolean.toString(mEnableSplashScreen));
 
         int testTimeoutMs = BASE_INSTRUMENTATION_TEST_TIMEOUT_MS + mAppLaunchTimeoutMs * 2;
         instrumentationTest.setShellTimeout(testTimeoutMs);
