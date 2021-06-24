@@ -20,7 +20,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.android.csuite.core.SystemPackageUninstaller;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
@@ -46,8 +48,6 @@ import java.util.concurrent.TimeUnit;
 /** A Tradefed preparer that downloads and installs an app on the target device. */
 public final class AppSetupPreparer implements ITargetPreparer {
 
-    @VisibleForTesting static final String OPTION_CHECK_DEVICE_AVAILABLE = "check-device-available";
-
     @VisibleForTesting
     static final String OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS =
             "wait-for-device-available-seconds";
@@ -61,6 +61,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting static final String OPTION_SETUP_TIMEOUT_MILLIS = "setup-timeout-millis";
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
     @VisibleForTesting static final String OPTION_AAPT_VERSION = "aapt-version";
+    @VisibleForTesting static final String OPTION_INCREMENTAL_INSTALL = "incremental";
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -80,6 +81,11 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "including leading dash, e.g. \"-d\"")
     private final List<String> mInstallArgs = new ArrayList<>();
 
+    @Option(
+            name = OPTION_INCREMENTAL_INSTALL,
+            description = "Enable packages to be installed incrementally.")
+    private boolean mIncrementalInstallation = false;
+
     @Option(name = OPTION_MAX_RETRY, description = "Max number of retries upon TargetSetupError.")
     private int mMaxRetry = 0;
 
@@ -90,13 +96,6 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "A value n means the preparer will wait for n^(retry_count) "
                             + "seconds between retries.")
     private int mExponentialBackoffMultiplierSeconds = 0;
-
-    // TODO(yuexima): Remove this option after migrated to using
-    // OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS
-    @Option(
-            name = OPTION_CHECK_DEVICE_AVAILABLE,
-            description = "Whether to check device avilibility upon setUp failure.")
-    private boolean mCheckDeviceAvailable = false;
 
     @Option(
             name = OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS,
@@ -166,7 +165,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 currentException = new TargetSetupError(e.getMessage(), e);
             }
 
-            checkDeviceAvailable(device);
+            waitForDeviceAvailable(device);
             if (runCount > mMaxRetry) {
                 throw currentException;
             }
@@ -186,6 +185,13 @@ public final class AppSetupPreparer implements ITargetPreparer {
     private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         mTestAppInstallSetup.setAaptVersion(mAaptVersion);
+
+        try {
+            OptionSetter setter = new OptionSetter(mTestAppInstallSetup);
+            setter.setOptionValue("incremental", String.valueOf(mIncrementalInstallation));
+        } catch (ConfigurationException e) {
+            throw new TargetSetupError(e.getMessage(), e);
+        }
 
         if (mPackageName != null) {
             SystemPackageUninstaller.uninstallPackage(mPackageName, device);
@@ -208,19 +214,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         mTestAppInstallSetup.tearDown(testInfo, e);
     }
 
-    private void checkDeviceAvailable(ITestDevice device) throws DeviceNotAvailableException {
-        if (mCheckDeviceAvailable) {
-            // Throw an exception for TF to retry the invocation if the device is no longer
-            // available since retrying would be useless. Ideally we would wait for the device to
-            // recover but that is currently not supported in TradeFed.
-            if (device.getProperty("any_key") == null) {
-                throw new DeviceNotAvailableException(
-                        "getprop command failed. Might have lost connection to the device.",
-                        device.getSerialNumber());
-            }
-            return;
-        }
-
+    private void waitForDeviceAvailable(ITestDevice device) throws DeviceNotAvailableException {
         if (mWaitForDeviceAvailableSeconds < 0) {
             return;
         }

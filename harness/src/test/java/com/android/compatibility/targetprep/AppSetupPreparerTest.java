@@ -16,6 +16,7 @@
 package com.android.compatibility.targetprep;
 
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.ArgsOptionParser;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -40,6 +41,7 @@ import static org.testng.Assert.assertThrows;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -151,6 +153,7 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
+    @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187380263
     public void setUp_exceedsTimeout_throwsException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
@@ -164,6 +167,7 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
+    @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187506768
     public void setUp_timesOutWithoutExceedingRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
@@ -181,6 +185,7 @@ public final class AppSetupPreparerTest {
     }
 
     @Test
+    @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187380263
     public void setUp_timesOutAndExceedsRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
@@ -231,52 +236,6 @@ public final class AppSetupPreparerTest {
 
         assertThrows(
                 IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
-    }
-
-    @Test
-    public void setUp_deviceDisconnectedAndCheckDeviceAvailable_throwsDeviceNotAvailableException()
-            throws Exception {
-        AppSetupPreparer preparer =
-                new PreparerBuilder()
-                        .setInstaller(
-                                mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
-                        .setOption(AppSetupPreparer.OPTION_CHECK_DEVICE_AVAILABLE, "true")
-                        .build();
-        ITestDevice device = createUnavailableDevice();
-
-        assertThrows(
-                DeviceNotAvailableException.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
-    }
-
-    @Test
-    public void setUp_deviceConnectedAndCheckDeviceAvailable_doesNotChangeException()
-            throws Exception {
-        AppSetupPreparer preparer =
-                new PreparerBuilder()
-                        .setInstaller(
-                                mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
-                        .setOption(AppSetupPreparer.OPTION_CHECK_DEVICE_AVAILABLE, "true")
-                        .build();
-        ITestDevice device = createAvailableDevice();
-
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
-    }
-
-    @Test
-    public void setUp_deviceDisconnectedAndNotCheckDeviceAvailable_doesNotChangeException()
-            throws Exception {
-        AppSetupPreparer preparer =
-                new PreparerBuilder()
-                        .setInstaller(
-                                mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
-                        .setOption(AppSetupPreparer.OPTION_CHECK_DEVICE_AVAILABLE, "false")
-                        .build();
-        ITestDevice device = createUnavailableDevice();
-
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
     }
 
     @Test
@@ -370,6 +329,23 @@ public final class AppSetupPreparerTest {
         preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
 
         assertThat(captor.getAllValues()).containsExactly("-arg1", "-arg2");
+    }
+
+    @Test
+    public void setUp_installIncrementalOptionSet_forwardsToInstaller() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+
+        AppSetupPreparer preparer =
+                new PreparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_INCREMENTAL_INSTALL, "true")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        String result = ArgsOptionParser.getOptionHelp(false, installer);
+        System.out.println(result);
+
+        assertThat(result).contains("incremental");
     }
 
     @Test
