@@ -98,7 +98,7 @@ func TestValidBpMissingPlanIncludeGeneratesPlanXmlWithoutPlaceholders(t *testing
 
 	parseBpAndBuild(t, ctx, config)
 
-	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if strings.Contains(content, "{") || strings.Contains(content, "}") {
 		t.Errorf("The generated plan name contains a placeholder: %s", content)
@@ -115,7 +115,7 @@ func TestGeneratedTestPlanContainsPlanName(t *testing.T) {
 
 	parseBpAndBuild(t, ctx, config)
 
-	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "plan_name") {
 		t.Errorf("The plan name is missing from the generated plan: %s", content)
@@ -132,7 +132,7 @@ func TestGeneratedTestPlanContainsTemplatePath(t *testing.T) {
 
 	parseBpAndBuild(t, ctx, config)
 
-	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "config/plan_name.xml.template") {
 		t.Errorf("The template path is missing from the generated plan: %s", content)
@@ -149,7 +149,7 @@ func TestTemplateFileCopyRuleExists(t *testing.T) {
 
 	parseBpAndBuild(t, ctx, config)
 
-	params := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common").Rule("CSuite")
+	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "test_config.xml.template", "config/plan_name.xml.template")
 }
 
@@ -164,7 +164,7 @@ func TestGeneratedTestPlanContainsPlanInclude(t *testing.T) {
 
 	parseBpAndBuild(t, ctx, config)
 
-	module := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common")
+	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, `"includes/plan_name.xml"`) {
 		t.Errorf("The plan include path is missing from the generated plan: %s", content)
@@ -182,7 +182,7 @@ func TestPlanIncludeFileCopyRuleExists(t *testing.T) {
 
 	parseBpAndBuild(t, ctx, config)
 
-	params := ctx.ModuleForTests("plan_name", android.BuildOs.String()+"_common").Rule("CSuite")
+	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "include.xml", "config/includes/plan_name.xml")
 }
 
