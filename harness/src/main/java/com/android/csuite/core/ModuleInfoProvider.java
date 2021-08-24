@@ -16,16 +16,30 @@
 
 package com.android.csuite.core;
 
-import java.io.IOException;
-import java.util.Set;
+import com.google.errorprone.annotations.MustBeClosed;
 
-/** Provides a list of package names. */
-public interface PackageNameProvider {
-    /**
-     * Returns a set of package names.
-     *
-     * @return the package names. An empty set is returned if no package names are to be provided.
-     * @throws IOException if failed to get package names.
-     */
-    Set<String> get() throws IOException;
+import java.io.IOException;
+import java.util.stream.Stream;
+
+public interface ModuleInfoProvider {
+    final class ModuleInfo {
+        private final String mName;
+        private final String mContent;
+
+        public ModuleInfo(String name, String content) {
+            mName = name;
+            mContent = content;
+        }
+
+        public String getName() {
+            return mName;
+        }
+
+        public String getContent() {
+            return mContent;
+        }
+    }
+
+    @MustBeClosed
+    Stream<ModuleInfo> get() throws IOException;
 }
