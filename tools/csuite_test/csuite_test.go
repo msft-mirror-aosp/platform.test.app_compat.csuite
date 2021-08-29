@@ -121,9 +121,13 @@ const (
      limitations under the License.
 -->
 <configuration>
-     <test class="com.android.csuite.config.ModuleGenerator">
-          <option name="template" value="{templatePath}" />
-     </test>
+     <option name="template" value="{templatePath}" />
+
+     <!-- Generates module files in the beginning of the test. -->
+     <test class="com.android.csuite.core.ModuleGenerator" />
+     <!-- Cleans the generated module files after the test. -->
+     <target_preparer class="com.android.csuite.core.ModuleGenerator" />
+
      <include name="csuite-base" />
      <include name="{planInclude}" />
      <option name="plan" value="{planName}" />
