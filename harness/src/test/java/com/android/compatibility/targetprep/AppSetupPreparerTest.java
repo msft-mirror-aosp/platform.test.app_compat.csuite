@@ -342,10 +342,41 @@ public final class AppSetupPreparerTest {
                         .build();
 
         preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
-        String result = ArgsOptionParser.getOptionHelp(false, installer);
-        System.out.println(result);
+        String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
 
-        assertThat(result).contains("incremental");
+        assertThat(installOptions).contains("incremental");
+    }
+
+    @Test
+    public void setUp_incrementalFilterOptionSet_forwardsToInstaller() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+
+        AppSetupPreparer preparer =
+                new PreparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_INCREMENTAL_FILTER, "0.01")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
+
+        assertThat(installOptions).contains("incremental-block-filter");
+    }
+
+    @Test
+    public void setUp_incrementalTimeoutOptionSet_forwardsToInstaller() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+
+        AppSetupPreparer preparer =
+                new PreparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_INCREMENTAL_TIMEOUT_SECS, "60")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
+
+        assertThat(installOptions).contains("incremental-install-timeout-secs");
     }
 
     @Test
