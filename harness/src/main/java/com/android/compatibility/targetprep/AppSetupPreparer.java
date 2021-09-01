@@ -62,6 +62,10 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting static final String OPTION_MAX_RETRY = "max-retry";
     @VisibleForTesting static final String OPTION_AAPT_VERSION = "aapt-version";
     @VisibleForTesting static final String OPTION_INCREMENTAL_INSTALL = "incremental";
+    @VisibleForTesting static final String OPTION_INCREMENTAL_FILTER = "incremental-block-filter";
+
+    @VisibleForTesting
+    static final String OPTION_INCREMENTAL_TIMEOUT_SECS = "incremental-install-timeout-secs";
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -85,6 +89,16 @@ public final class AppSetupPreparer implements ITargetPreparer {
             name = OPTION_INCREMENTAL_INSTALL,
             description = "Enable packages to be installed incrementally.")
     private boolean mIncrementalInstallation = false;
+
+    @Option(
+            name = OPTION_INCREMENTAL_FILTER,
+            description = "Specify percentage of blocks to filter.")
+    private double mBlockFilterPercentage = 0.0;
+
+    @Option(
+            name = OPTION_INCREMENTAL_TIMEOUT_SECS,
+            description = "Specify timeout of incremental installation.")
+    private int mIncrementalTimeout = 1800;
 
     @Option(name = OPTION_MAX_RETRY, description = "Max number of retries upon TargetSetupError.")
     private int mMaxRetry = 0;
@@ -189,6 +203,10 @@ public final class AppSetupPreparer implements ITargetPreparer {
         try {
             OptionSetter setter = new OptionSetter(mTestAppInstallSetup);
             setter.setOptionValue("incremental", String.valueOf(mIncrementalInstallation));
+            setter.setOptionValue(
+                    "incremental-block-filter", String.valueOf(mBlockFilterPercentage));
+            setter.setOptionValue(
+                    "incremental-install-timeout-secs", String.valueOf(mIncrementalTimeout));
         } catch(ConfigurationException e) {
             throw new TargetSetupError(e.getMessage(), e);
         }
