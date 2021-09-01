@@ -15,7 +15,6 @@
  */
 package com.android.compatibility.targetprep;
 
-import com.android.incfs.install.IncrementalInstallSession.Builder;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ArgsOptionParser;
@@ -33,7 +32,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -55,13 +53,11 @@ import org.mockito.stubbing.Answer;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Map;
 
 @RunWith(JUnit4.class)
@@ -337,18 +333,6 @@ public final class AppSetupPreparerTest {
 
     @Test
     public void setUp_installIncrementalOptionSet_forwardsToInstaller() throws Exception {
-        /*TestAppInstallSetup installer =
-                new TestAppInstallSetup() {
-                    @Deprecated
-                    @Override
-                    public void setUp(ITestDevice device, IBuildInfo buildInfo)
-            throws TargetSetupError, BuildError, DeviceNotAvailableException {
-                        Builder builder = null;
-                        if (mIncrementalInstallation) {
-                            builder = getIncrementalInstallSessionBuilder();
-                        }
-                    }
-                };*/
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         
         AppSetupPreparer preparer =
@@ -358,10 +342,41 @@ public final class AppSetupPreparerTest {
                         .build();
 
         preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
-	String result = ArgsOptionParser.getOptionHelp(false, installer);
-        System.out.println(result);
-        
-        assertThat(result).contains("incremental");
+        String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
+
+        assertThat(installOptions).contains("incremental");
+    }
+
+    @Test
+    public void setUp_incrementalFilterOptionSet_forwardsToInstaller() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+
+        AppSetupPreparer preparer =
+                new PreparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_INCREMENTAL_FILTER, "0.01")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
+
+        assertThat(installOptions).contains("incremental-block-filter");
+    }
+
+    @Test
+    public void setUp_incrementalTimeoutOptionSet_forwardsToInstaller() throws Exception {
+        TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
+
+        AppSetupPreparer preparer =
+                new PreparerBuilder()
+                        .setInstaller(installer)
+                        .setOption(AppSetupPreparer.OPTION_INCREMENTAL_TIMEOUT_SECS, "60")
+                        .build();
+
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
+
+        assertThat(installOptions).contains("incremental-install-timeout-secs");
     }
 
     @Test
