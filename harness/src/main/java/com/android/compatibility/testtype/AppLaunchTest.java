@@ -105,13 +105,6 @@ public class AppLaunchTest
     @Option(name = "test-label", description = "Unique test identifier label.")
     private String mTestLabel = "AppCompatibility";
 
-    /** @deprecated */
-    @Deprecated
-    @Option(
-            name = "retry-count",
-            description = "Number of times to retry a failed test case. 0 means no retry.")
-    private int mRetryCount = 0;
-
     @Option(name = "include-filter", description = "The include filter of the test type.")
     protected Set<String> mIncludeFilters = new HashSet<>();
 
@@ -145,13 +138,7 @@ public class AppLaunchTest
 
     @VisibleForTesting
     public AppLaunchTest(String packageName) {
-        this(packageName, 0);
-    }
-
-    @VisibleForTesting
-    public AppLaunchTest(String packageName, int retryCount) {
         mPackageName = packageName;
-        mRetryCount = retryCount;
     }
 
     /**
@@ -252,33 +239,23 @@ public class AppLaunchTest
                         new ByteArrayInputStreamSource(versionName.getBytes()));
             }
 
-            for (int i = 0; i <= mRetryCount; i++) {
-                result.status = null;
-                result.message = null;
-                // Clear test result between retries.
-
-                if (mRecordScreen) {
-                    File video =
-                            DeviceUtils.runWithScreenRecording(
-                                    mDevice,
-                                    () -> {
-                                        launchPackage(testInfo, result);
-                                    });
-                    if (video != null) {
-                        listener.testLog(
-                                mPackageName + "_screenrecord_" + mDevice.getSerialNumber(),
-                                LogDataType.MP4,
-                                new FileInputStreamSource(video));
-                    } else {
-                        CLog.e("Failed to get screen recording.");
-                    }
+            if (mRecordScreen) {
+                File video =
+                        DeviceUtils.runWithScreenRecording(
+                                mDevice,
+                                () -> {
+                                    launchPackage(testInfo, result);
+                                });
+                if (video != null) {
+                    listener.testLog(
+                            mPackageName + "_screenrecord_" + mDevice.getSerialNumber(),
+                            LogDataType.MP4,
+                            new FileInputStreamSource(video));
                 } else {
-                    launchPackage(testInfo, result);
+                    CLog.e("Failed to get screen recording.");
                 }
-
-                if (result.status == CompatibilityTestResult.STATUS_SUCCESS) {
-                    break;
-                }
+            } else {
+                launchPackage(testInfo, result);
             }
 
             if (mScreenshotAfterLaunch) {
@@ -456,10 +433,6 @@ public class AppLaunchTest
     @Override
     public ITestDevice getDevice() {
         return mDevice;
-    }
-
-    public int getmRetryCount() {
-        return mRetryCount;
     }
 
     /**
