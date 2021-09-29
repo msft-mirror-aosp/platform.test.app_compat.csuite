@@ -102,9 +102,6 @@ public class AppLaunchTest
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
-    @Option(name = "test-label", description = "Unique test identifier label.")
-    private String mTestLabel = "AppCompatibility";
-
     @Option(name = "include-filter", description = "The include filter of the test type.")
     protected Set<String> mIncludeFilters = new HashSet<>();
 
@@ -127,6 +124,7 @@ public class AppLaunchTest
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
     private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
+    private static final String TEST_LABEL = "AppCompatibility";
 
     private ITestDevice mDevice;
     private LogcatReceiver mLogcat;
@@ -188,7 +186,7 @@ public class AppLaunchTest
         CLog.d("Complete filtering test case: %s", testDescription);
 
         long start = System.currentTimeMillis();
-        listener.testRunStarted(mTestLabel, 1);
+        listener.testRunStarted(TEST_LABEL, 1);
         mLogcat = new LogcatReceiver(getDevice(), LOGCAT_SIZE_BYTES, 0);
         mLogcat.start();
 
