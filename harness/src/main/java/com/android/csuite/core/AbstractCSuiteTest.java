@@ -70,6 +70,17 @@ public abstract class AbstractCSuiteTest
     private ITestInvocationListener mInvocationListener;
     private static final String TEST_LABEL = "AppCompatibility";
 
+    public AbstractCSuiteTest() {
+        // Intentionally left blank.
+    }
+
+    @VisibleForTesting
+    AbstractCSuiteTest(TestInformation testInfo, ITestInvocationListener invocationListener) {
+        mTestDescription = createTestDescription();
+        mTestInfo = testInfo;
+        mInvocationListener = invocationListener;
+    }
+
     /*
      * {@inheritDoc}
      */
