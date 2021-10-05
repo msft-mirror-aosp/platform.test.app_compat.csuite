@@ -29,9 +29,6 @@ import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -52,9 +49,7 @@ import org.mockito.InOrder;
 import org.mockito.Mockito;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 @RunWith(JUnit4.class)
 public final class AppLaunchTestTest {
@@ -65,7 +60,7 @@ public final class AppLaunchTestTest {
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Test
-    public void run_testFailed() throws DeviceNotAvailableException {
+    public void run_instrumentationTestFailed_testFailed() throws DeviceNotAvailableException {
         InstrumentationTest instrumentationTest = createFailingInstrumentationTest();
         AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
 
@@ -75,7 +70,7 @@ public final class AppLaunchTestTest {
     }
 
     @Test
-    public void run_testPassed() throws DeviceNotAvailableException {
+    public void run_instrumentationTestPassed_testPassed() throws DeviceNotAvailableException {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
         AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
 
@@ -180,212 +175,6 @@ public final class AppLaunchTestTest {
         appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
 
         verifyFailedAndEndedCall(mMockListener);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void addIncludeFilter_nullIncludeFilter_throwsException() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter(null);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void addIncludeFilter_emptyIncludeFilter_throwsException() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter("");
-    }
-
-    @Test
-    public void addIncludeFilter_validIncludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter("test_filter");
-
-        assertTrue(sut.mIncludeFilters.contains("test_filter"));
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void addAllIncludeFilters_nullIncludeFilter_throwsException() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addAllIncludeFilters(null);
-    }
-
-    @Test
-    public void addAllIncludeFilters_validIncludeFilters() {
-        AppLaunchTest sut = new AppLaunchTest();
-        Set<String> test_filters = new HashSet<>();
-        test_filters.add("filter_one");
-        test_filters.add("filter_two");
-
-        sut.addAllIncludeFilters(test_filters);
-
-        assertTrue(sut.mIncludeFilters.contains("filter_one"));
-        assertTrue(sut.mIncludeFilters.contains("filter_two"));
-    }
-
-    @Test
-    public void clearIncludeFilters() {
-        AppLaunchTest sut = new AppLaunchTest();
-        sut.addIncludeFilter("filter_test");
-
-        sut.clearIncludeFilters();
-
-        assertTrue(sut.mIncludeFilters.isEmpty());
-    }
-
-    @Test
-    public void getIncludeFilters() {
-        AppLaunchTest sut = new AppLaunchTest();
-        sut.addIncludeFilter("filter_test");
-
-        assertEquals(sut.mIncludeFilters, sut.getIncludeFilters());
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void addExcludeFilter_nullExcludeFilter_throwsException() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addExcludeFilter(null);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void addExcludeFilter_emptyExcludeFilter_throwsException() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addExcludeFilter("");
-    }
-
-    @Test
-    public void addExcludeFilter_validExcludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addExcludeFilter("test_filter");
-
-        assertTrue(sut.mExcludeFilters.contains("test_filter"));
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void addAllExcludeFilters_nullExcludeFilters_throwsException() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addAllExcludeFilters(null);
-    }
-
-    @Test
-    public void addAllExcludeFilters_validExcludeFilters() {
-        AppLaunchTest sut = new AppLaunchTest();
-        Set<String> test_filters = new HashSet<>();
-        test_filters.add("filter_one");
-        test_filters.add("filter_two");
-
-        sut.addAllExcludeFilters(test_filters);
-
-        assertTrue(sut.mExcludeFilters.contains("filter_one"));
-        assertTrue(sut.mExcludeFilters.contains("filter_two"));
-    }
-
-    @Test
-    public void clearExcludeFilters() {
-        AppLaunchTest sut = new AppLaunchTest();
-        sut.addExcludeFilter("filter_test");
-
-        sut.clearExcludeFilters();
-
-        assertTrue(sut.mExcludeFilters.isEmpty());
-    }
-
-    @Test
-    public void getExcludeFilters() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addExcludeFilter("filter_test");
-
-        assertEquals(sut.mExcludeFilters, sut.getExcludeFilters());
-    }
-
-    @Test
-    public void inFilter_withEmptyFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        assertTrue(sut.inFilter("filter_one"));
-    }
-
-    @Test
-    public void inFilter_withRelatedIncludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter("filter_one");
-
-        assertTrue(sut.inFilter("filter_one"));
-    }
-
-    @Test
-    public void inFilter_withUnrelatedIncludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter("filter_two");
-
-        assertFalse(sut.inFilter("filter_one"));
-    }
-
-    @Test
-    public void inFilter_withRelatedExcludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addExcludeFilter("filter_one");
-
-        assertFalse(sut.inFilter("filter_one"));
-    }
-
-    @Test
-    public void inFilter_withUnrelatedExcludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addExcludeFilter("filter_two");
-
-        assertTrue(sut.inFilter("filter_one"));
-    }
-
-    @Test
-    public void inFilter_withSameIncludeAndExcludeFilters() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_one");
-
-        assertFalse(sut.inFilter("filter_one"));
-    }
-
-    @Test
-    public void inFilter_withUnrelatedIncludeFilterAndRelatedExcludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_two");
-
-        assertFalse(sut.inFilter("filter_two"));
-    }
-
-    @Test
-    public void inFilter_withRelatedIncludeFilterAndUnrelatedExcludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_two");
-
-        assertTrue(sut.inFilter("filter_one"));
-    }
-
-    @Test
-    public void inFilter_withUnrelatedIncludeFilterAndUnrelatedExcludeFilter() {
-        AppLaunchTest sut = new AppLaunchTest();
-
-        sut.addIncludeFilter("filter_one");
-        sut.addExcludeFilter("filter_two");
-
-        assertFalse(sut.inFilter("filter_three"));
     }
 
     private InstrumentationTest createFailingInstrumentationTest() {
