@@ -70,7 +70,7 @@ public final class DeviceUtilsTest {
         when(mDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenThrow(new DeviceNotAvailableException("empty", "empty"));
         when(mDevice.executeShellV2Command(Mockito.startsWith("pidof screenrecord")))
-                .thenReturn(createSuccessfulCommandResult());
+                .thenReturn(createFailedCommandResult());
         when(mDevice.pullFile(Mockito.any())).thenReturn(null);
         when(mDevice.getSerialNumber()).thenReturn("SERIAL");
         AtomicBoolean executed = new AtomicBoolean(false);
@@ -82,11 +82,11 @@ public final class DeviceUtilsTest {
     }
 
     @Test
-    public void runWithScreenRecording_deviceCommandFailed_jobIsExecuted() throws Exception {
+    public void runWithScreenRecording_recordCommandFailed_jobIsExecuted() throws Exception {
         when(mDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenReturn(createFailedCommandResult());
         when(mDevice.executeShellV2Command(Mockito.startsWith("pidof screenrecord")))
-                .thenReturn(createSuccessfulCommandResult());
+                .thenReturn(createFailedCommandResult());
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnerTask job = () -> executed.set(true);
 
