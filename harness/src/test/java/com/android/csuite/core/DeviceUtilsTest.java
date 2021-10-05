@@ -17,9 +17,11 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.DeviceRuntimeException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -35,6 +37,32 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RunWith(JUnit4.class)
 public final class DeviceUtilsTest {
     ITestDevice mDevice = Mockito.mock(ITestDevice.class);
+
+    @Test
+    public void currentTimeMillis_deviceCommandFailed_throwsException() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
+                .thenReturn(createFailedCommandResult());
+
+        assertThrows(DeviceRuntimeException.class, () -> DeviceUtils.currentTimeMillis(mDevice));
+    }
+
+    @Test
+    public void currentTimeMillis_unexpectedFormat_throwsException() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+
+        assertThrows(DeviceRuntimeException.class, () -> DeviceUtils.currentTimeMillis(mDevice));
+    }
+
+    @Test
+    public void currentTimeMillis_successful_returnsTime() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
+
+        long result = DeviceUtils.currentTimeMillis(mDevice);
+
+        assertThat(result).isEqualTo(Long.parseLong("123"));
+    }
 
     @Test
     public void runWithScreenRecording_recordCommandThrowsException_jobIsExecuted()

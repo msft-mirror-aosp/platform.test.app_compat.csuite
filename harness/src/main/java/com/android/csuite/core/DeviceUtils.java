@@ -17,8 +17,10 @@
 package com.android.csuite.core;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.DeviceRuntimeException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.error.DeviceErrorIdentifier;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
@@ -49,6 +51,33 @@ public final class DeviceUtils {
      */
     public interface RunnerTask {
         void run() throws DeviceNotAvailableException;
+    }
+
+    /**
+     * Get the current device timestamp in milliseconds.
+     *
+     * @param device The test device
+     * @return The device time
+     * @throws DeviceNotAvailableException When the device is not available.
+     * @throws DeviceRuntimeException When the command to get device time failed or failed to parse
+     *     the timestamp.
+     */
+    public static long currentTimeMillis(ITestDevice device)
+            throws DeviceNotAvailableException, DeviceRuntimeException {
+        CommandResult result = device.executeShellV2Command("echo ${EPOCHREALTIME:0:14}");
+        if (result.getStatus() != CommandStatus.SUCCESS) {
+            throw new DeviceRuntimeException(
+                    "Failed to get device time: " + result,
+                    DeviceErrorIdentifier.DEVICE_UNEXPECTED_RESPONSE);
+        }
+        try {
+            return Long.parseLong(result.getStdout().replace(".", "").trim());
+        } catch (NumberFormatException e) {
+            CLog.e("Cannot parse device time string: " + result.getStdout());
+            throw new DeviceRuntimeException(
+                    "Cannot parse device time string: " + result.getStdout(),
+                    DeviceErrorIdentifier.DEVICE_UNEXPECTED_RESPONSE);
+        }
     }
 
     /**
