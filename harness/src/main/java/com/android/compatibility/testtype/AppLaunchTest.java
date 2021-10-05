@@ -148,7 +148,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         try {
             testPackage();
         } catch (InterruptedException e) {
-            CLog.e(e);
             throw new RuntimeException(e);
         } finally {
             mLogcat.stop();
@@ -209,11 +208,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
                             mPackageName + "_screenshot_" + getDevice().getSerialNumber(),
                             LogDataType.PNG,
                             screenSource);
-                } catch (DeviceNotAvailableException e) {
-                    CLog.e(
-                            "Device %s became unavailable while capturing screenshot, %s",
-                            getDevice().getSerialNumber(), e.toString());
-                    throw e;
                 }
             }
 
