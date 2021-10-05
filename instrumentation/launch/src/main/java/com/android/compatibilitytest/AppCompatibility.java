@@ -34,7 +34,6 @@ import android.os.DropBoxManager;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Log;
-import android.view.KeyEvent;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -54,7 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.IntStream;
 
 /** Application Compatibility Test that launches an application and detects crashes. */
 @RunWith(AndroidJUnit4.class)
@@ -63,12 +61,10 @@ public final class AppCompatibility {
     private static final String TAG = AppCompatibility.class.getSimpleName();
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
     private static final String APP_LAUNCH_TIMEOUT_MSECS = "app_launch_timeout_ms";
-    private static final String ARG_DISMISS_DIALOG = "ARG_DISMISS_DIALOG";
     private static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
     private static final Set<String> DROPBOX_TAGS = new HashSet<>();
     private static final int MAX_CRASH_SNIPPET_LINES = 20;
     private static final int MAX_NUM_CRASH_SNIPPET = 3;
-    private static final int DELAY_AFTER_KEYEVENT_MILLIS = 500;
 
     // time waiting for app to launch
     private int mAppLaunchTimeout = 7000;
@@ -155,17 +151,6 @@ public final class AppCompatibility {
         }
         long startTime = System.currentTimeMillis();
         launchActivity(packageName, intent);
-
-        if (mArgs.getString(ARG_DISMISS_DIALOG, "false").equals("true")) {
-            // Attempt to dismiss any dialogs which some apps display to 'gracefully' handle
-            // errors. The dialog prevents the app from crashing thereby hiding issues. The
-            // first key event is to select a default button on the error dialog if any while
-            // the second event pushes the button.
-            IntStream.range(0, 2)
-                    .forEach(i -> mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER));
-            // Give the app process enough time to terminate after dismissing the error.
-            Thread.sleep(DELAY_AFTER_KEYEVENT_MILLIS);
-        }
 
         checkDropbox(startTime, packageName);
         if (mAppErrors.containsKey(packageName)) {

@@ -87,9 +87,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
-    @Option(name = "dismiss-dialog", description = "Attempt to dismiss dialog from apps.")
-    protected boolean mDismissDialog = false;
-
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
@@ -99,7 +96,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
             "com.android.compatibilitytest.AppCompatibilityRunner";
     private static final String LAUNCH_TEST_PACKAGE = "com.android.compatibilitytest";
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
-    private static final String ARG_DISMISS_DIALOG = "ARG_DISMISS_DIALOG";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
     private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
@@ -129,8 +125,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         instrumentationTest.setDevice(getDevice());
         instrumentationTest.addInstrumentationArg(
                 APP_LAUNCH_TIMEOUT_LABEL, Integer.toString(mAppLaunchTimeoutMs));
-        instrumentationTest.addInstrumentationArg(
-                ARG_DISMISS_DIALOG, Boolean.toString(mDismissDialog));
         instrumentationTest.addInstrumentationArg(
                 ENABLE_SPLASH_SCREEN, Boolean.toString(mEnableSplashScreen));
 
@@ -169,7 +163,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
      */
     private void testPackage() throws DeviceNotAvailableException, InterruptedException {
         CLog.d("Started testing package: %s.", mPackageName);
-
 
         CompatibilityTestResult result = createCompatibilityTestResult();
         result.packageName = mPackageName;
