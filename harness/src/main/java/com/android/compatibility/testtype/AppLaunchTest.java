@@ -16,36 +16,26 @@
 
 package com.android.compatibility.testtype;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.android.compatibility.FailureCollectingListener;
-import com.android.tradefed.config.IConfiguration;
-import com.android.tradefed.config.IConfigurationReceiver;
+import com.android.csuite.core.AbstractCSuiteTest;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.LogcatReceiver;
-import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.CompatibilityTestResult;
-import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.testtype.IDeviceTest;
-import com.android.tradefed.testtype.IRemoteTest;
-import com.android.tradefed.testtype.ITestFilterReceiver;
 import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.StreamUtil;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 
 import org.json.JSONException;
 import org.junit.Assert;
@@ -53,16 +43,11 @@ import org.junit.Assert;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /** A test that verifies that a single app can be successfully launched. */
-public class AppLaunchTest
-        implements IDeviceTest, IRemoteTest, IConfigurationReceiver, ITestFilterReceiver {
+public class AppLaunchTest extends AbstractCSuiteTest {
     @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
     @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
@@ -102,12 +87,6 @@ public class AppLaunchTest
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
-    @Option(name = "include-filter", description = "The include filter of the test type.")
-    protected Set<String> mIncludeFilters = new HashSet<>();
-
-    @Option(name = "exclude-filter", description = "The exclude filter of the test type.")
-    protected Set<String> mExcludeFilters = new HashSet<>();
-
     @Option(name = "dismiss-dialog", description = "Attempt to dismiss dialog from apps.")
     protected boolean mDismissDialog = false;
 
@@ -124,18 +103,15 @@ public class AppLaunchTest
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
     private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
-    private static final String TEST_LABEL = "AppCompatibility";
 
-    private ITestDevice mDevice;
     private LogcatReceiver mLogcat;
-    private IConfiguration mConfiguration;
 
     public AppLaunchTest() {
         this(null);
     }
 
     @VisibleForTesting
-    public AppLaunchTest(String packageName) {
+    AppLaunchTest(String packageName) {
         mPackageName = packageName;
     }
 
@@ -147,10 +123,10 @@ public class AppLaunchTest
         InstrumentationTest instrumentationTest = new InstrumentationTest();
 
         instrumentationTest.setPackageName(LAUNCH_TEST_PACKAGE);
-        instrumentationTest.setConfiguration(mConfiguration);
+        instrumentationTest.setConfiguration(getConfiguration());
         instrumentationTest.addInstrumentationArg(PACKAGE_TO_LAUNCH, packageBeingTested);
         instrumentationTest.setRunnerName(LAUNCH_TEST_RUNNER);
-        instrumentationTest.setDevice(mDevice);
+        instrumentationTest.setDevice(getDevice());
         instrumentationTest.addInstrumentationArg(
                 APP_LAUNCH_TIMEOUT_LABEL, Integer.toString(mAppLaunchTimeoutMs));
         instrumentationTest.addInstrumentationArg(
@@ -169,36 +145,19 @@ public class AppLaunchTest
      * {@inheritDoc}
      */
     @Override
-    public void run(final TestInformation testInfo, final ITestInvocationListener listener)
-            throws DeviceNotAvailableException {
-        CLog.d("Start of run method.");
-        CLog.d("Include filters: %s", mIncludeFilters);
-        CLog.d("Exclude filters: %s", mExcludeFilters);
-
+    protected void run() throws DeviceNotAvailableException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
 
-        TestDescription testDescription = createTestDescription();
-
-        if (!inFilter(testDescription.toString())) {
-            CLog.d("Test case %s doesn't match any filter", testDescription);
-            return;
-        }
-        CLog.d("Complete filtering test case: %s", testDescription);
-
-        long start = System.currentTimeMillis();
-        listener.testRunStarted(TEST_LABEL, 1);
         mLogcat = new LogcatReceiver(getDevice(), LOGCAT_SIZE_BYTES, 0);
         mLogcat.start();
 
         try {
-            testPackage(testInfo, testDescription, listener);
+            testPackage();
         } catch (InterruptedException e) {
             CLog.e(e);
             throw new RuntimeException(e);
         } finally {
             mLogcat.stop();
-            listener.testRunEnded(
-                    System.currentTimeMillis() - start, new HashMap<String, Metric>());
         }
     }
 
@@ -208,97 +167,88 @@ public class AppLaunchTest
      * @param listener The {@link ITestInvocationListener}.
      * @throws DeviceNotAvailableException
      */
-    private void testPackage(
-            final TestInformation testInfo,
-            TestDescription testDescription,
-            ITestInvocationListener listener)
-            throws DeviceNotAvailableException, InterruptedException {
+    private void testPackage() throws DeviceNotAvailableException, InterruptedException {
         CLog.d("Started testing package: %s.", mPackageName);
 
-        listener.testStarted(testDescription, System.currentTimeMillis());
 
         CompatibilityTestResult result = createCompatibilityTestResult();
         result.packageName = mPackageName;
 
         try {
             if (mCollectAppVersion) {
-                String versionCode = DeviceUtils.getPackageVersionCode(mDevice, mPackageName);
-                String versionName = DeviceUtils.getPackageVersionName(mDevice, mPackageName);
+                String versionCode = DeviceUtils.getPackageVersionCode(getDevice(), mPackageName);
+                String versionName = DeviceUtils.getPackageVersionName(getDevice(), mPackageName);
                 CLog.i(
                         "Testing package %s versionCode=%s, versionName=%s",
                         mPackageName, versionCode, versionName);
-                listener.testLog(
+                addTestArtifact(
                         String.format("%s_[versionCode=%s]", mPackageName, versionCode),
                         LogDataType.TEXT,
-                        new ByteArrayInputStreamSource(versionCode.getBytes()));
-                listener.testLog(
+                        versionCode.getBytes());
+                addTestArtifact(
                         String.format("%s_[versionName=%s]", mPackageName, versionName),
                         LogDataType.TEXT,
-                        new ByteArrayInputStreamSource(versionName.getBytes()));
+                        versionName.getBytes());
             }
 
             if (mRecordScreen) {
                 File video =
                         DeviceUtils.runWithScreenRecording(
-                                mDevice,
+                                getDevice(),
                                 () -> {
-                                    launchPackage(testInfo, result);
+                                    launchPackage(result);
                                 });
                 if (video != null) {
-                    listener.testLog(
-                            mPackageName + "_screenrecord_" + mDevice.getSerialNumber(),
+                    addTestArtifact(
+                            mPackageName + "_screenrecord_" + getDevice().getSerialNumber(),
                             LogDataType.MP4,
-                            new FileInputStreamSource(video));
+                            video);
                 } else {
                     CLog.e("Failed to get screen recording.");
                 }
             } else {
-                launchPackage(testInfo, result);
+                launchPackage(result);
             }
 
             if (mScreenshotAfterLaunch) {
-                try (InputStreamSource screenSource = mDevice.getScreenshot()) {
-                    listener.testLog(
-                            mPackageName + "_screenshot_" + mDevice.getSerialNumber(),
+                try (InputStreamSource screenSource = getDevice().getScreenshot()) {
+                    addTestArtifact(
+                            mPackageName + "_screenshot_" + getDevice().getSerialNumber(),
                             LogDataType.PNG,
                             screenSource);
                 } catch (DeviceNotAvailableException e) {
                     CLog.e(
                             "Device %s became unavailable while capturing screenshot, %s",
-                            mDevice.getSerialNumber(), e.toString());
+                            getDevice().getSerialNumber(), e.toString());
                     throw e;
                 }
             }
 
             if (mCollectGmsVersion) {
                 String gmsVersionCode =
-                        DeviceUtils.getPackageVersionCode(mDevice, GMS_PACKAGE_NAME);
+                        DeviceUtils.getPackageVersionCode(getDevice(), GMS_PACKAGE_NAME);
                 String gmsVersionName =
-                        DeviceUtils.getPackageVersionName(mDevice, GMS_PACKAGE_NAME);
+                        DeviceUtils.getPackageVersionName(getDevice(), GMS_PACKAGE_NAME);
                 CLog.i(
                         "GMS core versionCode=%s, versionName=%s",
                         mPackageName, gmsVersionCode, gmsVersionName);
-                listener.testLog(
+                addTestArtifact(
                         String.format("%s_[GMS_versionCode=%s]", mPackageName, gmsVersionCode),
                         LogDataType.TEXT,
-                        new ByteArrayInputStreamSource(gmsVersionCode.getBytes()));
-                listener.testLog(
+                        gmsVersionCode.getBytes());
+                addTestArtifact(
                         String.format("%s_[GMS_versionName=%s]", mPackageName, gmsVersionName),
                         LogDataType.TEXT,
-                        new ByteArrayInputStreamSource(gmsVersionName.getBytes()));
+                        gmsVersionName.getBytes());
             }
         } finally {
-            reportResult(listener, testDescription, result);
+            reportResult(result);
             stopPackage();
             try {
-                postLogcat(result, listener);
+                postLogcat(result);
             } catch (JSONException e) {
                 CLog.w("Posting failed: %s.", e.getMessage());
             }
-            listener.testEnded(
-                    testDescription,
-                    System.currentTimeMillis(),
-                    Collections.<String, String>emptyMap());
 
             CLog.d("Completed testing package: %s.", mPackageName);
         }
@@ -313,8 +263,7 @@ public class AppLaunchTest
      * @param result the {@link CompatibilityTestResult} containing the package info.
      * @throws DeviceNotAvailableException
      */
-    private void launchPackage(final TestInformation testInfo, CompatibilityTestResult result)
-            throws DeviceNotAvailableException {
+    private void launchPackage(CompatibilityTestResult result) throws DeviceNotAvailableException {
         CLog.d("Launching package: %s.", result.packageName);
 
         CommandResult resetResult = resetPackage();
@@ -327,7 +276,7 @@ public class AppLaunchTest
         InstrumentationTest instrTest = createInstrumentationTest(result.packageName);
 
         FailureCollectingListener failureListener = createFailureListener();
-        instrTest.run(testInfo, failureListener);
+        instrTest.run(getTestInfo(), failureListener);
         CLog.d("Stack Trace: %s", failureListener.getStackTrace());
 
         if (failureListener.getStackTrace() != null) {
@@ -342,12 +291,11 @@ public class AppLaunchTest
     }
 
     /** Helper method which reports a test failed if the status is either a failure or an error. */
-    private void reportResult(
-            ITestInvocationListener listener, TestDescription id, CompatibilityTestResult result) {
+    private void reportResult(CompatibilityTestResult result) {
         String message = result.message != null ? result.message : "unknown";
         String tag = errorStatusToTag(result.status);
         if (tag != null) {
-            listener.testFailed(id, result.status + ":" + message);
+            testFailed(result.status + ":" + message);
         }
     }
 
@@ -362,8 +310,7 @@ public class AppLaunchTest
     }
 
     /** Helper method which posts the logcat. */
-    private void postLogcat(CompatibilityTestResult result, ITestInvocationListener listener)
-            throws JSONException {
+    private void postLogcat(CompatibilityTestResult result) throws JSONException {
         InputStreamSource stream = null;
         String header =
                 String.format(
@@ -383,61 +330,23 @@ public class AppLaunchTest
                 // fallback to logcat data
                 stream = logcatData;
             }
-            listener.testLog("logcat_" + result.packageName, LogDataType.LOGCAT, stream);
+            addTestArtifact("logcat_" + result.packageName, LogDataType.LOGCAT, stream);
         } finally {
             StreamUtil.cancel(stream);
         }
     }
 
-    /**
-     * Return true if a test matches one or more of the include filters AND does not match any of
-     * the exclude filters. If no include filters are given all tests should return true as long as
-     * they do not match any of the exclude filters.
-     */
-    protected boolean inFilter(String testName) {
-        if (mExcludeFilters.contains(testName)) {
-            return false;
-        }
-        if (mIncludeFilters.size() == 0 || mIncludeFilters.contains(testName)) {
-            return true;
-        }
-        return false;
-    }
-
     protected CommandResult resetPackage() throws DeviceNotAvailableException {
-        return mDevice.executeShellV2Command(String.format("pm clear %s", mPackageName));
+        return getDevice().executeShellV2Command(String.format("pm clear %s", mPackageName));
     }
 
     private void stopPackage() throws DeviceNotAvailableException {
-        mDevice.executeShellCommand(String.format("am force-stop %s", mPackageName));
+        getDevice().executeShellCommand(String.format("am force-stop %s", mPackageName));
     }
 
+    /** {@inheritDoc} */
     @Override
-    public void setConfiguration(IConfiguration configuration) {
-        mConfiguration = configuration;
-    }
-
-    /*
-     * {@inheritDoc}
-     */
-    @Override
-    public void setDevice(ITestDevice device) {
-        mDevice = device;
-    }
-
-    /*
-     * {@inheritDoc}
-     */
-    @Override
-    public ITestDevice getDevice() {
-        return mDevice;
-    }
-
-    /**
-     * Get a test description for use in logging. For compatibility with logs, this should be
-     * TestDescription(test class name, test type).
-     */
-    private TestDescription createTestDescription() {
+    protected TestDescription createTestDescription() {
         return new TestDescription(getClass().getSimpleName(), mPackageName);
     }
 
@@ -452,58 +361,6 @@ public class AppLaunchTest
      */
     private CompatibilityTestResult createCompatibilityTestResult() {
         return new CompatibilityTestResult();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addIncludeFilter(String filter) {
-        checkArgument(!Strings.isNullOrEmpty(filter), "Include filter cannot be null or empty.");
-        mIncludeFilters.add(filter);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addAllIncludeFilters(Set<String> filters) {
-        checkNotNull(filters, "Include filters cannot be null.");
-        mIncludeFilters.addAll(filters);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void clearIncludeFilters() {
-        mIncludeFilters.clear();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Set<String> getIncludeFilters() {
-        return Collections.unmodifiableSet(mIncludeFilters);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addExcludeFilter(String filter) {
-        checkArgument(!Strings.isNullOrEmpty(filter), "Exclude filter cannot be null or empty.");
-        mExcludeFilters.add(filter);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addAllExcludeFilters(Set<String> filters) {
-        checkNotNull(filters, "Exclude filters cannot be null.");
-        mExcludeFilters.addAll(filters);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void clearExcludeFilters() {
-        mExcludeFilters.clear();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Set<String> getExcludeFilters() {
-        return Collections.unmodifiableSet(mExcludeFilters);
     }
 
     private static final class DeviceUtils {
