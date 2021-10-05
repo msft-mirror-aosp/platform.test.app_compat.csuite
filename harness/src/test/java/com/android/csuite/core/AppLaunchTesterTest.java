@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.compatibility.testtype;
+package com.android.csuite.core;
 
-import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
-import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
@@ -30,14 +31,11 @@ import com.android.tradefed.util.CommandStatus;
 
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyObject;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.junit.Rule;
@@ -45,16 +43,14 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.InOrder;
 import org.mockito.Mockito;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @RunWith(JUnit4.class)
-public final class AppLaunchTestTest {
+public final class AppLaunchTesterTest {
 
+    private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
     private final ITestInvocationListener mMockListener = mock(ITestInvocationListener.class);
+    private final ITestDevice mMockDevice = mock(ITestDevice.class);
     private static final String TEST_PACKAGE_NAME = "package_name";
     private static final TestInformation NULL_TEST_INFORMATION = null;
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
@@ -62,36 +58,33 @@ public final class AppLaunchTestTest {
     @Test
     public void run_instrumentationTestFailed_testFailed() throws DeviceNotAvailableException {
         InstrumentationTest instrumentationTest = createFailingInstrumentationTest();
-        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
+        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
 
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
-        verifyFailedAndEndedCall(mMockListener);
+        verify(mMockListener, times(1)).testFailed(any(), anyString());
     }
 
     @Test
     public void run_instrumentationTestPassed_testPassed() throws DeviceNotAvailableException {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
+        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
 
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
-        verifyPassedAndEndedCall(mMockListener);
+        verify(mMockListener, never()).testFailed(any(), anyString());
     }
 
     @Test
     public void run_takeScreenShot_savesToTestLog() throws Exception {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
-        new OptionSetter(appLaunchTest)
-                .setOptionValue(AppLaunchTest.SCREENSHOT_AFTER_LAUNCH, "true");
-        ITestDevice mockDevice = mock(ITestDevice.class);
-        appLaunchTest.setDevice(mockDevice);
+        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
+        sut.setScreenshotAfterLaunch(true);
         InputStreamSource screenshotData = new FileInputStreamSource(tempFolder.newFile());
-        when(mockDevice.getScreenshot()).thenReturn(screenshotData);
-        when(mockDevice.getSerialNumber()).thenReturn("SERIAL");
+        when(mMockDevice.getScreenshot()).thenReturn(screenshotData);
+        when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
 
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.contains("screenshot"), Mockito.any(), Mockito.eq(screenshotData));
@@ -100,17 +93,15 @@ public final class AppLaunchTestTest {
     @Test
     public void run_recordScreen_savesToTestLog() throws Exception {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
-        new OptionSetter(appLaunchTest).setOptionValue(AppLaunchTest.RECORD_SCREEN, "true");
-        ITestDevice mockDevice = mock(ITestDevice.class);
-        appLaunchTest.setDevice(mockDevice);
-        when(mockDevice.pullFile(Mockito.any())).thenReturn(tempFolder.newFile());
-        when(mockDevice.getSerialNumber()).thenReturn("SERIAL");
-        when(mockDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
+        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
+        sut.setRecordScreen(true);
+        when(mMockDevice.pullFile(Mockito.any())).thenReturn(tempFolder.newFile());
+        when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
+        when(mMockDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenReturn(createSuccessfulCommandResult());
-        when(mockDevice.executeShellCommand("pidof screenrecord")).thenReturn("123");
+        when(mMockDevice.executeShellCommand("pidof screenrecord")).thenReturn("123");
 
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.contains("screenrecord"), Mockito.any(), Mockito.any());
@@ -119,14 +110,12 @@ public final class AppLaunchTestTest {
     @Test
     public void run_collectAppVersion_savesToTestLog() throws Exception {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
-        new OptionSetter(appLaunchTest).setOptionValue(AppLaunchTest.COLLECT_APP_VERSION, "true");
-        ITestDevice mockDevice = mock(ITestDevice.class);
-        appLaunchTest.setDevice(mockDevice);
-        when(mockDevice.executeShellV2Command(Mockito.startsWith("dumpsys package")))
+        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
+        sut.setCollectAppVersion(true);
+        when(mMockDevice.executeShellV2Command(Mockito.startsWith("dumpsys package")))
                 .thenReturn(createSuccessfulCommandResult());
 
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.contains("versionCode"), Mockito.any(), Mockito.any());
@@ -137,15 +126,13 @@ public final class AppLaunchTestTest {
     @Test
     public void run_collectGmsVersion_savesToTestLog() throws Exception {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTest appLaunchTest = createLaunchTestWithInstrumentation(instrumentationTest);
-        new OptionSetter(appLaunchTest).setOptionValue(AppLaunchTest.COLLECT_GMS_VERSION, "true");
-        ITestDevice mockDevice = mock(ITestDevice.class);
-        appLaunchTest.setDevice(mockDevice);
-        when(mockDevice.executeShellV2Command(
-                        Mockito.startsWith("dumpsys package " + AppLaunchTest.GMS_PACKAGE_NAME)))
+        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
+        sut.setCollectGmsVersion(true);
+        when(mMockDevice.executeShellV2Command(
+                        Mockito.startsWith("dumpsys package " + GMS_PACKAGE_NAME)))
                 .thenReturn(createSuccessfulCommandResult());
 
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.contains("GMS_versionCode"), Mockito.any(), Mockito.any());
@@ -155,26 +142,24 @@ public final class AppLaunchTestTest {
 
     @Test
     public void run_packageResetSuccess() throws DeviceNotAvailableException {
-        ITestDevice mMockDevice = mock(ITestDevice.class);
         when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
                 .thenReturn(createSuccessfulCommandResult());
-        AppLaunchTest appLaunchTest = createLaunchTestWithMockDevice(mMockDevice);
+        AppLaunchTester sut = createTester();
 
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
-        verifyPassedAndEndedCall(mMockListener);
+        verify(mMockListener, never()).testFailed(any(), anyString());
     }
 
     @Test
     public void run_packageResetError() throws DeviceNotAvailableException {
-        ITestDevice mMockDevice = mock(ITestDevice.class);
         when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
                 .thenReturn(createFailedCommandResult());
-        AppLaunchTest appLaunchTest = createLaunchTestWithMockDevice(mMockDevice);
+        AppLaunchTester sut = createTester();
 
-        appLaunchTest.run(NULL_TEST_INFORMATION, mMockListener);
+        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
-        verifyFailedAndEndedCall(mMockListener);
+        verify(mMockListener, times(1)).testFailed(any(), anyString());
     }
 
     private InstrumentationTest createFailingInstrumentationTest() {
@@ -201,48 +186,23 @@ public final class AppLaunchTestTest {
         return instrumentation;
     }
 
-    private AppLaunchTest createLaunchTestWithInstrumentation(InstrumentationTest instrumentation) {
-        AppLaunchTest appLaunchTest =
-                new AppLaunchTest(TEST_PACKAGE_NAME) {
-                    @Override
-                    protected InstrumentationTest createInstrumentationTest(
-                            String packageBeingTested) {
-                        return instrumentation;
-                    }
+    private AppLaunchTester createTesterWithInstrumentation(InstrumentationTest instrumentation) {
+        return new AppLaunchTester(createBaseTest()) {
+            @Override
+            protected InstrumentationTest createInstrumentationTest(String packageBeingTested) {
+                return instrumentation;
+            }
 
-                    @Override
-                    protected CommandResult resetPackage() throws DeviceNotAvailableException {
-                        return createSuccessfulCommandResult();
-                    }
-                };
-        appLaunchTest.setDevice(mock(ITestDevice.class));
-        return appLaunchTest;
+            @Override
+            protected CommandResult resetPackage(String packageName)
+                    throws DeviceNotAvailableException {
+                return createSuccessfulCommandResult();
+            }
+        };
     }
 
-    private AppLaunchTest createLaunchTestWithMockDevice(ITestDevice device) {
-        AppLaunchTest appLaunchTest = new AppLaunchTest(TEST_PACKAGE_NAME);
-        appLaunchTest.setDevice(device);
-        return appLaunchTest;
-    }
-
-    private static void verifyFailedAndEndedCall(ITestInvocationListener listener) {
-        InOrder inOrder = inOrder(listener);
-        inOrder.verify(listener, times(1)).testRunStarted(anyString(), anyInt());
-        inOrder.verify(listener, times(1)).testStarted(anyObject(), anyLong());
-        inOrder.verify(listener, times(1)).testFailed(any(), anyString());
-        inOrder.verify(listener, times(1))
-                .testEnded(anyObject(), anyLong(), (Map<String, String>) any());
-        inOrder.verify(listener, times(1)).testRunEnded(anyLong(), (HashMap<String, Metric>) any());
-    }
-
-    private static void verifyPassedAndEndedCall(ITestInvocationListener listener) {
-        InOrder inOrder = inOrder(listener);
-        inOrder.verify(listener, times(1)).testRunStarted(anyString(), anyInt());
-        inOrder.verify(listener, times(1)).testStarted(anyObject(), anyLong());
-        inOrder.verify(listener, never()).testFailed(any(), anyString());
-        inOrder.verify(listener, times(1))
-                .testEnded(anyObject(), anyLong(), (Map<String, String>) any());
-        inOrder.verify(listener, times(1)).testRunEnded(anyLong(), (HashMap<String, Metric>) any());
+    private AppLaunchTester createTester() {
+        return new AppLaunchTester(createBaseTest());
     }
 
     private CommandResult createSuccessfulCommandResult() {
@@ -263,5 +223,30 @@ public final class AppLaunchTestTest {
         commandResult.setStdout("");
         commandResult.setStderr("error");
         return commandResult;
+    }
+
+    private AbstractCSuiteTest createBaseTest() {
+        AbstractCSuiteTest res =
+                new AbstractCSuiteTest(createTestInfo(), mMockListener) {
+
+                    @Override
+                    public void run() throws DeviceNotAvailableException {
+                        // Intentionally left empty
+                    }
+
+                    @Override
+                    public TestDescription createTestDescription() {
+                        return new TestDescription("", "");
+                    }
+                };
+        res.setDevice(mMockDevice);
+        return res;
+    }
+
+    private TestInformation createTestInfo() {
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device1", mMockDevice);
+        context.addDeviceBuildInfo("device1", new BuildInfo());
+        return TestInformation.newBuilder().setInvocationContext(context).build();
     }
 }
