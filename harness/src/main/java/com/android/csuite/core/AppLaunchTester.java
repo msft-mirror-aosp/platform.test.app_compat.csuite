@@ -101,13 +101,12 @@ public class AppLaunchTester {
 
         CompatibilityTestResult result = createCompatibilityTestResult();
         result.packageName = packageName;
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(mBaseTest.getDevice());
 
         try {
             if (mCollectAppVersion) {
-                String versionCode =
-                        DeviceUtils.getPackageVersionCode(mBaseTest.getDevice(), packageName);
-                String versionName =
-                        DeviceUtils.getPackageVersionName(mBaseTest.getDevice(), packageName);
+                String versionCode = deviceUtils.getPackageVersionCode(packageName);
+                String versionName = deviceUtils.getPackageVersionName(packageName);
                 CLog.i(
                         "Testing package %s versionCode=%s, versionName=%s",
                         packageName, versionCode, versionName);
@@ -123,8 +122,7 @@ public class AppLaunchTester {
 
             if (mRecordScreen) {
                 File video =
-                        DeviceUtils.runWithScreenRecording(
-                                mBaseTest.getDevice(),
+                        deviceUtils.runWithScreenRecording(
                                 () -> {
                                     launchPackageAndCheckForCrash(result);
                                 });
@@ -152,10 +150,8 @@ public class AppLaunchTester {
             }
 
             if (mCollectGmsVersion) {
-                String gmsVersionCode =
-                        DeviceUtils.getPackageVersionCode(mBaseTest.getDevice(), GMS_PACKAGE_NAME);
-                String gmsVersionName =
-                        DeviceUtils.getPackageVersionName(mBaseTest.getDevice(), GMS_PACKAGE_NAME);
+                String gmsVersionCode = deviceUtils.getPackageVersionCode(GMS_PACKAGE_NAME);
+                String gmsVersionName = deviceUtils.getPackageVersionName(GMS_PACKAGE_NAME);
                 CLog.i(
                         "GMS core versionCode=%s, versionName=%s",
                         packageName, gmsVersionCode, gmsVersionName);
@@ -183,7 +179,7 @@ public class AppLaunchTester {
 
     private void launchPackageAndCheckForCrash(CompatibilityTestResult result)
             throws DeviceNotAvailableException {
-        long startTime = DeviceUtils.currentTimeMillis(mBaseTest.getDevice());
+        long startTime = DeviceUtils.getInstance(mBaseTest.getDevice()).currentTimeMillis();
         launchPackage(result);
         checkForCrash(result, startTime);
     }
