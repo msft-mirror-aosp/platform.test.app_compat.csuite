@@ -41,7 +41,8 @@ public final class DeviceUtilsTest {
             throws Exception {
         when(mDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenThrow(new DeviceNotAvailableException("empty", "empty"));
-        when(mDevice.executeShellCommand(Mockito.startsWith("pidof screenrecord"))).thenReturn("");
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pidof screenrecord")))
+                .thenReturn(createSuccessfulCommandResult());
         when(mDevice.pullFile(Mockito.any())).thenReturn(null);
         when(mDevice.getSerialNumber()).thenReturn("SERIAL");
         AtomicBoolean executed = new AtomicBoolean(false);
@@ -56,7 +57,8 @@ public final class DeviceUtilsTest {
     public void runWithScreenRecording_deviceCommandFailed_jobIsExecuted() throws Exception {
         when(mDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenReturn(createFailedCommandResult());
-        when(mDevice.executeShellCommand(Mockito.startsWith("pidof screenrecord"))).thenReturn("");
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pidof screenrecord")))
+                .thenReturn(createSuccessfulCommandResult());
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnerTask job = () -> executed.set(true);
 
@@ -69,8 +71,8 @@ public final class DeviceUtilsTest {
     public void runWithScreenRecording_deviceCommandSucceed_jobIsExecuted() throws Exception {
         when(mDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenReturn(createSuccessfulCommandResult());
-        when(mDevice.executeShellCommand(Mockito.startsWith("pidof screenrecord")))
-                .thenReturn("123");
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pidof screenrecord")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnerTask job = () -> executed.set(true);
 
@@ -83,8 +85,8 @@ public final class DeviceUtilsTest {
     public void runWithScreenRecording_deviceCommandSucceed_returnsVideoFile() throws Exception {
         when(mDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenReturn(createSuccessfulCommandResult());
-        when(mDevice.executeShellCommand(Mockito.startsWith("pidof screenrecord")))
-                .thenReturn("123");
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pidof screenrecord")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
         File videoFileOnDevice = new File("");
         when(mDevice.pullFile(Mockito.any())).thenReturn(videoFileOnDevice);
 
