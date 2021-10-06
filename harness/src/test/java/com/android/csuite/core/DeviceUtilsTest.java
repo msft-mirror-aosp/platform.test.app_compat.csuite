@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.when;
 
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -34,6 +35,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RunWith(JUnit4.class)
 public final class DeviceUtilsTest {
     ITestDevice mDevice = Mockito.mock(ITestDevice.class);
+
+    @Test
+    public void runWithScreenRecording_recordCommandThrowsException_jobIsExecuted()
+            throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
+                .thenThrow(new DeviceNotAvailableException("empty", "empty"));
+        when(mDevice.executeShellCommand(Mockito.startsWith("pidof screenrecord"))).thenReturn("");
+        when(mDevice.pullFile(Mockito.any())).thenReturn(null);
+        when(mDevice.getSerialNumber()).thenReturn("SERIAL");
+        AtomicBoolean executed = new AtomicBoolean(false);
+        DeviceUtils.RunnerTask job = () -> executed.set(true);
+
+        DeviceUtils.runWithScreenRecording(mDevice, job);
+
+        assertThat(executed.get()).isTrue();
+    }
 
     @Test
     public void runWithScreenRecording_deviceCommandFailed_jobIsExecuted() throws Exception {
