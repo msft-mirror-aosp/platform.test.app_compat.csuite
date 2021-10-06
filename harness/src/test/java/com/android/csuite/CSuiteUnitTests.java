@@ -26,6 +26,7 @@ import org.junit.runners.Suite.SuiteClasses;
     com.android.csuite.config.AppRemoteFileResolverTest.class,
     com.android.csuite.core.AbstractCSuiteTestTest.class,
     com.android.csuite.core.AppLaunchTesterTest.class,
+    com.android.csuite.core.DeviceUtilsTest.class,
     com.android.csuite.core.ModuleGeneratorTest.class,
     com.android.csuite.core.PackageModuleInfoProviderTest.class,
     com.android.csuite.core.PackagesFileModuleInfoProviderTest.class,
