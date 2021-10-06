@@ -61,15 +61,27 @@ public final class ModuleGeneratorTest {
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
 
     @Test
-    public void tearDown_nonModuleFilesExist_doesNotDeleteNonModules() throws Exception {
+    public void tearDown_nonModuleFilesExist_doesNotDelete() throws Exception {
         Path testsDir = createTestsDir();
         Path nonModule = Files.createFile(testsDir.resolve("a"));
-        Files.createFile(testsDir.resolve("b" + ModuleGenerator.MODULE_FILE_NAME_EXTENSION));
         ModuleGenerator generator = new GeneratorBuilder().setTestsDir(testsDir).build();
 
         generator.tearDown(createTestInfo(), NO_EXCEPTION);
 
         assertThatListDirectory(testsDir).containsExactly(nonModule);
+    }
+
+    @Test
+    public void tearDown_nonGeneratedModuleFilesExist_doesNotDelete() throws Exception {
+        Path testsDir = createTestsDir();
+        Path nonGeneratedModule =
+                Files.createFile(
+                        testsDir.resolve("b" + ModuleGenerator.MODULE_FILE_NAME_EXTENSION));
+        ModuleGenerator generator = new GeneratorBuilder().setTestsDir(testsDir).build();
+
+        generator.tearDown(createTestInfo(), NO_EXCEPTION);
+
+        assertThatListDirectory(testsDir).containsExactly(nonGeneratedModule);
     }
 
     @Test
@@ -146,8 +158,8 @@ public final class ModuleGeneratorTest {
 
         generator.split();
 
-        assertThatModuleConfigFileContent(testsDir, TEST_PACKAGE_NAME1).isEqualTo(content1);
-        assertThatModuleConfigFileContent(testsDir, TEST_PACKAGE_NAME2).isEqualTo(content2);
+        assertThatModuleConfigFileContent(testsDir, TEST_PACKAGE_NAME1).contains(content1);
+        assertThatModuleConfigFileContent(testsDir, TEST_PACKAGE_NAME2).contains(content2);
     }
 
     @Test
