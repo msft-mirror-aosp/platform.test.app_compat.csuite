@@ -48,9 +48,8 @@ public class AppLaunchTester {
 
     private static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
     private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
-    private static final String LAUNCH_TEST_RUNNER =
-            "com.android.compatibilitytest.AppCompatibilityRunner";
-    private static final String LAUNCH_TEST_PACKAGE = "com.android.compatibilitytest";
+    private static final String LAUNCH_TEST_RUNNER = "com.android.csuite.AppLaunchTestRunner";
+    private static final String LAUNCH_TEST_PACKAGE = "com.android.csuite";
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;

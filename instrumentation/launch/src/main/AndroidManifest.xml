@@ -15,14 +15,14 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.compatibilitytest">
+    package="com.android.csuite">
     <uses-sdk android:minSdkVersion="21"
               android:targetSdkVersion="21" />
     <application />
     <uses-permission android:name="android.permission.READ_LOGS" />
     <uses-permission android:name="android.permission.REAL_GET_TASKS" />
     <instrumentation
-        android:name=".AppCompatibilityRunner"
-        android:targetPackage="com.android.compatibilitytest"
-        android:label="App Compatibility Test Runner" />
+        android:name=".AppLaunchTestRunner"
+        android:targetPackage="com.android.csuite"
+        android:label="App Launch Test Runner" />
 </manifest>
