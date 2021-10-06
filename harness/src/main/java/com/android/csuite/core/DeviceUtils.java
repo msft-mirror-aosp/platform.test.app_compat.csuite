@@ -23,10 +23,16 @@ import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import java.io.File;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** A utility class that contains common methods to interact with the test device. */
 public final class DeviceUtils {
@@ -35,6 +41,7 @@ public final class DeviceUtils {
     @VisibleForTesting static final String VERSION_NAME_PREFIX = "versionName=";
     private static final String VIDEO_PATH_ON_DEVICE = "/sdcard/screenrecord.mp4";
     private static final int WAIT_FOR_SCREEN_RECORDING_START_MS = 10 * 1000;
+    private static final int WAIT_FOR_SCREEN_RECORDING_END_MS = 10 * 1000;
 
     /**
      * A task that throws DeviceNotAvailableException. Use this interface instead of Runnable so
@@ -58,6 +65,10 @@ public final class DeviceUtils {
      */
     public static File runWithScreenRecording(ITestDevice device, RunnerTask action)
             throws DeviceNotAvailableException {
+        ExecutorService executors =
+                MoreExecutors.getExitingExecutorService(
+                        (ThreadPoolExecutor) Executors.newFixedThreadPool(1));
+
         // Start the recording thread in background
         CompletableFuture<CommandResult> recordingFuture =
                 CompletableFuture.supplyAsync(
@@ -69,16 +80,14 @@ public final class DeviceUtils {
                                     } catch (DeviceNotAvailableException e) {
                                         throw new RuntimeException(e);
                                     }
-                                })
+                                },
+                                executors)
                         .whenComplete(
                                 (commandResult, exception) -> {
-                                    if (exception != null) {
-                                        CLog.e(
-                                                "Device was lost during screenrecording: %s",
-                                                exception);
-                                    } else {
+                                    if (commandResult != null) {
                                         CLog.d("Screenrecord command completed: %s", commandResult);
                                     }
+                                    executors.shutdown();
                                 });
 
         // Make sure the recording has started
@@ -105,9 +114,14 @@ public final class DeviceUtils {
             if (pid != null) {
                 device.executeShellV2Command(String.format("kill -2 %s", pid));
                 try {
-                    recordingFuture.get();
-                } catch (InterruptedException | ExecutionException e) {
+                    recordingFuture.get(WAIT_FOR_SCREEN_RECORDING_START_MS, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
                     throw new RuntimeException(e);
+                } catch (TimeoutException e) {
+                    CLog.e(e);
+                    recordingFuture.cancel(true);
+                } catch (ExecutionException e) {
+                    CLog.e("Failed to complete the screenrecord command: %s", e);
                 }
                 video = device.pullFile(VIDEO_PATH_ON_DEVICE);
                 device.deleteFile(VIDEO_PATH_ON_DEVICE);
