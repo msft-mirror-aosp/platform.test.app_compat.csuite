@@ -120,11 +120,12 @@ public final class DeviceUtils {
                                 });
 
         // Make sure the recording has started
-        String pid;
+        String pid = null;
         long start = System.currentTimeMillis();
         while (true) {
             if (System.currentTimeMillis() - start > WAIT_FOR_SCREEN_RECORDING_START_MS) {
-                throw new RuntimeException("Unnable to start screenrecord. Pid is not detected.");
+                CLog.e("Unnable to start screenrecord. Pid is not detected.");
+                break;
             }
 
             CommandResult result = device.executeShellV2Command("pidof screenrecord");
