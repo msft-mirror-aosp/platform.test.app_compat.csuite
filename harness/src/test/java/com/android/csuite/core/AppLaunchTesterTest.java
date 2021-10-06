@@ -99,7 +99,8 @@ public final class AppLaunchTesterTest {
         when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
         when(mMockDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenReturn(createSuccessfulCommandResult());
-        when(mMockDevice.executeShellCommand("pidof screenrecord")).thenReturn("123");
+        when(mMockDevice.executeShellV2Command("pidof screenrecord"))
+                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
 
         sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 

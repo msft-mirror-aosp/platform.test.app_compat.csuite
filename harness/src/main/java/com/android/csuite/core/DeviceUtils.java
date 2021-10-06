@@ -98,7 +98,13 @@ public final class DeviceUtils {
                 throw new RuntimeException("Unnable to start screenrecord. Pid is not detected.");
             }
 
-            String[] pids = device.executeShellCommand("pidof screenrecord").trim().split(" ");
+            CommandResult result = device.executeShellV2Command("pidof screenrecord");
+            if (result.getStatus() != CommandStatus.SUCCESS) {
+                CLog.d("The pid of screenrecord is not found yet. Trying again. %s", result);
+                continue;
+            }
+
+            String[] pids = result.getStdout().trim().split(" ");
 
             if (pids.length > 0) {
                 pid = pids[0];
