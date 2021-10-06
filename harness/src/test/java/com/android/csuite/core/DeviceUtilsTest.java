@@ -107,7 +107,9 @@ public final class DeviceUtilsTest {
     public void getPackageVersionName_deviceCommandReturnsUnexpected_returnsUnknown()
             throws Exception {
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionName")))
-                .thenReturn(createSuccessfulCommandResultWithStdout("notVersion"));
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "unexpected " + DeviceUtils.VERSION_NAME_PREFIX));
 
         String result = DeviceUtils.getPackageVersionName(mDevice, "any");
 
@@ -140,7 +142,9 @@ public final class DeviceUtilsTest {
     public void getPackageVersionCode_deviceCommandReturnsUnexpected_returnsUnknown()
             throws Exception {
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionCode")))
-                .thenReturn(createSuccessfulCommandResultWithStdout("notVersion"));
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "unexpected " + DeviceUtils.VERSION_CODE_PREFIX));
 
         String result = DeviceUtils.getPackageVersionCode(mDevice, "any");
 
