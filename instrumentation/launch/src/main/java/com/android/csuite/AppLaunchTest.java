@@ -19,8 +19,6 @@ package com.android.csuite;
 import android.app.ActivityManager;
 import android.app.ActivityManager.ProcessErrorStateInfo;
 import android.app.ActivityManager.RunningTaskInfo;
-import android.app.IActivityController;
-import android.app.IActivityManager;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.app.UiModeManager;
@@ -31,8 +29,6 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.DropBoxManager;
-import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
@@ -75,7 +71,6 @@ public final class AppLaunchTest {
     private Bundle mArgs;
     private Instrumentation mInstrumentation;
     private String mLauncherPackageName;
-    private IActivityController mCrashSupressor = new CrashSuppressor();
     private Map<String, List<String>> mAppErrors = new HashMap<>();
 
     static {
@@ -114,18 +109,10 @@ public final class AppLaunchTest {
             mAppLaunchTimeout = Integer.parseInt(appLaunchTimeoutMsecs);
         }
         mInstrumentation.getUiAutomation().setRotation(UiAutomation.ROTATION_FREEZE_0);
-
-        // set activity controller to suppress crash dialogs and collects them by process name
-        mAppErrors.clear();
-        IActivityManager.Stub.asInterface(ServiceManager.checkService(Context.ACTIVITY_SERVICE))
-                .setActivityController(mCrashSupressor, false);
     }
 
     @After
     public void tearDown() throws Exception {
-        // unset activity controller
-        IActivityManager.Stub.asInterface(ServiceManager.checkService(Context.ACTIVITY_SERVICE))
-                .setActivityController(null, false);
         mInstrumentation.getUiAutomation().setRotation(UiAutomation.ROTATION_UNFREEZE);
     }
 
@@ -303,61 +290,5 @@ public final class AppLaunchTest {
             }
         }
         return false;
-    }
-
-    /**
-     * An {@link IActivityController} that instructs framework to kill processes hitting crashes
-     * directly without showing crash dialogs
-     */
-    private class CrashSuppressor extends IActivityController.Stub {
-
-        @Override
-        public boolean activityStarting(Intent intent, String pkg) throws RemoteException {
-            Log.d(TAG, "activity starting: " + intent.getComponent().toShortString());
-            return true;
-        }
-
-        @Override
-        public boolean activityResuming(String pkg) throws RemoteException {
-            Log.d(TAG, "activity resuming: " + pkg);
-            return true;
-        }
-
-        @Override
-        public boolean appCrashed(
-                String processName,
-                int pid,
-                String shortMsg,
-                String longMsg,
-                long timeMillis,
-                String stackTrace)
-                throws RemoteException {
-            Log.d(TAG, "app crash: " + processName);
-            addProcessError(processName, "crash", stackTrace);
-            // don't show dialog
-            return false;
-        }
-
-        @Override
-        public int appEarlyNotResponding(String processName, int pid, String annotation)
-                throws RemoteException {
-            // ignore
-            return 0;
-        }
-
-        @Override
-        public int appNotResponding(String processName, int pid, String processStats)
-                throws RemoteException {
-            Log.d(TAG, "app ANR: " + processName);
-            addProcessError(processName, "ANR", processStats);
-            // don't show dialog
-            return -1;
-        }
-
-        @Override
-        public int systemNotResponding(String msg) throws RemoteException {
-            // ignore
-            return -1;
-        }
     }
 }
