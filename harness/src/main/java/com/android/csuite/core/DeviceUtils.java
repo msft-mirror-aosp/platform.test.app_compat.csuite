@@ -146,7 +146,7 @@ public final class DeviceUtils {
                         String.format("dumpsys package %s | grep versionName", packageName));
 
         if (cmdResult.getStatus() != CommandStatus.SUCCESS
-                || !cmdResult.getStdout().contains(VERSION_NAME_PREFIX)) {
+                || !cmdResult.getStdout().trim().startsWith(VERSION_NAME_PREFIX)) {
             return UNKNOWN;
         }
 
@@ -168,7 +168,7 @@ public final class DeviceUtils {
                         String.format("dumpsys package %s | grep versionCode", packageName));
 
         if (cmdResult.getStatus() != CommandStatus.SUCCESS
-                || !cmdResult.getStdout().contains(VERSION_CODE_PREFIX)) {
+                || !cmdResult.getStdout().trim().startsWith(VERSION_CODE_PREFIX)) {
             return UNKNOWN;
         }
 
