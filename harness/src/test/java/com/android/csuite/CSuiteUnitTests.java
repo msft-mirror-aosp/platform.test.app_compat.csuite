@@ -23,8 +23,9 @@ import org.junit.runners.Suite.SuiteClasses;
 @SuiteClasses({
     com.android.compatibility.targetprep.AppSetupPreparerTest.class,
     com.android.compatibility.targetprep.CheckGmsPreparerTest.class,
-    com.android.compatibility.testtype.AppLaunchTestTest.class,
     com.android.csuite.config.AppRemoteFileResolverTest.class,
+    com.android.csuite.core.AbstractCSuiteTestTest.class,
+    com.android.csuite.core.AppLaunchTesterTest.class,
     com.android.csuite.core.ModuleGeneratorTest.class,
     com.android.csuite.core.PackageModuleInfoProviderTest.class,
     com.android.csuite.core.PackagesFileModuleInfoProviderTest.class,
