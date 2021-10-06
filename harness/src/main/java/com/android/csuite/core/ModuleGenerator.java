@@ -125,6 +125,14 @@ public final class ModuleGenerator
         Files.list(mTestDirectoryProvider.get(mBuildInfo))
                 .filter(Files::isRegularFile)
                 .filter(path -> path.toString().endsWith(MODULE_FILE_NAME_EXTENSION))
+                .filter(
+                        path -> {
+                            try {
+                                return Files.readString(path).contains(GENERATED_MODULE_NOTE);
+                            } catch (IOException ioException) {
+                                throw new UncheckedIOException(ioException);
+                            }
+                        })
                 .forEach(
                         path -> {
                             try {
@@ -153,7 +161,8 @@ public final class ModuleGenerator
 
                         try {
                             Files.write(
-                                    getModulePath(moduleName), moduleInfo.getContent().getBytes());
+                                    getModulePath(moduleName),
+                                    (moduleInfo.getContent() + GENERATED_MODULE_NOTE).getBytes());
                         } catch (IOException e) {
                             throw new UncheckedIOException(e);
                         }
@@ -217,4 +226,9 @@ public final class ModuleGenerator
     interface TestDirectoryProvider {
         Path get(IBuildInfo buildInfo) throws IOException;
     }
+
+    @VisibleForTesting
+    static final String GENERATED_MODULE_NOTE =
+            "<!-- Note: The content of this module is auto generated from a template. Please do"
+                    + " not modify manually. -->\n";
 }
