@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.compatibilitytest;
+package com.android.csuite;
 
 import android.app.ActivityManager;
 import android.app.ActivityManager.ProcessErrorStateInfo;
@@ -56,9 +56,9 @@ import java.util.Set;
 
 /** Application Compatibility Test that launches an application and detects crashes. */
 @RunWith(AndroidJUnit4.class)
-public final class AppCompatibility {
+public final class AppLaunchTest {
 
-    private static final String TAG = AppCompatibility.class.getSimpleName();
+    private static final String TAG = AppLaunchTest.class.getSimpleName();
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
     private static final String APP_LAUNCH_TIMEOUT_MSECS = "app_launch_timeout_ms";
     private static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
