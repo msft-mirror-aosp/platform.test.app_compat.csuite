@@ -13,11 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.compatibility;
-
-import com.android.compatibility.targetprep.AppSetupPreparerConfigurationReceiverTest;
-import com.android.compatibility.targetprep.AppSetupPreparerTest;
-import com.android.compatibility.testtype.AppLaunchTestTest;
+package com.android.csuite;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
@@ -25,10 +21,16 @@ import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
 @SuiteClasses({
-    AppCompatibilityTestTest.class,
-    AppLaunchTestTest.class,
-    AppSetupPreparerTest.class,
-    AppSetupPreparerConfigurationReceiverTest.class,
+    com.android.compatibility.targetprep.AppSetupPreparerTest.class,
+    com.android.compatibility.targetprep.CheckGmsPreparerTest.class,
+    com.android.compatibility.testtype.AppLaunchTestTest.class,
+    com.android.csuite.config.AppRemoteFileResolverTest.class,
+    com.android.csuite.config.ModuleGeneratorTest.class,
+    com.android.csuite.core.CommandLinePackageNameProviderTest.class,
+    com.android.csuite.core.FileBasedPackageNameProviderTest.class,
+    com.android.csuite.core.SystemAppUninstallerTest.class,
+    com.android.csuite.testing.CorrespondencesTest.class,
+    com.android.csuite.testing.MoreAssertsTest.class,
 })
 public final class CSuiteUnitTests {
     // Intentionally empty.
