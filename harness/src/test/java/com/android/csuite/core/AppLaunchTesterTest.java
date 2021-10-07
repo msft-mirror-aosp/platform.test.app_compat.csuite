@@ -99,7 +99,8 @@ public final class AppLaunchTesterTest {
         when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
         when(mMockDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
                 .thenReturn(createSuccessfulCommandResult());
-        when(mMockDevice.executeShellCommand("pidof screenrecord")).thenReturn("123");
+        when(mMockDevice.executeShellV2Command("pidof screenrecord"))
+                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
 
         sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
 
@@ -162,7 +163,7 @@ public final class AppLaunchTesterTest {
         verify(mMockListener, times(1)).testFailed(any(), anyString());
     }
 
-    private InstrumentationTest createFailingInstrumentationTest() {
+    private static InstrumentationTest createFailingInstrumentationTest() {
         InstrumentationTest instrumentation =
                 new InstrumentationTest() {
                     @Override
@@ -175,7 +176,7 @@ public final class AppLaunchTesterTest {
         return instrumentation;
     }
 
-    private InstrumentationTest createPassingInstrumentationTest() {
+    private static InstrumentationTest createPassingInstrumentationTest() {
         InstrumentationTest instrumentation =
                 new InstrumentationTest() {
                     @Override
@@ -205,11 +206,11 @@ public final class AppLaunchTesterTest {
         return new AppLaunchTester(createBaseTest());
     }
 
-    private CommandResult createSuccessfulCommandResult() {
-        return createSuccessfulCommandResult("");
+    private static CommandResult createSuccessfulCommandResult() {
+        return createSuccessfulCommandResultWithStdout("");
     }
 
-    private CommandResult createSuccessfulCommandResult(String stdout) {
+    private static CommandResult createSuccessfulCommandResultWithStdout(String stdout) {
         CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
         commandResult.setExitCode(0);
         commandResult.setStdout(stdout);
@@ -217,7 +218,7 @@ public final class AppLaunchTesterTest {
         return commandResult;
     }
 
-    private CommandResult createFailedCommandResult() {
+    private static CommandResult createFailedCommandResult() {
         CommandResult commandResult = new CommandResult(CommandStatus.FAILED);
         commandResult.setExitCode(1);
         commandResult.setStdout("");

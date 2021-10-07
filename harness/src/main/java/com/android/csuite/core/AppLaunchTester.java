@@ -18,7 +18,6 @@ package com.android.csuite.core;
 
 import com.android.compatibility.FailureCollectingListener;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.LogcatReceiver;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
@@ -37,8 +36,6 @@ import org.junit.Assert;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 public class AppLaunchTester {
 
@@ -51,9 +48,8 @@ public class AppLaunchTester {
 
     private static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
     private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
-    private static final String LAUNCH_TEST_RUNNER =
-            "com.android.compatibilitytest.AppCompatibilityRunner";
-    private static final String LAUNCH_TEST_PACKAGE = "com.android.compatibilitytest";
+    private static final String LAUNCH_TEST_RUNNER = "com.android.csuite.AppLaunchTestRunner";
+    private static final String LAUNCH_TEST_PACKAGE = "com.android.csuite";
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
@@ -306,129 +302,6 @@ public class AppLaunchTester {
         instrumentationTest.setTestTimeout(testTimeoutMs);
 
         return instrumentationTest;
-    }
-
-    private static final class DeviceUtils {
-        static final String UNKNOWN = "Unknown";
-        private static final String VIDEO_PATH_ON_DEVICE = "/sdcard/screenrecord.mp4";
-        private static final int WAIT_FOR_SCREEN_RECORDING_START_MS = 10 * 1000;
-
-        static File runWithScreenRecording(ITestDevice device, RunnerTask action)
-                throws DeviceNotAvailableException {
-            // Start the recording thread in background
-            CompletableFuture<CommandResult> recordingFuture =
-                    CompletableFuture.supplyAsync(
-                                    () -> {
-                                        try {
-                                            return device.executeShellV2Command(
-                                                    String.format(
-                                                            "screenrecord %s",
-                                                            VIDEO_PATH_ON_DEVICE));
-                                        } catch (DeviceNotAvailableException e) {
-                                            throw new RuntimeException(e);
-                                        }
-                                    })
-                            .whenComplete(
-                                    (commandResult, exception) -> {
-                                        if (exception != null) {
-                                            CLog.e(
-                                                    "Device was lost during screenrecording: %s",
-                                                    exception);
-                                        } else {
-                                            CLog.d(
-                                                    "Screenrecord command completed: %s",
-                                                    commandResult);
-                                        }
-                                    });
-
-            // Make sure the recording has started
-            String pid;
-            long start = System.currentTimeMillis();
-            while (true) {
-                if (System.currentTimeMillis() - start > WAIT_FOR_SCREEN_RECORDING_START_MS) {
-                    throw new RuntimeException(
-                            "Unnable to start screenrecord. Pid is not detected.");
-                }
-
-                String[] pids = device.executeShellCommand("pidof screenrecord").trim().split(" ");
-
-                if (pids.length > 0) {
-                    pid = pids[0];
-                    break;
-                }
-            }
-
-            File video = null;
-
-            try {
-                action.run();
-            } finally {
-                if (pid != null) {
-                    device.executeShellV2Command(String.format("kill -2 %s", pid));
-                    try {
-                        recordingFuture.get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                    video = device.pullFile(VIDEO_PATH_ON_DEVICE);
-                    device.deleteFile(VIDEO_PATH_ON_DEVICE);
-                }
-            }
-
-            return video;
-        }
-
-        interface RunnerTask {
-            void run() throws DeviceNotAvailableException;
-        }
-
-        /**
-         * Gets the version name of a package installed on the device.
-         *
-         * @param packageName The full package name to query
-         * @return The package version name, or 'Unknown' if the package doesn't exist or the adb
-         *     command failed.
-         * @throws DeviceNotAvailableException
-         */
-        static String getPackageVersionName(ITestDevice device, String packageName)
-                throws DeviceNotAvailableException {
-            CommandResult cmdResult =
-                    device.executeShellV2Command(
-                            String.format("dumpsys package %s | grep versionName", packageName));
-
-            String prefix = "versionName=";
-
-            if (cmdResult.getStatus() != CommandStatus.SUCCESS
-                    || !cmdResult.getStdout().contains(prefix)) {
-                return UNKNOWN;
-            }
-
-            return cmdResult.getStdout().trim().substring(prefix.length());
-        }
-
-        /**
-         * Gets the version code of a package installed on the device.
-         *
-         * @param packageName The full package name to query
-         * @return The package version code, or 'Unknown' if the package doesn't exist or the adb
-         *     command failed.
-         * @throws DeviceNotAvailableException
-         */
-        static String getPackageVersionCode(ITestDevice device, String packageName)
-                throws DeviceNotAvailableException {
-            CommandResult cmdResult =
-                    device.executeShellV2Command(
-                            String.format("dumpsys package %s | grep versionCode", packageName));
-
-            String prefix = "versionCode=";
-
-            if (cmdResult.getStatus() != CommandStatus.SUCCESS
-                    || !cmdResult.getStdout().contains(prefix)) {
-                return UNKNOWN;
-            }
-
-            return cmdResult.getStdout().trim().split(" ")[0].substring(prefix.length());
-        }
     }
 
     /** @param mRecordScreen the mRecordScreen to set */
