@@ -37,6 +37,11 @@ public final class DeviceUtils {
     @VisibleForTesting static final String UNKNOWN = "Unknown";
     @VisibleForTesting static final String VERSION_CODE_PREFIX = "versionCode=";
     @VisibleForTesting static final String VERSION_NAME_PREFIX = "versionName=";
+
+    @VisibleForTesting
+    static final String LAUNCH_PACKAGE_COMMAND_TEMPLATE =
+            "monkey -p %s -c android.intent.category.LAUNCHER 1";
+
     private static final String VIDEO_PATH_ON_DEVICE_TEMPLATE = "/sdcard/screenrecord_%s.mp4";
     @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS = 10 * 1000;
     @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_INTERVAL_MILLIS = 500;
@@ -168,6 +173,26 @@ public final class DeviceUtils {
         }
 
         return video;
+    }
+
+    /**
+     * Launches a package on the device.
+     *
+     * @param packageName The package name to launch.
+     * @return True if successfully launches the package or the package is already launched; False
+     *     otherwise.
+     * @throws DeviceNotAvailableException When device was lost.
+     */
+    public boolean launchPackage(String packageName) throws DeviceNotAvailableException {
+        CommandResult result =
+                mDevice.executeShellV2Command(
+                        String.format(LAUNCH_PACKAGE_COMMAND_TEMPLATE, packageName));
+        if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
+            CLog.e("The command to launch package %s failed: %s", packageName, result);
+            return false;
+        }
+
+        return true;
     }
 
     /**
