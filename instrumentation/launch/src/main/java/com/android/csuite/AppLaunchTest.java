@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-package com.android.compatibilitytest;
+package com.android.csuite;
 
 import android.app.ActivityManager;
 import android.app.ActivityManager.ProcessErrorStateInfo;
 import android.app.ActivityManager.RunningTaskInfo;
-import android.app.IActivityController;
-import android.app.IActivityManager;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.app.UiModeManager;
@@ -31,10 +29,7 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.DropBoxManager;
-import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.util.Log;
-import android.view.KeyEvent;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -54,21 +49,18 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.IntStream;
 
 /** Application Compatibility Test that launches an application and detects crashes. */
 @RunWith(AndroidJUnit4.class)
-public final class AppCompatibility {
+public final class AppLaunchTest {
 
-    private static final String TAG = AppCompatibility.class.getSimpleName();
+    private static final String TAG = AppLaunchTest.class.getSimpleName();
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
     private static final String APP_LAUNCH_TIMEOUT_MSECS = "app_launch_timeout_ms";
-    private static final String ARG_DISMISS_DIALOG = "ARG_DISMISS_DIALOG";
     private static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
     private static final Set<String> DROPBOX_TAGS = new HashSet<>();
     private static final int MAX_CRASH_SNIPPET_LINES = 20;
     private static final int MAX_NUM_CRASH_SNIPPET = 3;
-    private static final int DELAY_AFTER_KEYEVENT_MILLIS = 500;
 
     // time waiting for app to launch
     private int mAppLaunchTimeout = 7000;
@@ -79,7 +71,6 @@ public final class AppCompatibility {
     private Bundle mArgs;
     private Instrumentation mInstrumentation;
     private String mLauncherPackageName;
-    private IActivityController mCrashSupressor = new CrashSuppressor();
     private Map<String, List<String>> mAppErrors = new HashMap<>();
 
     static {
@@ -118,18 +109,10 @@ public final class AppCompatibility {
             mAppLaunchTimeout = Integer.parseInt(appLaunchTimeoutMsecs);
         }
         mInstrumentation.getUiAutomation().setRotation(UiAutomation.ROTATION_FREEZE_0);
-
-        // set activity controller to suppress crash dialogs and collects them by process name
-        mAppErrors.clear();
-        IActivityManager.Stub.asInterface(ServiceManager.checkService(Context.ACTIVITY_SERVICE))
-                .setActivityController(mCrashSupressor, false);
     }
 
     @After
     public void tearDown() throws Exception {
-        // unset activity controller
-        IActivityManager.Stub.asInterface(ServiceManager.checkService(Context.ACTIVITY_SERVICE))
-                .setActivityController(null, false);
         mInstrumentation.getUiAutomation().setRotation(UiAutomation.ROTATION_UNFREEZE);
     }
 
@@ -155,17 +138,6 @@ public final class AppCompatibility {
         }
         long startTime = System.currentTimeMillis();
         launchActivity(packageName, intent);
-
-        if (mArgs.getString(ARG_DISMISS_DIALOG, "false").equals("true")) {
-            // Attempt to dismiss any dialogs which some apps display to 'gracefully' handle
-            // errors. The dialog prevents the app from crashing thereby hiding issues. The
-            // first key event is to select a default button on the error dialog if any while
-            // the second event pushes the button.
-            IntStream.range(0, 2)
-                    .forEach(i -> mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER));
-            // Give the app process enough time to terminate after dismissing the error.
-            Thread.sleep(DELAY_AFTER_KEYEVENT_MILLIS);
-        }
 
         checkDropbox(startTime, packageName);
         if (mAppErrors.containsKey(packageName)) {
@@ -318,61 +290,5 @@ public final class AppCompatibility {
             }
         }
         return false;
-    }
-
-    /**
-     * An {@link IActivityController} that instructs framework to kill processes hitting crashes
-     * directly without showing crash dialogs
-     */
-    private class CrashSuppressor extends IActivityController.Stub {
-
-        @Override
-        public boolean activityStarting(Intent intent, String pkg) throws RemoteException {
-            Log.d(TAG, "activity starting: " + intent.getComponent().toShortString());
-            return true;
-        }
-
-        @Override
-        public boolean activityResuming(String pkg) throws RemoteException {
-            Log.d(TAG, "activity resuming: " + pkg);
-            return true;
-        }
-
-        @Override
-        public boolean appCrashed(
-                String processName,
-                int pid,
-                String shortMsg,
-                String longMsg,
-                long timeMillis,
-                String stackTrace)
-                throws RemoteException {
-            Log.d(TAG, "app crash: " + processName);
-            addProcessError(processName, "crash", stackTrace);
-            // don't show dialog
-            return false;
-        }
-
-        @Override
-        public int appEarlyNotResponding(String processName, int pid, String annotation)
-                throws RemoteException {
-            // ignore
-            return 0;
-        }
-
-        @Override
-        public int appNotResponding(String processName, int pid, String processStats)
-                throws RemoteException {
-            Log.d(TAG, "app ANR: " + processName);
-            addProcessError(processName, "ANR", processStats);
-            // don't show dialog
-            return -1;
-        }
-
-        @Override
-        public int systemNotResponding(String msg) throws RemoteException {
-            // ignore
-            return -1;
-        }
     }
 }
