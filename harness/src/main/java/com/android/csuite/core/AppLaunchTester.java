@@ -18,23 +18,17 @@ package com.android.csuite.core;
 
 import com.android.compatibility.FailureCollectingListener;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.LogcatReceiver;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.CompatibilityTestResult;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
-import com.android.tradefed.util.StreamUtil;
 
-import org.json.JSONException;
 import org.junit.Assert;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
 
 public class AppLaunchTester {
 
@@ -57,11 +51,9 @@ public class AppLaunchTester {
     private static final String PACKAGE_NAME_ARG = "PACKAGE_NAME_ARG";
     private static final String START_TIME_ARG = "START_TIME_ARG";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
-    private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
     private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
 
     private final AbstractCSuiteTest mBaseTest;
-    private LogcatReceiver mLogcat;
 
     public AppLaunchTester(AbstractCSuiteTest baseTest) {
         mBaseTest = baseTest;
@@ -71,18 +63,6 @@ public class AppLaunchTester {
     public void launchPackageAndCheckCrash(String packageName) throws DeviceNotAvailableException {
         Assert.assertNotNull("Package name cannot be null", packageName);
 
-        mLogcat = new LogcatReceiver(mBaseTest.getDevice(), LOGCAT_SIZE_BYTES, 0);
-        mLogcat.start();
-
-        try {
-            testPackage(packageName);
-        } finally {
-            mLogcat.stop();
-        }
-    }
-
-    /** Attempts to test a package and reports the results. */
-    private void testPackage(String packageName) throws DeviceNotAvailableException {
         CLog.d("Started testing package: %s.", packageName);
 
         CompatibilityTestResult result = createCompatibilityTestResult();
@@ -153,11 +133,6 @@ public class AppLaunchTester {
         } finally {
             reportResult(result);
             stopPackage(packageName);
-            try {
-                postLogcat(result);
-            } catch (JSONException e) {
-                CLog.w("Posting failed: %s.", e.getMessage());
-            }
 
             CLog.d("Completed testing package: %s.", packageName);
         }
@@ -239,33 +214,6 @@ public class AppLaunchTester {
             return "FAILURE";
         }
         return null;
-    }
-
-    /** Helper method which posts the logcat. */
-    private void postLogcat(CompatibilityTestResult result) throws JSONException {
-        InputStreamSource stream = null;
-        String header =
-                String.format(
-                        "%s%s%s\n",
-                        CompatibilityTestResult.SEPARATOR,
-                        result.toJsonString(),
-                        CompatibilityTestResult.SEPARATOR);
-
-        try (InputStreamSource logcatData = mLogcat.getLogcatData()) {
-            try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                baos.write(header.getBytes());
-                StreamUtil.copyStreams(logcatData.createInputStream(), baos);
-                stream = new ByteArrayInputStreamSource(baos.toByteArray());
-            } catch (IOException e) {
-                CLog.e("error inserting compatibility test result into logcat");
-                CLog.e(e);
-                // fallback to logcat data
-                stream = logcatData;
-            }
-            mBaseTest.addTestArtifact("logcat_" + result.packageName, LogDataType.LOGCAT, stream);
-        } finally {
-            StreamUtil.cancel(stream);
-        }
     }
 
     protected CommandResult resetPackage(String packageName) throws DeviceNotAvailableException {
