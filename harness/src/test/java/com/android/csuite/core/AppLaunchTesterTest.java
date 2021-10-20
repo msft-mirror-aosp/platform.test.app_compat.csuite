@@ -187,10 +187,21 @@ public final class AppLaunchTesterTest {
         return instrumentation;
     }
 
-    private AppLaunchTester createTesterWithInstrumentation(InstrumentationTest instrumentation) {
+    private AppLaunchTester createTesterWithInstrumentation(InstrumentationTest instrumentation)
+            throws DeviceNotAvailableException {
+        when(mMockDevice.executeShellV2Command(Mockito.startsWith("echo")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
+
         return new AppLaunchTester(createBaseTest()) {
             @Override
-            protected InstrumentationTest createInstrumentationTest(String packageBeingTested) {
+            protected InstrumentationTest createAppLaunchInstrumentation(
+                    String packageBeingTested) {
+                return instrumentation;
+            }
+
+            @Override
+            protected InstrumentationTest createAppCrashCheckInstrumentation(
+                    String packageBeingTested, long startTime) {
                 return instrumentation;
             }
 
@@ -202,7 +213,9 @@ public final class AppLaunchTesterTest {
         };
     }
 
-    private AppLaunchTester createTester() {
+    private AppLaunchTester createTester() throws DeviceNotAvailableException {
+        when(mMockDevice.executeShellV2Command(Mockito.startsWith("echo")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
         return new AppLaunchTester(createBaseTest());
     }
 

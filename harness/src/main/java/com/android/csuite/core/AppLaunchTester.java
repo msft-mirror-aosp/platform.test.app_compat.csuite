@@ -48,9 +48,15 @@ public class AppLaunchTester {
 
     private static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
     private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
-    private static final String LAUNCH_TEST_RUNNER = "com.android.csuite.AppLaunchTestRunner";
-    private static final String LAUNCH_TEST_PACKAGE = "com.android.csuite";
+    private static final String LAUNCH_TEST_RUNNER =
+            "com.android.csuite.launch.AppLaunchInstrumentationTestRunner";
+    private static final String LAUNCH_TEST_PACKAGE = "com.android.csuite.launch";
+    private static final String CRASH_CHECK_TEST_RUNNER =
+            "com.android.csuite.crash_check.AppCrashCheckTestRunner";
+    private static final String CRASH_CHECK_TEST_PACKAGE = "com.android.csuite.crash_check";
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
+    private static final String PACKAGE_NAME_ARG = "PACKAGE_NAME_ARG";
+    private static final String START_TIME_ARG = "START_TIME_ARG";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
     private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
@@ -120,7 +126,7 @@ public class AppLaunchTester {
                         DeviceUtils.runWithScreenRecording(
                                 mBaseTest.getDevice(),
                                 () -> {
-                                    launchPackage(result);
+                                    launchPackageAndCheckForCrash(result);
                                 });
                 if (video != null) {
                     mBaseTest.addTestArtifact(
@@ -133,7 +139,7 @@ public class AppLaunchTester {
                     CLog.e("Failed to get screen recording.");
                 }
             } else {
-                launchPackage(result);
+                launchPackageAndCheckForCrash(result);
             }
 
             if (mScreenshotAfterLaunch) {
@@ -175,6 +181,29 @@ public class AppLaunchTester {
         }
     }
 
+    private void launchPackageAndCheckForCrash(CompatibilityTestResult result)
+            throws DeviceNotAvailableException {
+        long startTime = DeviceUtils.currentTimeMillis(mBaseTest.getDevice());
+        launchPackage(result);
+        checkForCrash(result, startTime);
+    }
+
+    private void checkForCrash(CompatibilityTestResult result, long startTime)
+            throws DeviceNotAvailableException {
+        InstrumentationTest instrTest =
+                createAppCrashCheckInstrumentation(result.packageName, startTime);
+
+        FailureCollectingListener failureListener = createFailureListener();
+        instrTest.run(mBaseTest.getTestInfo(), failureListener);
+        CLog.d("Stack Trace: %s", failureListener.getStackTrace());
+
+        if (failureListener.getStackTrace() != null) {
+            CLog.w("Crash was detected for package: %s.", result.packageName);
+            result.status = CompatibilityTestResult.STATUS_FAILURE;
+            result.message = failureListener.getStackTrace();
+        }
+    }
+
     /**
      * Method which attempts to launch a package.
      *
@@ -194,7 +223,7 @@ public class AppLaunchTester {
             return;
         }
 
-        InstrumentationTest instrTest = createInstrumentationTest(result.packageName);
+        InstrumentationTest instrTest = createAppLaunchInstrumentation(result.packageName);
 
         FailureCollectingListener failureListener = createFailureListener();
         instrTest.run(mBaseTest.getTestInfo(), failureListener);
@@ -280,11 +309,27 @@ public class AppLaunchTester {
         return new CompatibilityTestResult();
     }
 
+    protected InstrumentationTest createAppCrashCheckInstrumentation(
+            String packageBeingTested, long startTime) {
+        InstrumentationTest instrumentationTest = new InstrumentationTest();
+
+        instrumentationTest.setPackageName(CRASH_CHECK_TEST_PACKAGE);
+        instrumentationTest.setConfiguration(mBaseTest.getConfiguration());
+        instrumentationTest.addInstrumentationArg(PACKAGE_NAME_ARG, packageBeingTested);
+        instrumentationTest.addInstrumentationArg(START_TIME_ARG, Long.toString(startTime));
+        instrumentationTest.setRunnerName(CRASH_CHECK_TEST_RUNNER);
+        instrumentationTest.setDevice(mBaseTest.getDevice());
+        instrumentationTest.setShellTimeout(BASE_INSTRUMENTATION_TEST_TIMEOUT_MS);
+        instrumentationTest.setTestTimeout(BASE_INSTRUMENTATION_TEST_TIMEOUT_MS);
+
+        return instrumentationTest;
+    }
+
     /**
      * Creates and sets up an instrumentation test with information about the test runner as well as
      * the package being tested (provided as a parameter).
      */
-    protected InstrumentationTest createInstrumentationTest(String packageBeingTested) {
+    protected InstrumentationTest createAppLaunchInstrumentation(String packageBeingTested) {
         InstrumentationTest instrumentationTest = new InstrumentationTest();
 
         instrumentationTest.setPackageName(LAUNCH_TEST_PACKAGE);
