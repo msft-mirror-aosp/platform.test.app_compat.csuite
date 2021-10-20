@@ -43,7 +43,16 @@ public final class DeviceUtils {
     @VisibleForTesting static final String VERSION_NAME_PREFIX = "versionName=";
     private static final String VIDEO_PATH_ON_DEVICE = "/sdcard/screenrecord.mp4";
     private static final int WAIT_FOR_SCREEN_RECORDING_START_MS = 10 * 1000;
-    private static final int WAIT_FOR_SCREEN_RECORDING_END_MS = 10 * 1000;
+
+    private final ITestDevice mDevice;
+
+    public static DeviceUtils getInstance(ITestDevice device) {
+        return new DeviceUtils(device);
+    }
+
+    private DeviceUtils(ITestDevice device) {
+        mDevice = device;
+    }
 
     /**
      * A task that throws DeviceNotAvailableException. Use this interface instead of Runnable so
@@ -56,15 +65,13 @@ public final class DeviceUtils {
     /**
      * Get the current device timestamp in milliseconds.
      *
-     * @param device The test device
      * @return The device time
      * @throws DeviceNotAvailableException When the device is not available.
      * @throws DeviceRuntimeException When the command to get device time failed or failed to parse
      *     the timestamp.
      */
-    public static long currentTimeMillis(ITestDevice device)
-            throws DeviceNotAvailableException, DeviceRuntimeException {
-        CommandResult result = device.executeShellV2Command("echo ${EPOCHREALTIME:0:14}");
+    public long currentTimeMillis() throws DeviceNotAvailableException, DeviceRuntimeException {
+        CommandResult result = mDevice.executeShellV2Command("echo ${EPOCHREALTIME:0:14}");
         if (result.getStatus() != CommandStatus.SUCCESS) {
             throw new DeviceRuntimeException(
                     "Failed to get device time: " + result,
@@ -86,14 +93,12 @@ public final class DeviceUtils {
      * <p>This method will not throw exception when the screenrecord command failed unless the
      * device is unresponsive.
      *
-     * @param device The test device
      * @param action A runnable job that throws DeviceNotAvailableException.
      * @return The screen recording file on the host, or null if failed to get the recording file
      *     from the device.
      * @throws DeviceNotAvailableException When the device is unresponsive.
      */
-    public static File runWithScreenRecording(ITestDevice device, RunnerTask action)
-            throws DeviceNotAvailableException {
+    public File runWithScreenRecording(RunnerTask action) throws DeviceNotAvailableException {
         ExecutorService executors =
                 MoreExecutors.getExitingExecutorService(
                         (ThreadPoolExecutor) Executors.newFixedThreadPool(1));
@@ -103,7 +108,7 @@ public final class DeviceUtils {
                 CompletableFuture.supplyAsync(
                                 () -> {
                                     try {
-                                        return device.executeShellV2Command(
+                                        return mDevice.executeShellV2Command(
                                                 String.format(
                                                         "screenrecord %s", VIDEO_PATH_ON_DEVICE));
                                     } catch (DeviceNotAvailableException e) {
@@ -128,7 +133,7 @@ public final class DeviceUtils {
                 break;
             }
 
-            CommandResult result = device.executeShellV2Command("pidof screenrecord");
+            CommandResult result = mDevice.executeShellV2Command("pidof screenrecord");
             if (result.getStatus() != CommandStatus.SUCCESS) {
                 CLog.d("The pid of screenrecord is not found yet. Trying again. %s", result);
                 continue;
@@ -148,7 +153,7 @@ public final class DeviceUtils {
             action.run();
         } finally {
             if (pid != null) {
-                device.executeShellV2Command(String.format("kill -2 %s", pid));
+                mDevice.executeShellV2Command(String.format("kill -2 %s", pid));
                 try {
                     recordingFuture.get(WAIT_FOR_SCREEN_RECORDING_START_MS, TimeUnit.MILLISECONDS);
                 } catch (InterruptedException e) {
@@ -159,8 +164,8 @@ public final class DeviceUtils {
                 } catch (ExecutionException e) {
                     CLog.e("Failed to complete the screenrecord command: %s", e);
                 }
-                video = device.pullFile(VIDEO_PATH_ON_DEVICE);
-                device.deleteFile(VIDEO_PATH_ON_DEVICE);
+                video = mDevice.pullFile(VIDEO_PATH_ON_DEVICE);
+                mDevice.deleteFile(VIDEO_PATH_ON_DEVICE);
             }
         }
 
@@ -175,10 +180,9 @@ public final class DeviceUtils {
      *     command failed.
      * @throws DeviceNotAvailableException
      */
-    public static String getPackageVersionName(ITestDevice device, String packageName)
-            throws DeviceNotAvailableException {
+    public String getPackageVersionName(String packageName) throws DeviceNotAvailableException {
         CommandResult cmdResult =
-                device.executeShellV2Command(
+                mDevice.executeShellV2Command(
                         String.format("dumpsys package %s | grep versionName", packageName));
 
         if (cmdResult.getStatus() != CommandStatus.SUCCESS
@@ -197,10 +201,9 @@ public final class DeviceUtils {
      *     command failed.
      * @throws DeviceNotAvailableException
      */
-    public static String getPackageVersionCode(ITestDevice device, String packageName)
-            throws DeviceNotAvailableException {
+    public String getPackageVersionCode(String packageName) throws DeviceNotAvailableException {
         CommandResult cmdResult =
-                device.executeShellV2Command(
+                mDevice.executeShellV2Command(
                         String.format("dumpsys package %s | grep versionCode", packageName));
 
         if (cmdResult.getStatus() != CommandStatus.SUCCESS
