@@ -33,7 +33,11 @@ public class AppLaunchTest extends AbstractCSuiteTest {
     @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
     @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
-    @VisibleForTesting static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
+
+    /**
+     * @deprecated this option no longer affects the result and splash screen is now always enabled.
+     */
+    @Deprecated static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -62,6 +66,10 @@ public class AppLaunchTest extends AbstractCSuiteTest {
             description =
                     "Whether to enable splash screen when launching an package from the"
                             + " instrumentation test.")
+    @Deprecated
+    /**
+     * @deprecated this option no longer affects the result and splash screen is now always enabled.
+     */
     private boolean mEnableSplashScreen;
 
     @Option(name = "package-name", description = "Package name of testing app.")
@@ -94,7 +102,7 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         runner.setScreenshotAfterLaunch(mScreenshotAfterLaunch);
         runner.setCollectAppVersion(mCollectAppVersion);
         runner.setCollectGmsVersion(mCollectGmsVersion);
-        runner.setEnableSplashScreen(mEnableSplashScreen);
+        runner.setEnableSplashScreen(true);
         runner.setAppLaunchTimeoutMs(mAppLaunchTimeoutMs);
 
         runner.launchPackageAndCheckCrash(mPackageName);
