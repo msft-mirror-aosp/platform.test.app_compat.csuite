@@ -22,7 +22,6 @@ import com.android.tradefed.device.LogcatReceiver;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.CompatibilityTestResult;
-import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.testtype.InstrumentationTest;
@@ -68,12 +67,7 @@ public class AppLaunchTester {
         mBaseTest = baseTest;
     }
 
-    /**
-     * Launches an package and checks for crash.
-     *
-     * @param packageName
-     * @throws DeviceNotAvailableException
-     */
+    /** Launches an package and checks for crash. */
     public void launchPackageAndCheckCrash(String packageName) throws DeviceNotAvailableException {
         Assert.assertNotNull("Package name cannot be null", packageName);
 
@@ -82,21 +76,13 @@ public class AppLaunchTester {
 
         try {
             testPackage(packageName);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         } finally {
             mLogcat.stop();
         }
     }
 
-    /**
-     * Attempts to test a package and reports the results.
-     *
-     * @param listener The {@link ITestInvocationListener}.
-     * @throws DeviceNotAvailableException
-     */
-    private void testPackage(String packageName)
-            throws DeviceNotAvailableException, InterruptedException {
+    /** Attempts to test a package and reports the results. */
+    private void testPackage(String packageName) throws DeviceNotAvailableException {
         CLog.d("Started testing package: %s.", packageName);
 
         CompatibilityTestResult result = createCompatibilityTestResult();
