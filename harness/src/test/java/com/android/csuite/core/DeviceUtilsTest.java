@@ -41,6 +41,28 @@ public final class DeviceUtilsTest {
     ITestDevice mDevice = Mockito.mock(ITestDevice.class);
 
     @Test
+    public void launchPackage_packageDoesNotExist_returnsFalse() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey -p")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest(mDevice);
+
+        boolean result = sut.launchPackage("package.name");
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    public void launchPackage_successfullyLaunchedThePackage_returnsTrue() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey -p")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest(mDevice);
+
+        boolean result = sut.launchPackage("package.name");
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
     public void currentTimeMillis_deviceCommandFailed_throwsException() throws Exception {
         DeviceUtils sut = createSubjectUnderTest(mDevice);
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
