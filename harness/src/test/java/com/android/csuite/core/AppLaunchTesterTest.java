@@ -91,24 +91,6 @@ public final class AppLaunchTesterTest {
     }
 
     @Test
-    public void run_recordScreen_savesToTestLog() throws Exception {
-        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
-        sut.setRecordScreen(true);
-        when(mMockDevice.pullFile(Mockito.any())).thenReturn(tempFolder.newFile());
-        when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
-        when(mMockDevice.executeShellV2Command(Mockito.startsWith("screenrecord")))
-                .thenReturn(createSuccessfulCommandResult());
-        when(mMockDevice.executeShellV2Command("pidof screenrecord"))
-                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
-
-        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
-
-        Mockito.verify(mMockListener, times(1))
-                .testLog(Mockito.contains("screenrecord"), Mockito.any(), Mockito.any());
-    }
-
-    @Test
     public void run_collectAppVersion_savesToTestLog() throws Exception {
         InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
         AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
