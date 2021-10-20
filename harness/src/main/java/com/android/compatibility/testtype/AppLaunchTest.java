@@ -17,9 +17,11 @@
 package com.android.compatibility.testtype;
 
 import com.android.csuite.core.AbstractCSuiteTest;
-import com.android.csuite.core.AppLaunchTester;
+import com.android.csuite.core.DeviceUtils;
+import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.TestDescription;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -97,15 +99,59 @@ public class AppLaunchTest extends AbstractCSuiteTest {
     protected void run() throws DeviceNotAvailableException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
 
-        AppLaunchTester runner = new AppLaunchTester(this);
-        runner.setRecordScreen(mRecordScreen);
-        runner.setScreenshotAfterLaunch(mScreenshotAfterLaunch);
-        runner.setCollectAppVersion(mCollectAppVersion);
-        runner.setCollectGmsVersion(mCollectGmsVersion);
-        runner.setEnableSplashScreen(true);
-        runner.setAppLaunchTimeoutMs(mAppLaunchTimeoutMs);
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
+        TestUtils testUtils = TestUtils.getInstance(this);
 
-        runner.launchPackageAndCheckCrash(mPackageName);
+        if (mCollectGmsVersion) {
+            testUtils.collectGmsVersion(mPackageName);
+        }
+
+        if (mCollectAppVersion) {
+            testUtils.collectAppVersion(mPackageName);
+        }
+
+        deviceUtils.freezeRotation();
+        deviceUtils.resetPackage(mPackageName);
+
+        if (mRecordScreen) {
+            testUtils.collectScreenRecord(
+                    () -> {
+                        launchPackageAndCheckForCrash();
+                    },
+                    mPackageName);
+        } else {
+            launchPackageAndCheckForCrash();
+        }
+
+        if (mScreenshotAfterLaunch) {
+            testUtils.collectScreenshot(mPackageName);
+        }
+
+        deviceUtils.stopPackage(mPackageName);
+        deviceUtils.unfreezeRotation();
+    }
+
+    private void launchPackageAndCheckForCrash() throws DeviceNotAvailableException {
+        CLog.d("Launching package: %s.", mPackageName);
+
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
+        TestUtils testUtils = TestUtils.getInstance(this);
+
+        long startTime = deviceUtils.currentTimeMillis();
+        if (!deviceUtils.launchPackage(mPackageName)) {
+            testFailed("Failed to start the launch intent of package " + mPackageName);
+            return;
+        }
+
+        try {
+            Thread.sleep(mAppLaunchTimeoutMs);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        CLog.d("Completed launching package: %s", mPackageName);
+
+        testUtils.assertPackageNotCrashed(mPackageName, startTime);
     }
 
     /** {@inheritDoc} */
