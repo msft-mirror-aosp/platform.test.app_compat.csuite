@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.android.csuite;
+package com.android.csuite.launch;
 
 import androidx.test.runner.AndroidJUnitRunner;
 
 // empty subclass to maintain backwards compatibility on host-side harness
-public class AppLaunchTestRunner extends AndroidJUnitRunner {}
+public class AppLaunchInstrumentationTestRunner extends AndroidJUnitRunner {}
