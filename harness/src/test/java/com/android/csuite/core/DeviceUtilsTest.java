@@ -37,13 +37,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RunWith(JUnit4.class)
 public final class DeviceUtilsTest {
     ITestDevice mDevice = Mockito.mock(ITestDevice.class);
+    DeviceUtils mDeviceUtils = DeviceUtils.getInstance(mDevice);
 
     @Test
     public void currentTimeMillis_deviceCommandFailed_throwsException() throws Exception {
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createFailedCommandResult());
 
-        assertThrows(DeviceRuntimeException.class, () -> DeviceUtils.currentTimeMillis(mDevice));
+        assertThrows(DeviceRuntimeException.class, () -> mDeviceUtils.currentTimeMillis());
     }
 
     @Test
@@ -51,7 +52,7 @@ public final class DeviceUtilsTest {
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
 
-        assertThrows(DeviceRuntimeException.class, () -> DeviceUtils.currentTimeMillis(mDevice));
+        assertThrows(DeviceRuntimeException.class, () -> mDeviceUtils.currentTimeMillis());
     }
 
     @Test
@@ -59,7 +60,7 @@ public final class DeviceUtilsTest {
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("123"));
 
-        long result = DeviceUtils.currentTimeMillis(mDevice);
+        long result = mDeviceUtils.currentTimeMillis();
 
         assertThat(result).isEqualTo(Long.parseLong("123"));
     }
@@ -76,7 +77,7 @@ public final class DeviceUtilsTest {
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnerTask job = () -> executed.set(true);
 
-        DeviceUtils.runWithScreenRecording(mDevice, job);
+        mDeviceUtils.runWithScreenRecording(job);
 
         assertThat(executed.get()).isTrue();
     }
@@ -90,7 +91,7 @@ public final class DeviceUtilsTest {
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnerTask job = () -> executed.set(true);
 
-        DeviceUtils.runWithScreenRecording(mDevice, job);
+        mDeviceUtils.runWithScreenRecording(job);
 
         assertThat(executed.get()).isTrue();
     }
@@ -104,7 +105,7 @@ public final class DeviceUtilsTest {
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnerTask job = () -> executed.set(true);
 
-        DeviceUtils.runWithScreenRecording(mDevice, job);
+        mDeviceUtils.runWithScreenRecording(job);
 
         assertThat(executed.get()).isTrue();
     }
@@ -118,7 +119,7 @@ public final class DeviceUtilsTest {
         File videoFileOnDevice = new File("");
         when(mDevice.pullFile(Mockito.any())).thenReturn(videoFileOnDevice);
 
-        File result = DeviceUtils.runWithScreenRecording(mDevice, () -> {});
+        File result = mDeviceUtils.runWithScreenRecording(() -> {});
 
         assertThat(result).isEqualTo(videoFileOnDevice);
     }
@@ -128,7 +129,7 @@ public final class DeviceUtilsTest {
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionName")))
                 .thenReturn(createFailedCommandResult());
 
-        String result = DeviceUtils.getPackageVersionName(mDevice, "any");
+        String result = mDeviceUtils.getPackageVersionName("any");
 
         assertThat(result).isEqualTo(DeviceUtils.UNKNOWN);
     }
@@ -141,7 +142,7 @@ public final class DeviceUtilsTest {
                         createSuccessfulCommandResultWithStdout(
                                 "unexpected " + DeviceUtils.VERSION_NAME_PREFIX));
 
-        String result = DeviceUtils.getPackageVersionName(mDevice, "any");
+        String result = mDeviceUtils.getPackageVersionName("any");
 
         assertThat(result).isEqualTo(DeviceUtils.UNKNOWN);
     }
@@ -153,7 +154,7 @@ public final class DeviceUtilsTest {
                         createSuccessfulCommandResultWithStdout(
                                 " " + DeviceUtils.VERSION_NAME_PREFIX + "123"));
 
-        String result = DeviceUtils.getPackageVersionName(mDevice, "any");
+        String result = mDeviceUtils.getPackageVersionName("any");
 
         assertThat(result).isEqualTo("123");
     }
@@ -163,7 +164,7 @@ public final class DeviceUtilsTest {
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionCode")))
                 .thenReturn(createFailedCommandResult());
 
-        String result = DeviceUtils.getPackageVersionCode(mDevice, "any");
+        String result = mDeviceUtils.getPackageVersionCode("any");
 
         assertThat(result).isEqualTo(DeviceUtils.UNKNOWN);
     }
@@ -176,7 +177,7 @@ public final class DeviceUtilsTest {
                         createSuccessfulCommandResultWithStdout(
                                 "unexpected " + DeviceUtils.VERSION_CODE_PREFIX));
 
-        String result = DeviceUtils.getPackageVersionCode(mDevice, "any");
+        String result = mDeviceUtils.getPackageVersionCode("any");
 
         assertThat(result).isEqualTo(DeviceUtils.UNKNOWN);
     }
@@ -188,7 +189,7 @@ public final class DeviceUtilsTest {
                         createSuccessfulCommandResultWithStdout(
                                 " " + DeviceUtils.VERSION_CODE_PREFIX + "123"));
 
-        String result = DeviceUtils.getPackageVersionCode(mDevice, "any");
+        String result = mDeviceUtils.getPackageVersionCode("any");
 
         assertThat(result).isEqualTo("123");
     }
