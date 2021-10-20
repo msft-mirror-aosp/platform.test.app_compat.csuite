@@ -37,6 +37,7 @@ public final class DeviceUtils {
     @VisibleForTesting static final String UNKNOWN = "Unknown";
     @VisibleForTesting static final String VERSION_CODE_PREFIX = "versionCode=";
     @VisibleForTesting static final String VERSION_NAME_PREFIX = "versionName=";
+    @VisibleForTesting static final String RESET_PACKAGE_COMMAND_PREFIX = "pm clear ";
 
     @VisibleForTesting
     static final String LAUNCH_PACKAGE_COMMAND_TEMPLATE =
@@ -176,6 +177,44 @@ public final class DeviceUtils {
     }
 
     /**
+     * Freeze the screen rotation to the default orientation.
+     *
+     * @return True if succeed; False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean freezeRotation() throws DeviceNotAvailableException {
+        CommandResult result =
+                mDevice.executeShellV2Command(
+                        "content insert --uri content://settings/system --bind"
+                                + " name:s:accelerometer_rotation --bind value:i:0");
+        if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
+            CLog.e("The command to disable auto screen rotation failed: %s", result);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Unfreeze the screen rotation to the default orientation.
+     *
+     * @return True if succeed; False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean unfreezeRotation() throws DeviceNotAvailableException {
+        CommandResult result =
+                mDevice.executeShellV2Command(
+                        "content insert --uri content://settings/system --bind"
+                                + " name:s:accelerometer_rotation --bind value:i:1");
+        if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
+            CLog.e("The command to enable auto screen rotation failed: %s", result);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Launches a package on the device.
      *
      * @param packageName The package name to launch.
@@ -235,6 +274,28 @@ public final class DeviceUtils {
         }
 
         return cmdResult.getStdout().trim().split(" ")[0].substring(VERSION_CODE_PREFIX.length());
+    }
+
+    /**
+     * Stops a running package on the device.
+     *
+     * @param packageName
+     * @throws DeviceNotAvailableException
+     */
+    public void stopPackage(String packageName) throws DeviceNotAvailableException {
+        mDevice.executeShellV2Command("am force-stop " + packageName);
+    }
+
+    /**
+     * Resets a package's data storage on the device.
+     *
+     * @param packageName The package name of an app to reset.
+     * @return True if the package exists and its data was reset; False otherwise.
+     * @throws DeviceNotAvailableException If the device was lost.
+     */
+    public boolean resetPackage(String packageName) throws DeviceNotAvailableException {
+        return mDevice.executeShellV2Command(RESET_PACKAGE_COMMAND_PREFIX + packageName).getStatus()
+                == CommandStatus.SUCCESS;
     }
 
     @VisibleForTesting

@@ -46,7 +46,7 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
-public final class AppLaunchTesterTest {
+public final class TestUtilsTest {
 
     private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
     private final ITestInvocationListener mMockListener = mock(ITestInvocationListener.class);
@@ -56,93 +56,42 @@ public final class AppLaunchTesterTest {
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Test
-    public void run_instrumentationTestFailed_testFailed() throws DeviceNotAvailableException {
-        InstrumentationTest instrumentationTest = createFailingInstrumentationTest();
-        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
+    public void assertPackageNotCrashed_instrumentationTestFailed_testFailed()
+            throws DeviceNotAvailableException {
+        TestUtils sut = new TestUtils(createBaseTest(), () -> createFailingInstrumentationTest());
+        when(mMockDevice.executeShellV2Command(
+                        Mockito.startsWith(DeviceUtils.RESET_PACKAGE_COMMAND_PREFIX)))
+                .thenReturn(createSuccessfulCommandResult());
 
-        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
+        sut.assertPackageNotCrashed(TEST_PACKAGE_NAME, 0);
 
         verify(mMockListener, times(1)).testFailed(any(), anyString());
     }
 
     @Test
-    public void run_instrumentationTestPassed_testPassed() throws DeviceNotAvailableException {
-        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
+    public void assertPackageNotCrashed_instrumentationTestPassed_testPassed()
+            throws DeviceNotAvailableException {
+        TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
+        when(mMockDevice.executeShellV2Command(
+                        Mockito.startsWith(DeviceUtils.RESET_PACKAGE_COMMAND_PREFIX)))
+                .thenReturn(createSuccessfulCommandResult());
 
-        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
+        sut.assertPackageNotCrashed(TEST_PACKAGE_NAME, 0);
 
         verify(mMockListener, never()).testFailed(any(), anyString());
     }
 
     @Test
-    public void run_takeScreenShot_savesToTestLog() throws Exception {
-        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
-        sut.setScreenshotAfterLaunch(true);
+    public void collectScreenshot_savesToTestLog() throws Exception {
+        TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
         InputStreamSource screenshotData = new FileInputStreamSource(tempFolder.newFile());
         when(mMockDevice.getScreenshot()).thenReturn(screenshotData);
         when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
 
-        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
+        sut.collectScreenshot(TEST_PACKAGE_NAME);
 
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.contains("screenshot"), Mockito.any(), Mockito.eq(screenshotData));
-    }
-
-    @Test
-    public void run_collectAppVersion_savesToTestLog() throws Exception {
-        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
-        sut.setCollectAppVersion(true);
-        when(mMockDevice.executeShellV2Command(Mockito.startsWith("dumpsys package")))
-                .thenReturn(createSuccessfulCommandResult());
-
-        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
-
-        Mockito.verify(mMockListener, times(1))
-                .testLog(Mockito.contains("versionCode"), Mockito.any(), Mockito.any());
-        Mockito.verify(mMockListener, times(1))
-                .testLog(Mockito.contains("versionName"), Mockito.any(), Mockito.any());
-    }
-
-    @Test
-    public void run_collectGmsVersion_savesToTestLog() throws Exception {
-        InstrumentationTest instrumentationTest = createPassingInstrumentationTest();
-        AppLaunchTester sut = createTesterWithInstrumentation(instrumentationTest);
-        sut.setCollectGmsVersion(true);
-        when(mMockDevice.executeShellV2Command(
-                        Mockito.startsWith("dumpsys package " + GMS_PACKAGE_NAME)))
-                .thenReturn(createSuccessfulCommandResult());
-
-        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
-
-        Mockito.verify(mMockListener, times(1))
-                .testLog(Mockito.contains("GMS_versionCode"), Mockito.any(), Mockito.any());
-        Mockito.verify(mMockListener, times(1))
-                .testLog(Mockito.contains("GMS_versionName"), Mockito.any(), Mockito.any());
-    }
-
-    @Test
-    public void run_packageResetSuccess() throws DeviceNotAvailableException {
-        when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
-                .thenReturn(createSuccessfulCommandResult());
-        AppLaunchTester sut = createTester();
-
-        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
-
-        verify(mMockListener, never()).testFailed(any(), anyString());
-    }
-
-    @Test
-    public void run_packageResetError() throws DeviceNotAvailableException {
-        when(mMockDevice.executeShellV2Command(String.format("pm clear %s", TEST_PACKAGE_NAME)))
-                .thenReturn(createFailedCommandResult());
-        AppLaunchTester sut = createTester();
-
-        sut.launchPackageAndCheckCrash(TEST_PACKAGE_NAME);
-
-        verify(mMockListener, times(1)).testFailed(any(), anyString());
     }
 
     private static InstrumentationTest createFailingInstrumentationTest() {
@@ -169,38 +118,6 @@ public final class AppLaunchTesterTest {
         return instrumentation;
     }
 
-    private AppLaunchTester createTesterWithInstrumentation(InstrumentationTest instrumentation)
-            throws DeviceNotAvailableException {
-        when(mMockDevice.executeShellV2Command(Mockito.startsWith("echo")))
-                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
-
-        return new AppLaunchTester(createBaseTest()) {
-            @Override
-            protected InstrumentationTest createAppLaunchInstrumentation(
-                    String packageBeingTested) {
-                return instrumentation;
-            }
-
-            @Override
-            protected InstrumentationTest createAppCrashCheckInstrumentation(
-                    String packageBeingTested, long startTime) {
-                return instrumentation;
-            }
-
-            @Override
-            protected CommandResult resetPackage(String packageName)
-                    throws DeviceNotAvailableException {
-                return createSuccessfulCommandResult();
-            }
-        };
-    }
-
-    private AppLaunchTester createTester() throws DeviceNotAvailableException {
-        when(mMockDevice.executeShellV2Command(Mockito.startsWith("echo")))
-                .thenReturn(createSuccessfulCommandResultWithStdout("123"));
-        return new AppLaunchTester(createBaseTest());
-    }
-
     private static CommandResult createSuccessfulCommandResult() {
         return createSuccessfulCommandResultWithStdout("");
     }
@@ -210,14 +127,6 @@ public final class AppLaunchTesterTest {
         commandResult.setExitCode(0);
         commandResult.setStdout(stdout);
         commandResult.setStderr("");
-        return commandResult;
-    }
-
-    private static CommandResult createFailedCommandResult() {
-        CommandResult commandResult = new CommandResult(CommandStatus.FAILED);
-        commandResult.setExitCode(1);
-        commandResult.setStdout("");
-        commandResult.setStderr("error");
         return commandResult;
     }
 
