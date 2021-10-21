@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.android.csuite;
+package com.android.csuite.crash_check;
 
 import androidx.test.runner.AndroidJUnitRunner;
 
 // empty subclass to maintain backwards compatibility on host-side harness
-public class AppLaunchTestRunner extends AndroidJUnitRunner {}
+public class AppCrashCheckTestRunner extends AndroidJUnitRunner {}

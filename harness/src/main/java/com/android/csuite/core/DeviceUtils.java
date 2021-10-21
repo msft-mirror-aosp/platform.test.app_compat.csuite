@@ -23,27 +23,52 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.error.DeviceErrorIdentifier;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.IRunUtil;
+import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import java.io.File;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.io.IOException;
+import java.util.Random;
 
 /** A utility class that contains common methods to interact with the test device. */
 public final class DeviceUtils {
     @VisibleForTesting static final String UNKNOWN = "Unknown";
     @VisibleForTesting static final String VERSION_CODE_PREFIX = "versionCode=";
     @VisibleForTesting static final String VERSION_NAME_PREFIX = "versionName=";
-    private static final String VIDEO_PATH_ON_DEVICE = "/sdcard/screenrecord.mp4";
-    private static final int WAIT_FOR_SCREEN_RECORDING_START_MS = 10 * 1000;
-    private static final int WAIT_FOR_SCREEN_RECORDING_END_MS = 10 * 1000;
+    @VisibleForTesting static final String RESET_PACKAGE_COMMAND_PREFIX = "pm clear ";
+
+    @VisibleForTesting
+    static final String LAUNCH_PACKAGE_COMMAND_TEMPLATE =
+            "monkey -p %s -c android.intent.category.LAUNCHER 1";
+
+    private static final String VIDEO_PATH_ON_DEVICE_TEMPLATE = "/sdcard/screenrecord_%s.mp4";
+    @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS = 10 * 1000;
+    @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_INTERVAL_MILLIS = 500;
+
+    private final ITestDevice mDevice;
+    private final Sleeper mSleeper;
+    private final Clock mClock;
+    private final RunUtilProvider mRunUtilProvider;
+
+    public static DeviceUtils getInstance(ITestDevice device) {
+        return new DeviceUtils(
+                device,
+                duration -> {
+                    Thread.sleep(duration);
+                },
+                () -> System.currentTimeMillis(),
+                () -> RunUtil.getDefault());
+    }
+
+    @VisibleForTesting
+    DeviceUtils(ITestDevice device, Sleeper sleeper, Clock clock, RunUtilProvider runUtilProvider) {
+        mDevice = device;
+        mSleeper = sleeper;
+        mClock = clock;
+        mRunUtilProvider = runUtilProvider;
+    }
 
     /**
      * A task that throws DeviceNotAvailableException. Use this interface instead of Runnable so
@@ -56,15 +81,13 @@ public final class DeviceUtils {
     /**
      * Get the current device timestamp in milliseconds.
      *
-     * @param device The test device
      * @return The device time
      * @throws DeviceNotAvailableException When the device is not available.
      * @throws DeviceRuntimeException When the command to get device time failed or failed to parse
      *     the timestamp.
      */
-    public static long currentTimeMillis(ITestDevice device)
-            throws DeviceNotAvailableException, DeviceRuntimeException {
-        CommandResult result = device.executeShellV2Command("echo ${EPOCHREALTIME:0:14}");
+    public long currentTimeMillis() throws DeviceNotAvailableException, DeviceRuntimeException {
+        CommandResult result = mDevice.executeShellV2Command("echo ${EPOCHREALTIME:0:14}");
         if (result.getStatus() != CommandStatus.SUCCESS) {
             throw new DeviceRuntimeException(
                     "Failed to get device time: " + result,
@@ -86,85 +109,129 @@ public final class DeviceUtils {
      * <p>This method will not throw exception when the screenrecord command failed unless the
      * device is unresponsive.
      *
-     * @param device The test device
      * @param action A runnable job that throws DeviceNotAvailableException.
      * @return The screen recording file on the host, or null if failed to get the recording file
      *     from the device.
      * @throws DeviceNotAvailableException When the device is unresponsive.
      */
-    public static File runWithScreenRecording(ITestDevice device, RunnerTask action)
-            throws DeviceNotAvailableException {
-        ExecutorService executors =
-                MoreExecutors.getExitingExecutorService(
-                        (ThreadPoolExecutor) Executors.newFixedThreadPool(1));
-
-        // Start the recording thread in background
-        CompletableFuture<CommandResult> recordingFuture =
-                CompletableFuture.supplyAsync(
-                                () -> {
-                                    try {
-                                        return device.executeShellV2Command(
-                                                String.format(
-                                                        "screenrecord %s", VIDEO_PATH_ON_DEVICE));
-                                    } catch (DeviceNotAvailableException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                },
-                                executors)
-                        .whenComplete(
-                                (commandResult, exception) -> {
-                                    if (commandResult != null) {
-                                        CLog.d("Screenrecord command completed: %s", commandResult);
-                                    }
-                                    executors.shutdown();
-                                });
-
-        // Make sure the recording has started
-        String pid = null;
-        long start = System.currentTimeMillis();
-        while (true) {
-            if (System.currentTimeMillis() - start > WAIT_FOR_SCREEN_RECORDING_START_MS) {
-                CLog.e("Unnable to start screenrecord. Pid is not detected.");
-                break;
-            }
-
-            CommandResult result = device.executeShellV2Command("pidof screenrecord");
-            if (result.getStatus() != CommandStatus.SUCCESS) {
-                CLog.d("The pid of screenrecord is not found yet. Trying again. %s", result);
-                continue;
-            }
-
-            String[] pids = result.getStdout().trim().split(" ");
-
-            if (pids.length > 0) {
-                pid = pids[0];
-                break;
-            }
-        }
-
+    public File runWithScreenRecording(RunnerTask action) throws DeviceNotAvailableException {
+        String videoPath = String.format(VIDEO_PATH_ON_DEVICE_TEMPLATE, new Random().nextInt());
+        mDevice.deleteFile(videoPath);
         File video = null;
 
+        // Start screen recording
+        Process recordingProcess = null;
         try {
-            action.run();
-        } finally {
-            if (pid != null) {
-                device.executeShellV2Command(String.format("kill -2 %s", pid));
+            recordingProcess =
+                    mRunUtilProvider
+                            .get()
+                            .runCmdInBackground(
+                                    String.format(
+                                                    "adb -s %s shell screenrecord %s",
+                                                    mDevice.getSerialNumber(), videoPath)
+                                            .split("\\s+"));
+        } catch (IOException ioException) {
+            CLog.e("Exception is thrown when starting screen recording process: %s", ioException);
+        }
+
+        try {
+            long start = mClock.currentTimeMillis();
+            // Wait for the recording to start since it may take time for the device to start
+            // recording
+            while (recordingProcess != null) {
+                CommandResult result = mDevice.executeShellV2Command("ls " + videoPath);
+                if (result.getStatus() == CommandStatus.SUCCESS) {
+                    break;
+                }
+
+                CLog.d(
+                        "Screenrecord not started yet. Waiting %s milliseconds.",
+                        WAIT_FOR_SCREEN_RECORDING_START_INTERVAL_MILLIS);
+
                 try {
-                    recordingFuture.get(WAIT_FOR_SCREEN_RECORDING_START_MS, TimeUnit.MILLISECONDS);
+                    mSleeper.sleep(WAIT_FOR_SCREEN_RECORDING_START_INTERVAL_MILLIS);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
-                } catch (TimeoutException e) {
-                    CLog.e(e);
-                    recordingFuture.cancel(true);
-                } catch (ExecutionException e) {
-                    CLog.e("Failed to complete the screenrecord command: %s", e);
                 }
-                video = device.pullFile(VIDEO_PATH_ON_DEVICE);
-                device.deleteFile(VIDEO_PATH_ON_DEVICE);
+
+                if (mClock.currentTimeMillis() - start
+                        > WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS) {
+                    CLog.e(
+                            "Screenrecord did not start within %s milliseconds.",
+                            WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS);
+                    break;
+                }
             }
+
+            action.run();
+        } finally {
+            if (recordingProcess != null) {
+                recordingProcess.destroy();
+            }
+            // Try to pull and delete the video file from the device anyway.
+            video = mDevice.pullFile(videoPath);
+            mDevice.deleteFile(videoPath);
         }
 
         return video;
+    }
+
+    /**
+     * Freeze the screen rotation to the default orientation.
+     *
+     * @return True if succeed; False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean freezeRotation() throws DeviceNotAvailableException {
+        CommandResult result =
+                mDevice.executeShellV2Command(
+                        "content insert --uri content://settings/system --bind"
+                                + " name:s:accelerometer_rotation --bind value:i:0");
+        if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
+            CLog.e("The command to disable auto screen rotation failed: %s", result);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Unfreeze the screen rotation to the default orientation.
+     *
+     * @return True if succeed; False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean unfreezeRotation() throws DeviceNotAvailableException {
+        CommandResult result =
+                mDevice.executeShellV2Command(
+                        "content insert --uri content://settings/system --bind"
+                                + " name:s:accelerometer_rotation --bind value:i:1");
+        if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
+            CLog.e("The command to enable auto screen rotation failed: %s", result);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Launches a package on the device.
+     *
+     * @param packageName The package name to launch.
+     * @return True if successfully launches the package or the package is already launched; False
+     *     otherwise.
+     * @throws DeviceNotAvailableException When device was lost.
+     */
+    public boolean launchPackage(String packageName) throws DeviceNotAvailableException {
+        CommandResult result =
+                mDevice.executeShellV2Command(
+                        String.format(LAUNCH_PACKAGE_COMMAND_TEMPLATE, packageName));
+        if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
+            CLog.e("The command to launch package %s failed: %s", packageName, result);
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -175,10 +242,9 @@ public final class DeviceUtils {
      *     command failed.
      * @throws DeviceNotAvailableException
      */
-    public static String getPackageVersionName(ITestDevice device, String packageName)
-            throws DeviceNotAvailableException {
+    public String getPackageVersionName(String packageName) throws DeviceNotAvailableException {
         CommandResult cmdResult =
-                device.executeShellV2Command(
+                mDevice.executeShellV2Command(
                         String.format("dumpsys package %s | grep versionName", packageName));
 
         if (cmdResult.getStatus() != CommandStatus.SUCCESS
@@ -197,10 +263,9 @@ public final class DeviceUtils {
      *     command failed.
      * @throws DeviceNotAvailableException
      */
-    public static String getPackageVersionCode(ITestDevice device, String packageName)
-            throws DeviceNotAvailableException {
+    public String getPackageVersionCode(String packageName) throws DeviceNotAvailableException {
         CommandResult cmdResult =
-                device.executeShellV2Command(
+                mDevice.executeShellV2Command(
                         String.format("dumpsys package %s | grep versionCode", packageName));
 
         if (cmdResult.getStatus() != CommandStatus.SUCCESS
@@ -209,5 +274,42 @@ public final class DeviceUtils {
         }
 
         return cmdResult.getStdout().trim().split(" ")[0].substring(VERSION_CODE_PREFIX.length());
+    }
+
+    /**
+     * Stops a running package on the device.
+     *
+     * @param packageName
+     * @throws DeviceNotAvailableException
+     */
+    public void stopPackage(String packageName) throws DeviceNotAvailableException {
+        mDevice.executeShellV2Command("am force-stop " + packageName);
+    }
+
+    /**
+     * Resets a package's data storage on the device.
+     *
+     * @param packageName The package name of an app to reset.
+     * @return True if the package exists and its data was reset; False otherwise.
+     * @throws DeviceNotAvailableException If the device was lost.
+     */
+    public boolean resetPackage(String packageName) throws DeviceNotAvailableException {
+        return mDevice.executeShellV2Command(RESET_PACKAGE_COMMAND_PREFIX + packageName).getStatus()
+                == CommandStatus.SUCCESS;
+    }
+
+    @VisibleForTesting
+    interface Sleeper {
+        void sleep(long milliseconds) throws InterruptedException;
+    }
+
+    @VisibleForTesting
+    interface Clock {
+        long currentTimeMillis();
+    }
+
+    @VisibleForTesting
+    interface RunUtilProvider {
+        IRunUtil get();
     }
 }
