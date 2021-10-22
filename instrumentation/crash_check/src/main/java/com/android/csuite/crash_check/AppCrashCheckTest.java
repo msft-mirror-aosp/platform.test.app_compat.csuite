@@ -47,7 +47,7 @@ public final class AppCrashCheckTest {
     private static final String PACKAGE_NAME_ARG = "PACKAGE_NAME_ARG";
     private static final String START_TIME_ARG = "START_TIME_ARG";
     private static final Set<String> DROPBOX_TAGS = new HashSet<>();
-    private static final int MAX_CRASH_SNIPPET_LINES = 20;
+    private static final int MAX_CRASH_SNIPPET_LINES = 60;
     private static final int MAX_NUM_CRASH_SNIPPET = 3;
 
     private Context mContext;
