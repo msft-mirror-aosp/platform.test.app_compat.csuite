@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,63 +14,45 @@
  * limitations under the License.
  */
 
-package com.android.csuite;
+package com.android.csuite.crash_check;
 
 import android.app.ActivityManager;
-import android.app.ActivityManager.ProcessErrorStateInfo;
 import android.app.ActivityManager.RunningTaskInfo;
-import android.app.Instrumentation;
-import android.app.UiAutomation;
-import android.app.UiModeManager;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.DropBoxManager;
-import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.util.Preconditions;
 
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Application Compatibility Test that launches an application and detects crashes. */
+/** An instrumentation test that detects crashes of an app. */
 @RunWith(AndroidJUnit4.class)
-public final class AppLaunchTest {
+public final class AppCrashCheckTest {
 
-    private static final String TAG = AppLaunchTest.class.getSimpleName();
-    private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
-    private static final String APP_LAUNCH_TIMEOUT_MSECS = "app_launch_timeout_ms";
-    private static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
+    private static final String TAG = AppCrashCheckTest.class.getSimpleName();
+    private static final String PACKAGE_NAME_ARG = "PACKAGE_NAME_ARG";
+    private static final String START_TIME_ARG = "START_TIME_ARG";
     private static final Set<String> DROPBOX_TAGS = new HashSet<>();
-    private static final int MAX_CRASH_SNIPPET_LINES = 20;
+    private static final int MAX_CRASH_SNIPPET_LINES = 60;
     private static final int MAX_NUM_CRASH_SNIPPET = 3;
-
-    // time waiting for app to launch
-    private int mAppLaunchTimeout = 7000;
 
     private Context mContext;
     private ActivityManager mActivityManager;
-    private PackageManager mPackageManager;
     private Bundle mArgs;
-    private Instrumentation mInstrumentation;
-    private String mLauncherPackageName;
     private Map<String, List<String>> mAppErrors = new HashMap<>();
 
     static {
@@ -85,59 +67,35 @@ public final class AppLaunchTest {
 
     @Before
     public void setUp() throws Exception {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
-
         // Get permissions for privileged device operations.
-        mInstrumentation.getUiAutomation().adoptShellPermissionIdentity();
+        InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation()
+                .adoptShellPermissionIdentity();
 
         mContext = InstrumentationRegistry.getTargetContext();
-        mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
-        mPackageManager = mContext.getPackageManager();
+        mActivityManager = mContext.getSystemService(ActivityManager.class);
         mArgs = InstrumentationRegistry.getArguments();
-
-        // resolve launcher package name
-        Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
-        ResolveInfo resolveInfo =
-                mPackageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
-        mLauncherPackageName = resolveInfo.activityInfo.packageName;
-        Assert.assertNotNull("failed to resolve package name for launcher", mLauncherPackageName);
-        Log.v(TAG, "Using launcher package name: " + mLauncherPackageName);
-
-        // Parse optional inputs.
-        String appLaunchTimeoutMsecs = mArgs.getString(APP_LAUNCH_TIMEOUT_MSECS);
-        if (appLaunchTimeoutMsecs != null) {
-            mAppLaunchTimeout = Integer.parseInt(appLaunchTimeoutMsecs);
-        }
-        mInstrumentation.getUiAutomation().setRotation(UiAutomation.ROTATION_FREEZE_0);
     }
 
-    @After
-    public void tearDown() throws Exception {
-        mInstrumentation.getUiAutomation().setRotation(UiAutomation.ROTATION_UNFREEZE);
-    }
-
-    /**
-     * Actual test case that launches the package and throws an exception on the first error.
-     *
-     * @throws Exception
-     */
+    /** Checks for signs of crashes of the given app. */
     @Test
-    public void testAppStability() throws Exception {
-        String packageName = mArgs.getString(PACKAGE_TO_LAUNCH);
+    public void checkForCrash() throws Exception {
+        String packageName = mArgs.getString(PACKAGE_NAME_ARG);
         Preconditions.checkStringNotEmpty(
                 packageName,
                 String.format(
-                        "Missing argument, use %s to specify the package to launch",
-                        PACKAGE_TO_LAUNCH));
-
-        Log.d(TAG, "Launching app " + packageName);
-        Intent intent = getLaunchIntentForPackage(packageName);
-        if (intent == null) {
-            Log.w(TAG, String.format("Skipping %s; no launch intent", packageName));
-            return;
+                        "Missing argument, use %s to specify the package name", PACKAGE_NAME_ARG));
+        String startTimeArg = mArgs.getString(START_TIME_ARG);
+        Preconditions.checkStringNotEmpty(
+                packageName,
+                String.format(
+                        "Missing argument, use %s to specify the start time", START_TIME_ARG));
+        long startTime = -1;
+        try {
+            startTime = Long.parseLong(startTimeArg);
+        } catch (NumberFormatException e) {
+            Assert.fail("Unable to parse the start time argument: " + e);
         }
-        long startTime = System.currentTimeMillis();
-        launchActivity(packageName, intent);
 
         checkDropbox(startTime, packageName);
         if (mAppErrors.containsKey(packageName)) {
@@ -198,8 +156,7 @@ public final class AppLaunchTest {
      * @param processName the process name to check for
      */
     private void checkDropbox(long startTime, String processName) {
-        DropBoxManager dropbox =
-                (DropBoxManager) mContext.getSystemService(Context.DROPBOX_SERVICE);
+        DropBoxManager dropbox = mContext.getSystemService(DropBoxManager.class);
         DropBoxManager.Entry entry = null;
         while (null != (entry = dropbox.getNextEntry(null, startTime))) {
             try {
@@ -217,48 +174,6 @@ public final class AppLaunchTest {
             } finally {
                 entry.close();
             }
-        }
-    }
-
-    private Intent getLaunchIntentForPackage(String packageName) {
-        UiModeManager umm = (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
-        boolean isLeanback = umm.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
-        Intent intent = null;
-        if (isLeanback) {
-            intent = mPackageManager.getLeanbackLaunchIntentForPackage(packageName);
-        } else {
-            intent = mPackageManager.getLaunchIntentForPackage(packageName);
-        }
-        return intent;
-    }
-
-    /**
-     * Launches and activity and queries for errors.
-     *
-     * @param packageName {@link String} the package name of the application to launch.
-     * @return {@link Collection} of {@link ProcessErrorStateInfo} detected during the app launch.
-     */
-    private void launchActivity(String packageName, Intent intent) {
-        Log.d(
-                TAG,
-                String.format(
-                        "launching package \"%s\" with intent: %s",
-                        packageName, intent.toString()));
-
-        // Launch Activity
-        if (mArgs.getString(ENABLE_SPLASH_SCREEN, "false").equals("true")) {
-            Bundle bundle = new Bundle();
-            bundle.putInt("android.activity.splashScreenStyle", 1);
-            mContext.startActivity(intent, bundle);
-        } else {
-            mContext.startActivity(intent);
-        }
-
-        try {
-            // artificial delay: in case app crashes after doing some work during launch
-            Thread.sleep(mAppLaunchTimeout);
-        } catch (InterruptedException e) {
-            // ignore
         }
     }
 

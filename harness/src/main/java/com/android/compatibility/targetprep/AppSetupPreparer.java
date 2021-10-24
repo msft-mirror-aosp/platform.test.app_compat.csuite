@@ -249,7 +249,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         void sleep(Duration duration) throws InterruptedException;
     }
 
-    static class Sleepers {
+    private static class Sleepers {
         enum DefaultSleeper implements Sleeper {
             INSTANCE;
 

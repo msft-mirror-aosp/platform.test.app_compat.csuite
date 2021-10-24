@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2012 The Android Open Source Project
+<!-- Copyright (C) 2021 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -15,14 +15,14 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.csuite">
+    package="com.android.csuite.crash_check">
     <uses-sdk android:minSdkVersion="21"
               android:targetSdkVersion="21" />
     <application />
     <uses-permission android:name="android.permission.READ_LOGS" />
     <uses-permission android:name="android.permission.REAL_GET_TASKS" />
     <instrumentation
-        android:name=".AppLaunchTestRunner"
-        android:targetPackage="com.android.csuite"
-        android:label="App Launch Test Runner" />
+        android:name=".AppCrashCheckTestRunner"
+        android:targetPackage="com.android.csuite.crash_check"
+        android:label="App Crash Check Test Runner" />
 </manifest>
