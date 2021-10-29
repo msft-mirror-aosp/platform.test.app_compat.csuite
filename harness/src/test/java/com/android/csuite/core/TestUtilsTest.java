@@ -29,13 +29,10 @@ import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
+import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.junit.Rule;
@@ -56,29 +53,53 @@ public final class TestUtilsTest {
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Test
-    public void assertPackageNotCrashed_instrumentationTestFailed_testFailed()
-            throws DeviceNotAvailableException {
-        TestUtils sut = new TestUtils(createBaseTest(), () -> createFailingInstrumentationTest());
+    public void getDropboxPackageCrashedLog_instrumentationTestFailed_returnsCrashLog()
+            throws Exception {
+        String stackTrace = "test failed";
+        TestUtils sut =
+                new TestUtils(createBaseTest(), () -> createFailingInstrumentationTest(stackTrace));
         when(mMockDevice.executeShellV2Command(
                         Mockito.startsWith(DeviceUtils.RESET_PACKAGE_COMMAND_PREFIX)))
                 .thenReturn(createSuccessfulCommandResult());
 
-        sut.assertPackageNotCrashed(TEST_PACKAGE_NAME, 0);
+        String result = sut.getDropboxPackageCrashedLog(TEST_PACKAGE_NAME, 0);
 
-        verify(mMockListener, times(1)).testFailed(any(), anyString());
+        assertThat(result).isEqualTo(stackTrace);
     }
 
     @Test
-    public void assertPackageNotCrashed_instrumentationTestPassed_testPassed()
-            throws DeviceNotAvailableException {
+    public void getDropboxPackageCrashedLog_instrumentationTestPassed_returnsNull()
+            throws Exception {
         TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
         when(mMockDevice.executeShellV2Command(
                         Mockito.startsWith(DeviceUtils.RESET_PACKAGE_COMMAND_PREFIX)))
                 .thenReturn(createSuccessfulCommandResult());
 
-        sut.assertPackageNotCrashed(TEST_PACKAGE_NAME, 0);
+        String result = sut.getDropboxPackageCrashedLog(TEST_PACKAGE_NAME, 0);
 
-        verify(mMockListener, never()).testFailed(any(), anyString());
+        assertThat(result).isNull();
+    }
+
+    @Test
+    public void isPackageProcessRunning_processIsRunning_returnsTrue() throws Exception {
+        TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
+        when(mMockDevice.executeShellV2Command(Mockito.startsWith("pidof")))
+                .thenReturn(createSuccessfulCommandResult());
+
+        boolean result = sut.isPackageProcessRunning(TEST_PACKAGE_NAME);
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    public void isPackageProcessRunning_processNotRunning_returnsFalse() throws Exception {
+        TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
+        when(mMockDevice.executeShellV2Command(Mockito.startsWith("pidof")))
+                .thenReturn(createFailedCommandResult());
+
+        boolean result = sut.isPackageProcessRunning(TEST_PACKAGE_NAME);
+
+        assertThat(result).isFalse();
     }
 
     @Test
@@ -94,14 +115,14 @@ public final class TestUtilsTest {
                 .testLog(Mockito.contains("screenshot"), Mockito.any(), Mockito.eq(screenshotData));
     }
 
-    private static InstrumentationTest createFailingInstrumentationTest() {
+    private static InstrumentationTest createFailingInstrumentationTest(String stackTrace) {
         InstrumentationTest instrumentation =
                 new InstrumentationTest() {
                     @Override
                     public void run(
                             final TestInformation testInfo, final ITestInvocationListener listener)
                             throws DeviceNotAvailableException {
-                        listener.testFailed(new TestDescription("", ""), "test failed");
+                        listener.testFailed(new TestDescription("", ""), stackTrace);
                     }
                 };
         return instrumentation;
@@ -127,6 +148,14 @@ public final class TestUtilsTest {
         commandResult.setExitCode(0);
         commandResult.setStdout(stdout);
         commandResult.setStderr("");
+        return commandResult;
+    }
+
+    private static CommandResult createFailedCommandResult() {
+        CommandResult commandResult = new CommandResult(CommandStatus.FAILED);
+        commandResult.setExitCode(1);
+        commandResult.setStdout("");
+        commandResult.setStderr("error");
         return commandResult;
     }
 
