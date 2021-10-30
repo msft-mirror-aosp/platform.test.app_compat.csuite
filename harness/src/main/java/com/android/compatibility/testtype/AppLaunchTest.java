@@ -151,7 +151,20 @@ public class AppLaunchTest extends AbstractCSuiteTest {
 
         CLog.d("Completed launching package: %s", mPackageName);
 
-        testUtils.assertPackageNotCrashed(mPackageName, startTime);
+        String crashLog = testUtils.getDropboxPackageCrashedLog(mPackageName, startTime);
+        if (crashLog != null) {
+            testFailed(crashLog);
+            return;
+        }
+        if (!testUtils.isPackageProcessRunning(mPackageName)) {
+            testFailed(
+                    String.format(
+                            "The process for package %s is no longer found running on the device,"
+                                    + " but no explicit crashes were detected; Check logcat for"
+                                    + " details.",
+                            mPackageName));
+            return;
+        }
     }
 
     /** {@inheritDoc} */
