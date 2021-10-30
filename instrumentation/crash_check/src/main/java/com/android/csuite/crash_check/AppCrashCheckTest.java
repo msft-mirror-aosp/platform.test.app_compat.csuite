@@ -16,8 +16,6 @@
 
 package com.android.csuite.crash_check;
 
-import android.app.ActivityManager;
-import android.app.ActivityManager.RunningTaskInfo;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.DropBoxManager;
@@ -51,7 +49,6 @@ public final class AppCrashCheckTest {
     private static final int MAX_NUM_CRASH_SNIPPET = 3;
 
     private Context mContext;
-    private ActivityManager mActivityManager;
     private Bundle mArgs;
     private Map<String, List<String>> mAppErrors = new HashMap<>();
 
@@ -73,7 +70,6 @@ public final class AppCrashCheckTest {
                 .adoptShellPermissionIdentity();
 
         mContext = InstrumentationRegistry.getTargetContext();
-        mActivityManager = mContext.getSystemService(ActivityManager.class);
         mArgs = InstrumentationRegistry.getArguments();
     }
 
@@ -116,14 +112,6 @@ public final class AppCrashCheckTest {
             }
             Assert.fail(message.toString());
         }
-        // last check: see if app process is still running
-        Assert.assertTrue(
-                "app package \""
-                        + packageName
-                        + "\" no longer found in running "
-                        + "tasks, but no explicit crashes were detected; check logcat for "
-                        + "details",
-                processStillUp(packageName));
     }
 
     /**
@@ -188,22 +176,5 @@ public final class AppCrashCheckTest {
         }
         errors.add(String.format("### Type: %s, Details:\n%s", errorType, errorInfo));
         mAppErrors.put(pkgName, errors);
-    }
-
-    /**
-     * Determine if a given package is still running.
-     *
-     * @param packageName {@link String} package to look for
-     * @return True if package is running, false otherwise.
-     */
-    private boolean processStillUp(String packageName) {
-        @SuppressWarnings("deprecation")
-        List<RunningTaskInfo> infos = mActivityManager.getRunningTasks(100);
-        for (RunningTaskInfo info : infos) {
-            if (info.baseActivity.getPackageName().equals(packageName)) {
-                return true;
-            }
-        }
-        return false;
     }
 }
