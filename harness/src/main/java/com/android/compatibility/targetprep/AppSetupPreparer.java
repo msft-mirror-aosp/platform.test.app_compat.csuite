@@ -216,6 +216,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
         }
 
         for (File testFile : mTestFiles) {
+            CLog.d("Adding apk path %s for installation.", testFile);
             mTestAppInstallSetup.addTestFile(testFile);
         }
 
