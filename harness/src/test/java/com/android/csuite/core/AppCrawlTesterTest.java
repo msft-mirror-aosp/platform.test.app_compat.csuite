@@ -24,10 +24,13 @@ import static org.junit.Assert.assertTrue;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -266,7 +269,7 @@ public final class AppCrawlTesterTest {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
-        return new AppCrawlTester(apkPath, "package.name", mTestInfo, () -> mRunUtil);
+        return new AppCrawlTester(apkPath, "package.name", createFakeTestBase(), () -> mRunUtil);
     }
 
     private AppCrawlTester createPreparedTestSubject(Path apkPath)
@@ -275,7 +278,21 @@ public final class AppCrawlTesterTest {
         simulatePreparerWasExecutedSuccessfully();
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
-        return new AppCrawlTester(apkPath, "package.name", mTestInfo, () -> mRunUtil);
+        return new AppCrawlTester(apkPath, "package.name", createFakeTestBase(), () -> mRunUtil);
+    }
+
+    private AbstractCSuiteTest createFakeTestBase() {
+        return new AbstractCSuiteTest(mTestInfo, Mockito.mock(ITestInvocationListener.class)) {
+            @Override
+            protected void run() throws DeviceNotAvailableException {
+                // Intentionally left blank.
+            }
+
+            @Override
+            protected TestDescription createTestDescription() {
+                return new TestDescription("class", "test");
+            }
+        };
     }
 
     private TestInformation createTestInfo() {
