@@ -65,7 +65,8 @@ public class AppCrawlTest extends AbstractCSuiteTest {
      */
     @Override
     protected void run() throws DeviceNotAvailableException {
-        AppCrawlTester crawler = AppCrawlTester.newInstance();
+        AppCrawlTester crawler =
+                AppCrawlTester.newInstance(mApk.toPath(), mPackageName, getTestInfo());
         TestUtils testUtils = TestUtils.getInstance(this);
 
         if (mCollectGmsVersion) {
@@ -98,7 +99,7 @@ public class AppCrawlTest extends AbstractCSuiteTest {
         long startTime = deviceUtils.currentTimeMillis();
 
         try {
-            crawler.startCrawl(this.getTestInfo(), mApk.toPath(), mPackageName);
+            crawler.start();
         } catch (CrawlerException e) {
             testFailed(e.getMessage());
             return;
