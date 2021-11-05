@@ -138,17 +138,15 @@ public final class TestUtils {
     }
 
     /**
-     * Looks for signs of crash in the device's dropbox and checks the process for a given package.
+     * Looks for crash log of a package in the device's dropbox entries.
      *
-     * <p>This method checks both the dropbox for entries that indicates crashes, and the running
-     * process list to see if the app process is still running.
-     *
-     * @param packageName The packageName
+     * @param packageName The package name of an app.
      * @param startTimeOnDevice The device timestamp after which the check starts. Dropbox items
      *     before this device timestamp will be ignored.
+     * @return A string of crash log if crash was found; null otherwise.
      * @throws DeviceNotAvailableException
      */
-    public void assertPackageNotCrashed(String packageName, long startTimeOnDevice)
+    public String getDropboxPackageCrashedLog(String packageName, long startTimeOnDevice)
             throws DeviceNotAvailableException {
         mDeviceUtils.resetPackage(CRASH_CHECK_TEST_PACKAGE);
 
@@ -160,12 +158,20 @@ public final class TestUtils {
         instrumentationTest.setConfiguration(mTestBase.getConfiguration());
         FailureCollectingListener failureListener = new FailureCollectingListener();
         instrumentationTest.run(mTestBase.getTestInfo(), failureListener);
-        CLog.d("Stack Trace: %s", failureListener.getStackTrace());
 
-        if (failureListener.getStackTrace() != null) {
-            CLog.w("Crash was detected for package: %s.", packageName);
-            mTestBase.testFailed(failureListener.getStackTrace());
-        }
+        return failureListener.getStackTrace();
+    }
+
+    /**
+     * Checks whether the process of the given package is running on the device.
+     *
+     * @param packageName The package name of an app.
+     * @return True if the package is running; False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean isPackageProcessRunning(String packageName) throws DeviceNotAvailableException {
+        return mTestBase.getDevice().executeShellV2Command("pidof " + packageName).getExitCode()
+                == 0;
     }
 
     @VisibleForTesting
