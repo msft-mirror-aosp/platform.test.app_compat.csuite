@@ -43,7 +43,7 @@ import java.util.stream.Stream;
 public final class AppCrawlTester {
     @VisibleForTesting Path mOutput;
     private final RunUtilProvider mRunUtilProvider;
-    private final TestInformation mTestInfo;
+    private final AbstractCSuiteTest mTestBase;
     private final String mPackageName;
     private final Path mApkRoot;
     private static final long COMMAND_TIMEOUT_MILLIS = 4 * 60 * 1000;
@@ -51,26 +51,26 @@ public final class AppCrawlTester {
     /**
      * Creates an {@link AppCrawlTester} instance.
      *
-     * @param testInfo TradeFed test information
      * @param apkRoot The root path for an apk or a directory that contains apk files for a package.
      * @param packageName The package name of the apk files.
+     * @param testBase The test's base class that contains the test information and output receiver.
      * @return an {@link AppCrawlTester} instance.
      */
     public static AppCrawlTester newInstance(
-            Path apkRoot, String packageName, TestInformation testInfo) {
-        return new AppCrawlTester(apkRoot, packageName, testInfo, () -> new RunUtil());
+            Path apkRoot, String packageName, AbstractCSuiteTest testBase) {
+        return new AppCrawlTester(apkRoot, packageName, testBase, () -> new RunUtil());
     }
 
     @VisibleForTesting
     AppCrawlTester(
             Path apkRoot,
             String packageName,
-            TestInformation testInfo,
+            AbstractCSuiteTest testBase,
             RunUtilProvider runUtilProvider) {
         mRunUtilProvider = runUtilProvider;
         mApkRoot = apkRoot;
         mPackageName = packageName;
-        mTestInfo = testInfo;
+        mTestBase = testBase;
     }
 
     /** An exception class representing crawler test failures. */
@@ -111,7 +111,7 @@ public final class AppCrawlTester {
      *     failed.
      */
     public void start() throws CrawlerException {
-        if (!AppCrawlTesterPreparer.isReady(mTestInfo)) {
+        if (!AppCrawlTesterPreparer.isReady(mTestBase.getTestInfo())) {
             throw new CrawlerException(
                     "The "
                             + AppCrawlTesterPreparer.class.getName()
@@ -134,7 +134,7 @@ public final class AppCrawlTester {
         }
 
         List<Path> apks = getApks(mApkRoot);
-        String[] command = createCrawlerRunCommand(mTestInfo, apks);
+        String[] command = createCrawlerRunCommand(mTestBase.getTestInfo(), apks);
 
         CLog.d("Launching package: %s.", mPackageName);
 
@@ -142,8 +142,11 @@ public final class AppCrawlTester {
 
         runUtil.setEnvVariable(
                 "GOOGLE_APPLICATION_CREDENTIALS",
-                AppCrawlTesterPreparer.getCredentialPath(mTestInfo).toString());
+                AppCrawlTesterPreparer.getCredentialPath(mTestBase.getTestInfo()).toString());
         CommandResult res = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, command);
+        collectOutputZip();
+        collectCrawlStepScreenshots();
+
         if (!res.getStatus().equals(CommandStatus.SUCCESS)) {
             throw new CrawlerException("Crawler command failed: " + res);
         }
@@ -151,12 +154,39 @@ public final class AppCrawlTester {
         CLog.i("Completed crawling the package %s. Outputs: %s", mPackageName, res);
     }
 
-    /**
-     * Puts the zipped crawler output files into test output.
-     *
-     * @param baseTest The base test class for adding test artifacts.
-     */
-    public void collectOutputZip(AbstractCSuiteTest baseTest) {
+    /** Copys the step screenshots into test outputs for easier access. */
+    private void collectCrawlStepScreenshots() {
+        if (mOutput == null) {
+            CLog.e("Output directory is not created yet. Skipping collecting step screenshots.");
+            return;
+        }
+
+        Path subDir = mOutput.resolve("app_firebase_test_lab");
+        if (!Files.exists(subDir)) {
+            CLog.e(
+                    "The crawler output directory is not complete, skipping collecting step"
+                            + " screenshots.");
+            return;
+        }
+
+        try (Stream<Path> files = Files.list(subDir)) {
+            files.filter(path -> path.getFileName().toString().toLowerCase().endsWith(".png"))
+                    .forEach(
+                            path -> {
+                                mTestBase.addTestArtifact(
+                                        mPackageName
+                                                + "-crawl_step_screenshot_"
+                                                + path.getFileName(),
+                                        LogDataType.PNG,
+                                        path.toFile());
+                            });
+        } catch (IOException e) {
+            CLog.e(e);
+        }
+    }
+
+    /** Puts the zipped crawler output files into test output. */
+    private void collectOutputZip() {
         if (mOutput == null) {
             CLog.e("Output directory is not created yet. Skipping collecting output.");
             return;
@@ -165,7 +195,7 @@ public final class AppCrawlTester {
         // Compress the crawler output directory and add it to test outputs.
         try {
             File outputZip = ZipUtil.createZip(mOutput.toFile());
-            baseTest.addTestArtifact(mPackageName + "-crawler_output", LogDataType.ZIP, outputZip);
+            mTestBase.addTestArtifact(mPackageName + "-crawler_output", LogDataType.ZIP, outputZip);
         } catch (IOException e) {
             CLog.e("Failed to zip the output directory: " + e);
         }
