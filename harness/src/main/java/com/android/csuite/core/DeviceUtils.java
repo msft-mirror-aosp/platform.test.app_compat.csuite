@@ -218,20 +218,19 @@ public final class DeviceUtils {
      * Launches a package on the device.
      *
      * @param packageName The package name to launch.
-     * @return True if successfully launches the package or the package is already launched; False
-     *     otherwise.
      * @throws DeviceNotAvailableException When device was lost.
+     * @throws DeviceUtilsException When failed to launch the package.
      */
-    public boolean launchPackage(String packageName) throws DeviceNotAvailableException {
+    public void launchPackage(String packageName)
+            throws DeviceUtilsException, DeviceNotAvailableException {
         CommandResult result =
                 mDevice.executeShellV2Command(
                         String.format(LAUNCH_PACKAGE_COMMAND_TEMPLATE, packageName));
         if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
-            CLog.e("The command to launch package %s failed: %s", packageName, result);
-            return false;
+            throw new DeviceUtilsException(
+                    String.format(
+                            "The command to launch package %s failed: %s", packageName, result));
         }
-
-        return true;
     }
 
     /**
@@ -296,6 +295,40 @@ public final class DeviceUtils {
     public boolean resetPackage(String packageName) throws DeviceNotAvailableException {
         return mDevice.executeShellV2Command(RESET_PACKAGE_COMMAND_PREFIX + packageName).getStatus()
                 == CommandStatus.SUCCESS;
+    }
+
+    /** A general exception class representing failed device utility operations. */
+    public static final class DeviceUtilsException extends Exception {
+        /**
+         * Constructs a new {@link DeviceUtilsException} with a meaningful error message.
+         *
+         * @param message A error message describing the cause of the error.
+         */
+        private DeviceUtilsException(String message) {
+            super(message);
+        }
+
+        /**
+         * Constructs a new {@link DeviceUtilsException} with a meaningful error message, and a
+         * cause.
+         *
+         * @param message A detailed error message.
+         * @param cause A {@link Throwable} capturing the original cause of the {@link
+         *     DeviceUtilsException}.
+         */
+        private DeviceUtilsException(String message, Throwable cause) {
+            super(message, cause);
+        }
+
+        /**
+         * Constructs a new {@link DeviceUtilsException} with a cause.
+         *
+         * @param cause A {@link Throwable} capturing the original cause of the {@link
+         *     DeviceUtilsException}.
+         */
+        private DeviceUtilsException(Throwable cause) {
+            super(cause);
+        }
     }
 
     @VisibleForTesting

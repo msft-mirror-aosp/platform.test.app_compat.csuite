@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
+import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.tradefed.device.DeviceRuntimeException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.CommandResult;
@@ -46,9 +47,7 @@ public final class DeviceUtilsTest {
                 .thenReturn(createFailedCommandResult());
         DeviceUtils sut = createSubjectUnderTest(mDevice);
 
-        boolean result = sut.launchPackage("package.name");
-
-        assertThat(result).isFalse();
+        assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("package.name"));
     }
 
     @Test
@@ -57,9 +56,7 @@ public final class DeviceUtilsTest {
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
         DeviceUtils sut = createSubjectUnderTest(mDevice);
 
-        boolean result = sut.launchPackage("package.name");
-
-        assertThat(result).isTrue();
+        sut.launchPackage("package.name");
     }
 
     @Test
