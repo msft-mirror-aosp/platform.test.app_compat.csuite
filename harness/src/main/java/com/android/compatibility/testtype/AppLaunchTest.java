@@ -18,6 +18,7 @@ package com.android.compatibility.testtype;
 
 import com.android.csuite.core.AbstractCSuiteTest;
 import com.android.csuite.core.DeviceUtils;
+import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -138,8 +139,10 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         TestUtils testUtils = TestUtils.getInstance(this);
 
         long startTime = deviceUtils.currentTimeMillis();
-        if (!deviceUtils.launchPackage(mPackageName)) {
-            testFailed("Failed to start the launch intent of package " + mPackageName);
+        try {
+            deviceUtils.launchPackage(mPackageName);
+        } catch (DeviceUtilsException e) {
+            testFailed(e.getMessage());
             return;
         }
 
