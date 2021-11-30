@@ -26,6 +26,14 @@ import com.android.tradefed.testtype.InstrumentationTest;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** A utility class that contains common methods used by tests. */
 public final class TestUtils {
@@ -172,6 +180,101 @@ public final class TestUtils {
     public boolean isPackageProcessRunning(String packageName) throws DeviceNotAvailableException {
         return mTestBase.getDevice().executeShellV2Command("pidof " + packageName).getExitCode()
                 == 0;
+    }
+
+    /**
+     * Generates a list of APK paths where the base.apk of split apk files are always on the first
+     * index if exists.
+     *
+     * <p>If the apk path is a single apk, then the apk is returned. If the apk path is a directory
+     * containing only one non-split apk file, the apk file is returned. If the apk path is a
+     * directory containing split apk files for one package, then the list of apks are returned and
+     * the base.apk sits on the first index. If the apk path does not contain any apk files, or
+     * multiple apk files without base.apk, then an IOException is thrown.
+     *
+     * @return A list of APK paths.
+     * @throws TestUtilsException If failed to read the apk path or unexpected number of apk files
+     *     are found under the path.
+     */
+    public static List<Path> listApks(Path root) throws TestUtilsException {
+        // The apk path points to a non-split apk file.
+        if (Files.isRegularFile(root)) {
+            if (!root.toString().endsWith(".apk")) {
+                throw new TestUtilsException(
+                        "The file on the given apk path is not an apk file: " + root);
+            }
+            return List.of(root);
+        }
+
+        List<Path> apks;
+        CLog.d("APK path = " + root);
+        try (Stream<Path> fileTree = Files.walk(root)) {
+            apks =
+                    fileTree.filter(Files::isRegularFile)
+                            .filter(path -> path.getFileName().toString().endsWith(".apk"))
+                            .collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new TestUtilsException("Failed to list apk files.", e);
+        }
+
+        if (apks.isEmpty()) {
+            throw new TestUtilsException("The apk directory does not contain any apk files");
+        }
+
+        // The apk path contains a single non-split apk or the base.apk of a split-apk.
+        if (apks.size() == 1) {
+            return apks;
+        }
+
+        if (apks.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
+            throw new TestUtilsException(
+                    "Apk files are not all in the same folder: "
+                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+        }
+
+        if (apks.stream().filter(path -> path.getFileName().toString().equals("base.apk")).count()
+                == 0) {
+            throw new TestUtilsException(
+                    "Multiple non-split apk files detected: "
+                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+        }
+
+        Collections.sort(
+                apks,
+                (first, second) -> first.getFileName().toString().equals("base.apk") ? -1 : 0);
+
+        return apks;
+    }
+
+    /** An exception class representing crawler test failures. */
+    public static final class TestUtilsException extends Exception {
+        /**
+         * Constructs a new {@link TestUtilsException} with a meaningful error message.
+         *
+         * @param message A error message describing the cause of the error.
+         */
+        private TestUtilsException(String message) {
+            super(message);
+        }
+
+        /**
+         * Constructs a new {@link TestUtilsException} with a meaningful error message, and a cause.
+         *
+         * @param message A detailed error message.
+         * @param cause A {@link Throwable} capturing the original cause of the TestUtilsException.
+         */
+        private TestUtilsException(String message, Throwable cause) {
+            super(message, cause);
+        }
+
+        /**
+         * Constructs a new {@link TestUtilsException} with a cause.
+         *
+         * @param cause A {@link Throwable} capturing the original cause of the TestUtilsException.
+         */
+        private TestUtilsException(Throwable cause) {
+            super(cause);
+        }
     }
 
     @VisibleForTesting
