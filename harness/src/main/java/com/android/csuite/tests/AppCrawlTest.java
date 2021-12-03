@@ -26,6 +26,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.result.TestDescription;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
 /** A test that verifies that a single app can be successfully launched. */
@@ -106,10 +107,17 @@ public class AppCrawlTest extends AbstractCSuiteTest {
 
         ArrayList<String> failureMessages = new ArrayList<>();
 
-        String dropboxCrashLog =
-                TestUtils.getInstance(this).getDropboxPackageCrashedLog(mPackageName, startTime);
-        if (dropboxCrashLog != null) { // Put dropbox crash log on the top of the failure messages.
-            failureMessages.add(dropboxCrashLog);
+        try {
+            String dropboxCrashLog =
+                    TestUtils.getInstance(this)
+                            .getDropboxPackageCrashLog(mPackageName, startTime, true);
+            if (dropboxCrashLog
+                    != null) { // Put dropbox crash log on the top of the failure messages.
+                failureMessages.add(dropboxCrashLog);
+            }
+        } catch (IOException e) {
+            testFailed("Error while getting dropbox crash log: " + e);
+            return;
         }
 
         if (crawlerException != null) {
