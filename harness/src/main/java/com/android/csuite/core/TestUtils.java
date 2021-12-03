@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,16 +50,22 @@ public final class TestUtils {
     private static final String PACKAGE_NAME_ARG = "PACKAGE_NAME_ARG";
     private static final String START_TIME_ARG = "START_TIME_ARG";
     private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
+    private static final int MAX_CRASH_SNIPPET_LINES = 60;
 
     public static TestUtils getInstance(AbstractCSuiteTest testBase) {
-        return new TestUtils(testBase, new CrashCheckInstrumentationProvider());
+        return new TestUtils(
+                testBase,
+                DeviceUtils.getInstance(testBase.getDevice()),
+                new CrashCheckInstrumentationProvider());
     }
 
     @VisibleForTesting
     TestUtils(
-            AbstractCSuiteTest testBase, InstrumentationTestProvider instrumentationTestProvider) {
+            AbstractCSuiteTest testBase,
+            DeviceUtils deviceUtils,
+            InstrumentationTestProvider instrumentationTestProvider) {
         mTestBase = testBase;
-        mDeviceUtils = DeviceUtils.getInstance(testBase.getDevice());
+        mDeviceUtils = deviceUtils;
         mInstrumentationTestProvider = instrumentationTestProvider;
     }
 
@@ -152,8 +159,55 @@ public final class TestUtils {
      * @param startTimeOnDevice The device timestamp after which the check starts. Dropbox items
      *     before this device timestamp will be ignored.
      * @return A string of crash log if crash was found; null otherwise.
-     * @throws DeviceNotAvailableException
+     * @throws IOException unexpected IOException
      */
+    public String getDropboxPackageCrashLog(String packageName, long startTimeOnDevice)
+            throws IOException {
+        BiFunction<String, Integer, String> truncate =
+                (text, maxLines) -> {
+                    String[] lines = text.split("\\r?\\n");
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < maxLines && i < lines.length; i++) {
+                        sb.append(lines[i]);
+                        sb.append('\n');
+                    }
+                    if (lines.length > maxLines) {
+                        sb.append("... ");
+                        sb.append(lines.length - maxLines);
+                        sb.append(" more lines truncated ...\n");
+                    }
+                    return sb.toString();
+                };
+
+        List<String> entries =
+                mDeviceUtils.getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS).stream()
+                        .filter(entry -> (entry.getTime() >= startTimeOnDevice))
+                        .filter(entry -> entry.getData().contains(packageName))
+                        .map(
+                                entry ->
+                                        String.format(
+                                                "Dropbox tag: %s\n%s",
+                                                entry.getTag(),
+                                                truncate.apply(
+                                                        entry.getData(), MAX_CRASH_SNIPPET_LINES)))
+                        .collect(Collectors.toList());
+
+        return entries.size() == 0
+                ? null
+                : entries.stream().collect(Collectors.joining("\n============\n"));
+    }
+
+    /**
+     * Looks for crash log of a package in the device's dropbox entries.
+     *
+     * @param packageName The package name of an app.
+     * @param startTimeOnDevice The device timestamp after which the check starts. Dropbox items
+     *     before this device timestamp will be ignored.
+     * @return A string of crash log if crash was found; null otherwise.
+     * @throws DeviceNotAvailableException
+     * @deprecated Use getDropboxPackageCrashLog instead.
+     */
+    @Deprecated
     public String getDropboxPackageCrashedLog(String packageName, long startTimeOnDevice)
             throws DeviceNotAvailableException {
         mDeviceUtils.resetPackage(CRASH_CHECK_TEST_PACKAGE);
