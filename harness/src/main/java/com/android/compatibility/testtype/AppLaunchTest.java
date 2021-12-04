@@ -29,6 +29,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import org.junit.Assert;
 
+import java.io.IOException;
 
 /** A test that verifies that a single app can be successfully launched. */
 public class AppLaunchTest extends AbstractCSuiteTest {
@@ -81,8 +82,7 @@ public class AppLaunchTest extends AbstractCSuiteTest {
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
-    private int mAppLaunchTimeoutMs = 15000;
-
+    private int mAppLaunchTimeoutMs = 5000;
 
     public AppLaunchTest() {
         this(null);
@@ -154,11 +154,17 @@ public class AppLaunchTest extends AbstractCSuiteTest {
 
         CLog.d("Completed launching package: %s", mPackageName);
 
-        String crashLog = testUtils.getDropboxPackageCrashedLog(mPackageName, startTime);
-        if (crashLog != null) {
-            testFailed(crashLog);
+        try {
+            String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime);
+            if (crashLog != null) {
+                testFailed(crashLog);
+                return;
+            }
+        } catch (IOException e) {
+            testFailed("Error while getting dropbox crash log: " + e);
             return;
         }
+
         if (!testUtils.isPackageProcessRunning(mPackageName)) {
             testFailed(
                     String.format(
