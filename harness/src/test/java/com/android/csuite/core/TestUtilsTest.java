@@ -15,6 +15,8 @@
  */
 package com.android.csuite.core;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -29,8 +31,9 @@ import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
-import static com.google.common.truth.Truth.assertThat;
+import com.google.common.jimfs.Jimfs;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
@@ -42,22 +45,157 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
+import java.nio.file.FileSystem;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @RunWith(JUnit4.class)
 public final class TestUtilsTest {
-
-    private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
     private final ITestInvocationListener mMockListener = mock(ITestInvocationListener.class);
     private final ITestDevice mMockDevice = mock(ITestDevice.class);
     private static final String TEST_PACKAGE_NAME = "package_name";
-    private static final TestInformation NULL_TEST_INFORMATION = null;
-    @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+    @Rule public final TemporaryFolder mTempFolder = new TemporaryFolder();
+    private final FileSystem mFileSystem =
+            Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+
+    @Test
+    public void listApks_withSplitApksInSubDirectory_returnsApks() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createDirectories(root.resolve("sub"));
+        Files.createFile(root.resolve("sub").resolve("base.apk"));
+        Files.createFile(root.resolve("sub").resolve("config.apk"));
+
+        List<Path> res = TestUtils.listApks(root);
+
+        List<String> fileNames =
+                res.stream()
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toList());
+        assertThat(fileNames).containsExactly("base.apk", "config.apk");
+    }
+
+    @Test
+    public void listApks_withSingleSplitApkDirectory_returnsApks() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("base.apk"));
+
+        List<Path> res = TestUtils.listApks(root);
+
+        List<String> fileNames =
+                res.stream()
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toList());
+        assertThat(fileNames).containsExactly("base.apk");
+    }
+
+    @Test
+    public void listApks_withSplitApkDirectory_returnsListWithBaseApkAsTheFirstElement()
+            throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("base.apk"));
+        Files.createFile(root.resolve("a.apk"));
+        Files.createFile(root.resolve("b.apk"));
+        Files.createFile(root.resolve("c.apk"));
+
+        List<Path> res = TestUtils.listApks(root);
+
+        assertThat(res.get(0).getFileName().toString()).isEqualTo("base.apk");
+    }
+
+    @Test
+    public void listApks_withSingleApkDirectory_returnsApks() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("single.apk"));
+
+        List<Path> res = TestUtils.listApks(root);
+
+        List<String> fileNames =
+                res.stream()
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toList());
+        assertThat(fileNames).containsExactly("single.apk");
+    }
+
+    @Test
+    public void listApks_withSingleApkFile_returnsApks() throws Exception {
+        Path root = mFileSystem.getPath("single.apk");
+        Files.createFile(root);
+
+        List<Path> res = TestUtils.listApks(root);
+
+        List<String> fileNames =
+                res.stream()
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toList());
+        assertThat(fileNames).containsExactly("single.apk");
+    }
+
+    @Test
+    public void listApks_withApkDirectoryContainingOtherFileTypes_returnsApksOnly()
+            throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("single.apk"));
+        Files.createFile(root.resolve("single.not_apk"));
+
+        List<Path> res = TestUtils.listApks(root);
+
+        List<String> fileNames =
+                res.stream()
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toList());
+        assertThat(fileNames).containsExactly("single.apk");
+    }
+
+    @Test
+    public void listApks_withApkDirectoryContainingNoApks_throwException() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("single.not_apk"));
+
+        assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
+    }
+
+    @Test
+    public void listApks_withNonApkFile_throwException() throws Exception {
+        Path root = mFileSystem.getPath("single.not_apk");
+        Files.createFile(root);
+
+        assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
+    }
+
+    @Test
+    public void listApks_withApksInMultipleDirectories_throwException() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createDirectories(root.resolve("1"));
+        Files.createDirectories(root.resolve("2"));
+        Files.createFile(root.resolve("1").resolve("single.apk"));
+        Files.createFile(root.resolve("2").resolve("single.apk"));
+
+        assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
+    }
 
     @Test
     public void getDropboxPackageCrashedLog_instrumentationTestFailed_returnsCrashLog()
             throws Exception {
         String stackTrace = "test failed";
         TestUtils sut =
-                new TestUtils(createBaseTest(), () -> createFailingInstrumentationTest(stackTrace));
+                new TestUtils(
+                        createBaseTest(),
+                        DeviceUtils.getInstance(mMockDevice),
+                        () -> createFailingInstrumentationTest(stackTrace));
         when(mMockDevice.executeShellV2Command(
                         Mockito.startsWith(DeviceUtils.RESET_PACKAGE_COMMAND_PREFIX)))
                 .thenReturn(createSuccessfulCommandResult());
@@ -70,7 +208,7 @@ public final class TestUtilsTest {
     @Test
     public void getDropboxPackageCrashedLog_instrumentationTestPassed_returnsNull()
             throws Exception {
-        TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
+        TestUtils sut = createSubjectUnderTest();
         when(mMockDevice.executeShellV2Command(
                         Mockito.startsWith(DeviceUtils.RESET_PACKAGE_COMMAND_PREFIX)))
                 .thenReturn(createSuccessfulCommandResult());
@@ -82,7 +220,7 @@ public final class TestUtilsTest {
 
     @Test
     public void isPackageProcessRunning_processIsRunning_returnsTrue() throws Exception {
-        TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
+        TestUtils sut = createSubjectUnderTest();
         when(mMockDevice.executeShellV2Command(Mockito.startsWith("pidof")))
                 .thenReturn(createSuccessfulCommandResult());
 
@@ -93,7 +231,7 @@ public final class TestUtilsTest {
 
     @Test
     public void isPackageProcessRunning_processNotRunning_returnsFalse() throws Exception {
-        TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
+        TestUtils sut = createSubjectUnderTest();
         when(mMockDevice.executeShellV2Command(Mockito.startsWith("pidof")))
                 .thenReturn(createFailedCommandResult());
 
@@ -104,8 +242,8 @@ public final class TestUtilsTest {
 
     @Test
     public void collectScreenshot_savesToTestLog() throws Exception {
-        TestUtils sut = new TestUtils(createBaseTest(), () -> createPassingInstrumentationTest());
-        InputStreamSource screenshotData = new FileInputStreamSource(tempFolder.newFile());
+        TestUtils sut = createSubjectUnderTest();
+        InputStreamSource screenshotData = new FileInputStreamSource(mTempFolder.newFile());
         when(mMockDevice.getScreenshot()).thenReturn(screenshotData);
         when(mMockDevice.getSerialNumber()).thenReturn("SERIAL");
 
@@ -113,6 +251,92 @@ public final class TestUtilsTest {
 
         Mockito.verify(mMockListener, times(1))
                 .testLog(Mockito.contains("screenshot"), Mockito.any(), Mockito.eq(screenshotData));
+    }
+
+    @Test
+    public void getDropboxPackageCrashLog_noEntries_returnsNull() throws Exception {
+        DeviceUtils util = Mockito.mock(DeviceUtils.class);
+        TestUtils sut =
+                new TestUtils(createBaseTest(), util, () -> createPassingInstrumentationTest());
+        when(util.getDropboxEntries(Mockito.any())).thenReturn(List.of());
+        long startTime = 0;
+
+        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime);
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    public void getDropboxPackageCrashLog_containsOldEntries_onlyReturnsNewEntries()
+            throws Exception {
+        DeviceUtils util = Mockito.mock(DeviceUtils.class);
+        TestUtils sut =
+                new TestUtils(createBaseTest(), util, () -> createPassingInstrumentationTest());
+        long startTime = 1;
+        when(util.getDropboxEntries(Mockito.any()))
+                .thenReturn(
+                        List.of(
+                                new DeviceUtils.DropboxEntry(
+                                        0,
+                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                .toArray(
+                                                        new String
+                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                                        .size()])[0],
+                                        TEST_PACKAGE_NAME + "entry1"),
+                                new DeviceUtils.DropboxEntry(
+                                        2,
+                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                .toArray(
+                                                        new String
+                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                                        .size()])[0],
+                                        TEST_PACKAGE_NAME + "entry2")));
+
+        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime);
+
+        assertThat(result).doesNotContain("entry1");
+        assertThat(result).contains("entry2");
+    }
+
+    @Test
+    public void getDropboxPackageCrashLog_containsOtherProcessEntries_onlyReturnsPackageEntries()
+            throws Exception {
+        DeviceUtils util = Mockito.mock(DeviceUtils.class);
+        TestUtils sut =
+                new TestUtils(createBaseTest(), util, () -> createPassingInstrumentationTest());
+        long startTime = 1;
+        when(util.getDropboxEntries(Mockito.any()))
+                .thenReturn(
+                        List.of(
+                                new DeviceUtils.DropboxEntry(
+                                        2,
+                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                .toArray(
+                                                        new String
+                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                                        .size()])[0],
+                                        "other.package" + "entry1"),
+                                new DeviceUtils.DropboxEntry(
+                                        2,
+                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                .toArray(
+                                                        new String
+                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                                        .size()])[0],
+                                        TEST_PACKAGE_NAME + "entry2")));
+
+        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime);
+
+        assertThat(result).doesNotContain("entry1");
+        assertThat(result).contains("entry2");
+    }
+
+    private TestUtils createSubjectUnderTest() {
+        return new TestUtils(
+                createBaseTest(),
+                DeviceUtils.getInstance(mMockDevice),
+                () -> createPassingInstrumentationTest());
     }
 
     private static InstrumentationTest createFailingInstrumentationTest(String stackTrace) {
