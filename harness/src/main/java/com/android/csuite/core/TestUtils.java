@@ -16,13 +16,11 @@
 
 package com.android.csuite.core;
 
-import com.android.compatibility.FailureCollectingListener;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
-import com.android.tradefed.testtype.InstrumentationTest;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -42,32 +40,16 @@ public final class TestUtils {
     private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
     private final AbstractCSuiteTest mTestBase;
     private final DeviceUtils mDeviceUtils;
-    private final InstrumentationTestProvider mInstrumentationTestProvider;
-
-    // The following constants are needed for the instrumentation crash checker.
-    private static final String CRASH_CHECK_TEST_RUNNER =
-            "com.android.csuite.crash_check.AppCrashCheckTestRunner";
-    private static final String CRASH_CHECK_TEST_PACKAGE = "com.android.csuite.crash_check";
-    private static final String PACKAGE_NAME_ARG = "PACKAGE_NAME_ARG";
-    private static final String START_TIME_ARG = "START_TIME_ARG";
-    private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
     private static final int MAX_CRASH_SNIPPET_LINES = 60;
 
     public static TestUtils getInstance(AbstractCSuiteTest testBase) {
-        return new TestUtils(
-                testBase,
-                DeviceUtils.getInstance(testBase.getDevice()),
-                new CrashCheckInstrumentationProvider());
+        return new TestUtils(testBase, DeviceUtils.getInstance(testBase.getDevice()));
     }
 
     @VisibleForTesting
-    TestUtils(
-            AbstractCSuiteTest testBase,
-            DeviceUtils deviceUtils,
-            InstrumentationTestProvider instrumentationTestProvider) {
+    TestUtils(AbstractCSuiteTest testBase, DeviceUtils deviceUtils) {
         mTestBase = testBase;
         mDeviceUtils = deviceUtils;
-        mInstrumentationTestProvider = instrumentationTestProvider;
     }
 
     /**
@@ -219,33 +201,6 @@ public final class TestUtils {
     }
 
     /**
-     * Looks for crash log of a package in the device's dropbox entries.
-     *
-     * @param packageName The package name of an app.
-     * @param startTimeOnDevice The device timestamp after which the check starts. Dropbox items
-     *     before this device timestamp will be ignored.
-     * @return A string of crash log if crash was found; null otherwise.
-     * @throws DeviceNotAvailableException
-     * @deprecated Use getDropboxPackageCrashLog instead.
-     */
-    @Deprecated
-    public String getDropboxPackageCrashedLog(String packageName, long startTimeOnDevice)
-            throws DeviceNotAvailableException {
-        mDeviceUtils.resetPackage(CRASH_CHECK_TEST_PACKAGE);
-
-        InstrumentationTest instrumentationTest = mInstrumentationTestProvider.get();
-
-        instrumentationTest.addInstrumentationArg(PACKAGE_NAME_ARG, packageName);
-        instrumentationTest.addInstrumentationArg(START_TIME_ARG, Long.toString(startTimeOnDevice));
-        instrumentationTest.setDevice(mTestBase.getDevice());
-        instrumentationTest.setConfiguration(mTestBase.getConfiguration());
-        FailureCollectingListener failureListener = new FailureCollectingListener();
-        instrumentationTest.run(mTestBase.getTestInfo(), failureListener);
-
-        return failureListener.getStackTrace();
-    }
-
-    /**
      * Checks whether the process of the given package is running on the device.
      *
      * @param packageName The package name of an app.
@@ -349,25 +304,6 @@ public final class TestUtils {
          */
         private TestUtilsException(Throwable cause) {
             super(cause);
-        }
-    }
-
-    @VisibleForTesting
-    interface InstrumentationTestProvider {
-        InstrumentationTest get();
-    }
-
-    private static class CrashCheckInstrumentationProvider implements InstrumentationTestProvider {
-        @Override
-        public InstrumentationTest get() {
-            InstrumentationTest instrumentationTest = new InstrumentationTest();
-
-            instrumentationTest.setPackageName(CRASH_CHECK_TEST_PACKAGE);
-            instrumentationTest.setRunnerName(CRASH_CHECK_TEST_RUNNER);
-            instrumentationTest.setShellTimeout(BASE_INSTRUMENTATION_TEST_TIMEOUT_MS);
-            instrumentationTest.setTestTimeout(BASE_INSTRUMENTATION_TEST_TIMEOUT_MS);
-
-            return instrumentationTest;
         }
     }
 }
