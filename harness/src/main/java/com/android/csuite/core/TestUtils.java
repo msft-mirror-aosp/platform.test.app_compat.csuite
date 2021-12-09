@@ -17,6 +17,7 @@
 package com.android.csuite.core;
 
 import com.android.compatibility.FailureCollectingListener;
+import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.InputStreamSource;
@@ -158,11 +159,13 @@ public final class TestUtils {
      * @param packageName The package name of an app.
      * @param startTimeOnDevice The device timestamp after which the check starts. Dropbox items
      *     before this device timestamp will be ignored.
+     * @param saveToFile whether to save the package's full dropbox crash logs to a test output
+     *     file.
      * @return A string of crash log if crash was found; null otherwise.
      * @throws IOException unexpected IOException
      */
-    public String getDropboxPackageCrashLog(String packageName, long startTimeOnDevice)
-            throws IOException {
+    public String getDropboxPackageCrashLog(
+            String packageName, long startTimeOnDevice, boolean saveToFile) throws IOException {
         BiFunction<String, Integer, String> truncate =
                 (text, maxLines) -> {
                     String[] lines = text.split("\\r?\\n");
@@ -179,10 +182,26 @@ public final class TestUtils {
                     return sb.toString();
                 };
 
-        List<String> entries =
+        List<DropboxEntry> entries =
                 mDeviceUtils.getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS).stream()
                         .filter(entry -> (entry.getTime() >= startTimeOnDevice))
                         .filter(entry -> entry.getData().contains(packageName))
+                        .collect(Collectors.toList());
+
+        if (entries.size() == 0) {
+            return null;
+        }
+
+        String fullText =
+                entries.stream()
+                        .map(
+                                entry ->
+                                        String.format(
+                                                "Dropbox tag: %s\n%s",
+                                                entry.getTag(), entry.getData()))
+                        .collect(Collectors.joining("\n============\n"));
+        String truncatedText =
+                entries.stream()
                         .map(
                                 entry ->
                                         String.format(
@@ -190,11 +209,13 @@ public final class TestUtils {
                                                 entry.getTag(),
                                                 truncate.apply(
                                                         entry.getData(), MAX_CRASH_SNIPPET_LINES)))
-                        .collect(Collectors.toList());
+                        .collect(Collectors.joining("\n============\n"));
 
-        return entries.size() == 0
-                ? null
-                : entries.stream().collect(Collectors.joining("\n============\n"));
+        mTestBase.addTestArtifact(
+                String.format("%s_dropbox_entries", packageName),
+                LogDataType.TEXT,
+                fullText.getBytes());
+        return truncatedText;
     }
 
     /**
