@@ -155,7 +155,7 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         CLog.d("Completed launching package: %s", mPackageName);
 
         try {
-            String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime);
+            String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
             if (crashLog != null) {
                 testFailed(crashLog);
                 return;
