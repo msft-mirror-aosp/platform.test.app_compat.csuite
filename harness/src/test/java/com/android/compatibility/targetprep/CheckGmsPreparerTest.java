@@ -261,7 +261,7 @@ public final class CheckGmsPreparerTest {
             return mMessage;
         }
 
-        LogItem(LogLevel logLevel, String tag, String message) {
+        LogItem(LogLevel logLevel, @SuppressWarnings("unused") String tag, String message) {
             mLogLevel = logLevel;
             mMessage = message;
         }
