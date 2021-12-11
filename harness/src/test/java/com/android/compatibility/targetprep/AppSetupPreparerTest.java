@@ -22,6 +22,7 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 import com.android.tradefed.util.AaptParser.AaptVersion;
@@ -48,6 +49,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.mockito.internal.stubbing.answers.AnswersWithDelay;
 import org.mockito.stubbing.Answer;
 
@@ -64,10 +66,26 @@ import java.util.Map;
 public final class AppSetupPreparerTest {
     private static final ITestDevice NULL_DEVICE = null;
     private static final IBuildInfo NULL_BUILD_INFO = null;
-    private static final String TEST_PACKAGE_NAME = "test.package.name";
     private static final Answer<Object> EMPTY_ANSWER = (i) -> null;
 
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+
+    @Test
+    public void setUp_saveApkOptionEnabled_savesApk() throws Exception {
+        File apkPath = tempFolder.newFolder();
+        AppSetupPreparer preparer =
+                new PreparerBuilder()
+                        .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, apkPath.getPath())
+                        .setOption(AppSetupPreparer.OPTION_SAVE_APKS, "true")
+                        .build();
+        ITestLogger testLogger = Mockito.mock(ITestLogger.class);
+        preparer.setTestLogger(testLogger);
+
+        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+
+        verify(testLogger)
+                .testLog(Mockito.contains(apkPath.getName()), Mockito.any(), Mockito.any());
+    }
 
     @Test
     public void setUp_unresolvedAppUri_installs() throws Exception {
