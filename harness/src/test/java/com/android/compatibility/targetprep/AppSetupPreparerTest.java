@@ -15,12 +15,14 @@
  */
 package com.android.compatibility.targetprep;
 
-import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.ArgsOptionParser;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -64,8 +66,6 @@ import java.util.Map;
 
 @RunWith(JUnit4.class)
 public final class AppSetupPreparerTest {
-    private static final ITestDevice NULL_DEVICE = null;
-    private static final IBuildInfo NULL_BUILD_INFO = null;
     private static final Answer<Object> EMPTY_ANSWER = (i) -> null;
 
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
@@ -81,7 +81,7 @@ public final class AppSetupPreparerTest {
         ITestLogger testLogger = Mockito.mock(ITestLogger.class);
         preparer.setTestLogger(testLogger);
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
 
         verify(testLogger)
                 .testLog(Mockito.contains(apkPath.getName()), Mockito.any(), Mockito.any());
@@ -97,7 +97,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, appUri)
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
 
         verify(installer).addTestFile(new File(appUri));
     }
@@ -116,17 +116,14 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_withinRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doThrow(new TargetSetupError("Still failing"))
-                .doNothing()
-                .when(installer)
-                .setUp(any(), any());
+        doThrow(new TargetSetupError("Still failing")).doNothing().when(installer).setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
     }
 
     @Test
@@ -136,14 +133,14 @@ public final class AppSetupPreparerTest {
                 .doThrow(new TargetSetupError("Still failing"))
                 .doNothing()
                 .when(installer)
-                .setUp(any(), any());
+                .setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(createTestInfo()));
     }
 
     @Test
@@ -153,45 +150,41 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "-1")
                         .build();
 
-        assertThrows(
-                IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(createTestInfo()));
     }
 
     @Test
     public void setUp_withinTimeout_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
+        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "1000")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
     }
 
     @Test
     @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187380263
     public void setUp_exceedsTimeout_throwsException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
+        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(createTestInfo()));
     }
 
     @Test
     @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187506768
     public void setUp_timesOutWithoutExceedingRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER))
-                .doNothing()
-                .when(installer)
-                .setUp(any(), any());
+        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).doNothing().when(installer).setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
@@ -199,14 +192,14 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
     }
 
     @Test
     @Ignore // TODO(yuexima): Temporally disabled because of high flakiness b/187380263
     public void setUp_timesOutAndExceedsRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any(), any());
+        doAnswer(new AnswersWithDelay(10, EMPTY_ANSWER)).when(installer).setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
@@ -214,37 +207,37 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_SETUP_TIMEOUT_MILLIS, "5")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(createTestInfo()));
     }
 
     @Test
     public void setUp_zeroMaxRetry_runsOnce() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doNothing().when(installer).setUp(any(), any());
+        doNothing().when(installer).setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "0")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
 
-        verify(installer).setUp(any(), any());
+        verify(installer).setUp(any());
     }
 
     @Test
     public void setUp_positiveMaxRetryButNoException_runsOnlyOnce() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doNothing().when(installer).setUp(any(), any());
+        doNothing().when(installer).setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
 
-        verify(installer).setUp(any(), any());
+        verify(installer).setUp(any());
     }
 
     @Test
@@ -252,8 +245,7 @@ public final class AppSetupPreparerTest {
         AppSetupPreparer preparer =
                 new PreparerBuilder().setOption(AppSetupPreparer.OPTION_MAX_RETRY, "-1").build();
 
-        assertThrows(
-                IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(createTestInfo()));
     }
 
     @Test
@@ -269,7 +261,7 @@ public final class AppSetupPreparerTest {
         ITestDevice device = createUnavailableDevice();
 
         assertThrows(
-                DeviceNotAvailableException.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
+                DeviceNotAvailableException.class, () -> preparer.setUp(createTestInfo(device)));
     }
 
     @Test
@@ -283,7 +275,7 @@ public final class AppSetupPreparerTest {
                         .build();
         ITestDevice device = createAvailableDevice();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(createTestInfo(device)));
     }
 
     @Test
@@ -297,7 +289,7 @@ public final class AppSetupPreparerTest {
                         .build();
         ITestDevice device = createUnavailableDevice();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(device, NULL_BUILD_INFO));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(createTestInfo(device)));
     }
 
     @Test
@@ -310,8 +302,7 @@ public final class AppSetupPreparerTest {
                                 "-1")
                         .build();
 
-        assertThrows(
-                IllegalArgumentException.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+        assertThrows(IllegalArgumentException.class, () -> preparer.setUp(createTestInfo()));
     }
 
     @Test
@@ -326,7 +317,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_TEST_FILE_NAME, "additional2.apk")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
 
         assertThat(captor.getAllValues())
                 .containsAtLeast(new File("additional1.apk"), new File("additional2.apk"));
@@ -344,7 +335,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_INSTALL_ARG, "-arg2")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
 
         assertThat(captor.getAllValues()).containsExactly("-arg1", "-arg2");
     }
@@ -359,7 +350,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_INCREMENTAL_INSTALL, "true")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
         String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
 
         assertThat(installOptions).contains("incremental");
@@ -375,7 +366,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_INCREMENTAL_FILTER, "0.01")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
         String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
 
         assertThat(installOptions).contains("incremental-block-filter");
@@ -391,7 +382,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_INCREMENTAL_TIMEOUT_SECS, "60")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
         String installOptions = ArgsOptionParser.getOptionHelp(false, installer);
 
         assertThat(installOptions).contains("incremental-install-timeout-secs");
@@ -408,7 +399,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_AAPT_VERSION, "AAPT2")
                         .build();
 
-        preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO);
+        preparer.setUp(createTestInfo());
 
         assertThat(captor.getValue()).isEqualTo(AaptVersion.AAPT2);
     }
@@ -425,7 +416,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(createTestInfo()));
         assertThat(fakeSleeper.getSleepHistory().get(0)).isEqualTo(Duration.ofSeconds(0));
     }
 
@@ -441,7 +432,7 @@ public final class AppSetupPreparerTest {
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "3")
                         .build();
 
-        assertThrows(TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+        assertThrows(TargetSetupError.class, () -> preparer.setUp(createTestInfo()));
         assertThat(fakeSleeper.getSleepHistory().get(0)).isEqualTo(Duration.ofSeconds(3));
         assertThat(fakeSleeper.getSleepHistory().get(1)).isEqualTo(Duration.ofSeconds(9));
         assertThat(fakeSleeper.getSleepHistory().get(2)).isEqualTo(Duration.ofSeconds(27));
@@ -460,8 +451,7 @@ public final class AppSetupPreparerTest {
                         .build();
 
         try {
-            assertThrows(
-                    TargetSetupError.class, () -> preparer.setUp(NULL_DEVICE, NULL_BUILD_INFO));
+            assertThrows(TargetSetupError.class, () -> preparer.setUp(createTestInfo()));
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
             assertThat(fakeSleeper.getSleepHistory().size()).isEqualTo(1);
         } finally {
@@ -472,7 +462,7 @@ public final class AppSetupPreparerTest {
 
     private TestAppInstallSetup mockInstallerThatThrows(Exception e) throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doThrow(e).when(installer).setUp(any(), any());
+        doThrow(e).when(installer).setUp(any());
         return installer;
     }
 
@@ -525,7 +515,6 @@ public final class AppSetupPreparerTest {
     }
 
     private static final class PreparerBuilder {
-
         private AppSetupPreparer.Sleeper mSleeper = new FakeSleeper();
         private TestAppInstallSetup mInstaller = mock(TestAppInstallSetup.class);
         private final ListMultimap<String, String> mOptions = ArrayListMultimap.create();
@@ -555,5 +544,16 @@ public final class AppSetupPreparerTest {
 
             return preparer;
         }
+    }
+
+    private static TestInformation createTestInfo() throws Exception {
+        return createTestInfo(createAvailableDevice());
+    }
+
+    private static TestInformation createTestInfo(ITestDevice device) {
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice("device1", device);
+        context.addDeviceBuildInfo("device1", new BuildInfo());
+        return TestInformation.newBuilder().setInvocationContext(context).build();
     }
 }
