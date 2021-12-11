@@ -209,7 +209,9 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
             } catch (TargetSetupError e) {
                 currentException = e;
             } catch (UncheckedTimeoutException e) {
-                currentException = new TargetSetupError(e.getMessage(), e);
+                currentException =
+                        new TargetSetupError(
+                                e.getMessage(), e, testInfo.getDevice().getDeviceDescriptor());
             }
 
             waitForDeviceAvailable(testInfo.getDevice());
@@ -224,7 +226,8 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
                                 (int) Math.pow(mExponentialBackoffMultiplierSeconds, runCount)));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new TargetSetupError(e.getMessage(), e);
+                throw new TargetSetupError(
+                        e.getMessage(), e, testInfo.getDevice().getDeviceDescriptor());
             }
         }
     }
@@ -241,7 +244,8 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
             setter.setOptionValue(
                     "incremental-install-timeout-secs", String.valueOf(mIncrementalTimeout));
         } catch (ConfigurationException e) {
-            throw new TargetSetupError(e.getMessage(), e);
+            throw new TargetSetupError(
+                    e.getMessage(), e, testInfo.getDevice().getDeviceDescriptor());
         }
 
         if (mPackageName != null) {

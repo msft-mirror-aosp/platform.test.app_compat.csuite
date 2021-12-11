@@ -57,7 +57,8 @@ public final class CheckGmsPreparer implements ITargetPreparer {
             CLog.e("GMS process still not running, throwing error");
             mEnable = false;
             throw new TargetSetupError(
-                    "GMS required but did not detect a running GMS process after device reboot");
+                    "GMS required but did not detect a running GMS process after device reboot",
+                    testInfo.getDevice().getDeviceDescriptor());
         }
     }
 
