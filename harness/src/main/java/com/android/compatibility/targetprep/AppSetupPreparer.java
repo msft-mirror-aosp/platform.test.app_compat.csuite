@@ -26,12 +26,17 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.FileInputStreamSource;
+import com.android.tradefed.result.ITestLoggerReceiver;
+import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 import com.android.tradefed.util.AaptParser.AaptVersion;
+import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
@@ -39,6 +44,7 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +52,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /** A Tradefed preparer that downloads and installs an app on the target device. */
-public final class AppSetupPreparer implements ITargetPreparer {
+public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerReceiver {
 
     @VisibleForTesting
     static final String OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS =
@@ -63,6 +69,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
     @VisibleForTesting static final String OPTION_AAPT_VERSION = "aapt-version";
     @VisibleForTesting static final String OPTION_INCREMENTAL_INSTALL = "incremental";
     @VisibleForTesting static final String OPTION_INCREMENTAL_FILTER = "incremental-block-filter";
+    @VisibleForTesting static final String OPTION_SAVE_APKS = "save-apks";
 
     @VisibleForTesting
     static final String OPTION_INCREMENTAL_TIMEOUT_SECS = "incremental-install-timeout-secs";
@@ -126,10 +133,16 @@ public final class AppSetupPreparer implements ITargetPreparer {
                             + "be applied to each retry attempt.")
     private long mSetupOnceTimeoutMillis = TimeUnit.MINUTES.toMillis(10);
 
+    @Option(
+            name = OPTION_SAVE_APKS,
+            description = "Whether to save the input APKs into test output.")
+    private boolean mSaveApks = false;
+
     private final TestAppInstallSetup mTestAppInstallSetup;
     private final Sleeper mSleeper;
     private final TimeLimiter mTimeLimiter =
             SimpleTimeLimiter.create(Executors.newCachedThreadPool());
+    private ITestLogger mTestLogger;
 
     public AppSetupPreparer() {
         this(new TestAppInstallSetup(), Sleepers.DefaultSleeper.INSTANCE);
@@ -150,6 +163,27 @@ public final class AppSetupPreparer implements ITargetPreparer {
                 mExponentialBackoffMultiplierSeconds,
                 OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS);
         checkArgumentNonNegative(mSetupOnceTimeoutMillis, OPTION_SETUP_TIMEOUT_MILLIS);
+
+        if (mSaveApks) {
+            mTestFiles.forEach(
+                    path -> {
+                        if (!path.exists()) {
+                            CLog.w(
+                                    "Skipping saving %s as the path might be a relative path.",
+                                    path);
+                            return;
+                        }
+                        try {
+                            File outputZip = ZipUtil.createZip(path);
+                            mTestLogger.testLog(
+                                    mPackageName + "-input_apk-" + path.getName(),
+                                    LogDataType.ZIP,
+                                    new FileInputStreamSource(outputZip));
+                        } catch (IOException e) {
+                            CLog.e("Failed to zip the output directory: " + e);
+                        }
+                    });
+        }
 
         int runCount = 0;
         while (true) {
@@ -261,5 +295,10 @@ public final class AppSetupPreparer implements ITargetPreparer {
         }
 
         private Sleepers() {}
+    }
+
+    @Override
+    public void setTestLogger(ITestLogger testLogger) {
+        mTestLogger = testLogger;
     }
 }
