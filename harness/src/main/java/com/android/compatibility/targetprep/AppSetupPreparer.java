@@ -19,7 +19,6 @@ package com.android.compatibility.targetprep;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.android.csuite.core.SystemPackageUninstaller;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionSetter;
@@ -156,7 +155,7 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
 
     /** {@inheritDoc} */
     @Override
-    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+    public void setUp(TestInformation testInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         checkArgumentNonNegative(mMaxRetry, OPTION_MAX_RETRY);
         checkArgumentNonNegative(
@@ -195,16 +194,16 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
                         mTimeLimiter.newProxy(
                                 new ITargetPreparer() {
                                     @Override
-                                    public void setUp(ITestDevice device, IBuildInfo buildInfo)
+                                    public void setUp(TestInformation testInfo)
                                             throws DeviceNotAvailableException, BuildError,
                                                     TargetSetupError {
-                                        setUpOnce(device, buildInfo);
+                                        setUpOnce(testInfo);
                                     }
                                 },
                                 ITargetPreparer.class,
                                 mSetupOnceTimeoutMillis,
                                 TimeUnit.MILLISECONDS);
-                handler.setUp(device, buildInfo);
+                handler.setUp(testInfo);
 
                 break;
             } catch (TargetSetupError e) {
@@ -213,7 +212,7 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
                 currentException = new TargetSetupError(e.getMessage(), e);
             }
 
-            waitForDeviceAvailable(device);
+            waitForDeviceAvailable(testInfo.getDevice());
             if (runCount > mMaxRetry) {
                 throw currentException;
             }
@@ -230,7 +229,7 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
         }
     }
 
-    private void setUpOnce(ITestDevice device, IBuildInfo buildInfo)
+    private void setUpOnce(TestInformation testInfo)
             throws DeviceNotAvailableException, BuildError, TargetSetupError {
         mTestAppInstallSetup.setAaptVersion(mAaptVersion);
 
@@ -246,7 +245,7 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
         }
 
         if (mPackageName != null) {
-            SystemPackageUninstaller.uninstallPackage(mPackageName, device);
+            SystemPackageUninstaller.uninstallPackage(mPackageName, testInfo.getDevice());
         }
 
         for (File testFile : mTestFiles) {
@@ -258,7 +257,7 @@ public final class AppSetupPreparer implements ITargetPreparer, ITestLoggerRecei
             mTestAppInstallSetup.addInstallArg(installArg);
         }
 
-        mTestAppInstallSetup.setUp(device, buildInfo);
+        mTestAppInstallSetup.setUp(testInfo);
     }
 
     /** {@inheritDoc} */
