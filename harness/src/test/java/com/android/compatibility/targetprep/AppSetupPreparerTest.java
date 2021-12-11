@@ -16,8 +16,8 @@
 package com.android.compatibility.targetprep;
 
 import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ArgsOptionParser;
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
