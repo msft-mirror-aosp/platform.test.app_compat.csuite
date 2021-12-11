@@ -57,10 +57,6 @@ import org.mockito.internal.stubbing.answers.AnswersWithDelay;
 import org.mockito.stubbing.Answer;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
@@ -478,15 +474,6 @@ public final class AppSetupPreparerTest {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
         doThrow(e).when(installer).setUp(any());
         return installer;
-    }
-
-    private File createPackageFile(String packageName, String apkName) throws IOException {
-        Path packageDir =
-                Files.createDirectories(
-                        Paths.get(tempFolder.newFolder("any").getAbsolutePath(), packageName));
-        Files.createFile(packageDir.resolve(apkName));
-
-        return packageDir.toFile();
     }
 
     private static ITestDevice createUnavailableDevice() throws Exception {

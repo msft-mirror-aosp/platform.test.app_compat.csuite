@@ -54,7 +54,6 @@ public final class ModuleGeneratorTest {
     private static final String TEST_PACKAGE_NAME1 = "test.package.name1";
     private static final String TEST_PACKAGE_NAME2 = "test.package.name2";
     private static final String TEST_PACKAGE_NAME3 = "test.package.name3";
-    private static final String PACKAGE_PLACEHOLDER = "{package}";
     private static final Exception NO_EXCEPTION = null;
 
     private final FileSystem mFileSystem =
