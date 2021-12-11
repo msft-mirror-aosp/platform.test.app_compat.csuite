@@ -25,6 +25,7 @@ import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.ITestLogger;
+import com.android.tradefed.result.error.DeviceErrorIdentifier;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
 import com.android.tradefed.util.AaptParser.AaptVersion;
@@ -67,6 +68,7 @@ import java.util.Map;
 @RunWith(JUnit4.class)
 public final class AppSetupPreparerTest {
     private static final Answer<Object> EMPTY_ANSWER = (i) -> null;
+    private static final DeviceErrorIdentifier NULL_DEVICE_ERROR_ID = null;
 
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
@@ -116,7 +118,10 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_withinRetryLimit_doesNotThrowException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doThrow(new TargetSetupError("Still failing")).doNothing().when(installer).setUp(any());
+        doThrow(new TargetSetupError("Still failing", NULL_DEVICE_ERROR_ID))
+                .doNothing()
+                .when(installer)
+                .setUp(any());
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
@@ -129,8 +134,8 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_exceedsRetryLimit_throwsException() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-        doThrow(new TargetSetupError("Still failing"))
-                .doThrow(new TargetSetupError("Still failing"))
+        doThrow(new TargetSetupError("Still failing", NULL_DEVICE_ERROR_ID))
+                .doThrow(new TargetSetupError("Still failing", NULL_DEVICE_ERROR_ID))
                 .doNothing()
                 .when(installer)
                 .setUp(any());
@@ -255,7 +260,8 @@ public final class AppSetupPreparerTest {
                 new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
+                                        new TargetSetupError(
+                                                "Connection reset by peer.", NULL_DEVICE_ERROR_ID)))
                         .setOption(AppSetupPreparer.OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS, "1")
                         .build();
         ITestDevice device = createUnavailableDevice();
@@ -270,7 +276,8 @@ public final class AppSetupPreparerTest {
                 new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
+                                        new TargetSetupError(
+                                                "Connection reset by peer.", NULL_DEVICE_ERROR_ID)))
                         .setOption(AppSetupPreparer.OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS, "1")
                         .build();
         ITestDevice device = createAvailableDevice();
@@ -284,7 +291,8 @@ public final class AppSetupPreparerTest {
                 new PreparerBuilder()
                         .setInstaller(
                                 mockInstallerThatThrows(
-                                        new TargetSetupError("Connection reset by peer.")))
+                                        new TargetSetupError(
+                                                "Connection reset by peer.", NULL_DEVICE_ERROR_ID)))
                         .setOption(AppSetupPreparer.OPTION_WAIT_FOR_DEVICE_AVAILABLE_SECONDS, "-1")
                         .build();
         ITestDevice device = createUnavailableDevice();
@@ -410,7 +418,9 @@ public final class AppSetupPreparerTest {
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setSleeper(fakeSleeper)
-                        .setInstaller(mockInstallerThatThrows(new TargetSetupError("Oops")))
+                        .setInstaller(
+                                mockInstallerThatThrows(
+                                        new TargetSetupError("Oops", NULL_DEVICE_ERROR_ID)))
                         .setOption(
                                 AppSetupPreparer.OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS, "0")
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "1")
@@ -426,7 +436,9 @@ public final class AppSetupPreparerTest {
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setSleeper(fakeSleeper)
-                        .setInstaller(mockInstallerThatThrows(new TargetSetupError("Oops")))
+                        .setInstaller(
+                                mockInstallerThatThrows(
+                                        new TargetSetupError("Oops", NULL_DEVICE_ERROR_ID)))
                         .setOption(
                                 AppSetupPreparer.OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS, "3")
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "3")
@@ -444,7 +456,9 @@ public final class AppSetupPreparerTest {
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setSleeper(fakeSleeper)
-                        .setInstaller(mockInstallerThatThrows(new TargetSetupError("Oops")))
+                        .setInstaller(
+                                mockInstallerThatThrows(
+                                        new TargetSetupError("Oops", NULL_DEVICE_ERROR_ID)))
                         .setOption(
                                 AppSetupPreparer.OPTION_EXPONENTIAL_BACKOFF_MULTIPLIER_SECONDS, "3")
                         .setOption(AppSetupPreparer.OPTION_MAX_RETRY, "3")

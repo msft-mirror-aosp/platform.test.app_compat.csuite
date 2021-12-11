@@ -45,7 +45,6 @@ import java.util.ArrayList;
 
 @RunWith(JUnit4.class)
 public final class CheckGmsPreparerTest {
-
     private CheckGmsPreparer mPreparer;
     private LogCaptor mLogCaptor;
 
