@@ -207,7 +207,7 @@ public final class AppSetupPreparer implements ITargetPreparer {
                     "incremental-block-filter", String.valueOf(mBlockFilterPercentage));
             setter.setOptionValue(
                     "incremental-install-timeout-secs", String.valueOf(mIncrementalTimeout));
-        } catch(ConfigurationException e) {
+        } catch (ConfigurationException e) {
             throw new TargetSetupError(e.getMessage(), e);
         }
 
