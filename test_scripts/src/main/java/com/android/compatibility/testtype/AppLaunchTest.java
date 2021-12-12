@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,11 +38,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
     @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
 
-    /**
-     * @deprecated this option no longer affects the result and splash screen is now always enabled.
-     */
-    @Deprecated static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
-
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
 
@@ -64,17 +59,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
                     "Whether to collect GMS core version information and store the information in"
                             + " test log files.")
     private boolean mCollectGmsVersion;
-
-    @Option(
-            name = ENABLE_SPLASH_SCREEN,
-            description =
-                    "Whether to enable splash screen when launching an package from the"
-                            + " instrumentation test.")
-    @Deprecated
-    /**
-     * @deprecated this option no longer affects the result and splash screen is now always enabled.
-     */
-    private boolean mEnableSplashScreen;
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
