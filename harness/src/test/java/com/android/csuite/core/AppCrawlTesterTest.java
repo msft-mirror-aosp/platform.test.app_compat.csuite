@@ -57,137 +57,126 @@ public final class AppCrawlTesterTest {
     IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
 
     @Test
-    public void startCrawl_withSplitApksDirectory_doesNotThrowException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_withSplitApksDirectory_doesNotThrowException() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
 
-        suj.startCrawl(mTestInfo, createApkPathWithSplitApks(), "package.name");
+        suj.start();
     }
 
     @Test
-    public void startCrawl_credentialIsProvidedToCrawler() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_credentialIsProvidedToCrawler() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
 
-        suj.startCrawl(mTestInfo, createApkPathWithSplitApks(), "package.name");
+        suj.start();
 
         Mockito.verify(mRunUtil)
                 .setEnvVariable(Mockito.eq("GOOGLE_APPLICATION_CREDENTIALS"), Mockito.anyString());
     }
 
     @Test
-    public void startCrawl_withSplitApksInSubDirectory_doesNotThrowException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_withSplitApksInSubDirectory_doesNotThrowException() throws Exception {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createDirectories(root.resolve("sub"));
         Files.createFile(root.resolve("sub").resolve("base.apk"));
         Files.createFile(root.resolve("sub").resolve("config.apk"));
+        AppCrawlTester suj = createPreparedTestSubject(root);
 
-        suj.startCrawl(mTestInfo, root, "package.name");
+        suj.start();
     }
 
     @Test
-    public void startCrawl_withSingleSplitApkDirectory_doesNotThrowException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_withSingleSplitApkDirectory_doesNotThrowException() throws Exception {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("base.apk"));
+        AppCrawlTester suj = createPreparedTestSubject(root);
 
-        suj.startCrawl(mTestInfo, root, "package.name");
+        suj.start();
     }
 
     @Test
-    public void startCrawl_withSingleApkDirectory_doesNotThrowException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_withSingleApkDirectory_doesNotThrowException() throws Exception {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("single.apk"));
+        AppCrawlTester suj = createPreparedTestSubject(root);
 
-        suj.startCrawl(mTestInfo, root, "package.name");
+        suj.start();
     }
 
     @Test
-    public void startCrawl_withSingleApkFile_doesNotThrowException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_withSingleApkFile_doesNotThrowException() throws Exception {
         Path root = mFileSystem.getPath("single.apk");
         Files.createFile(root);
+        AppCrawlTester suj = createPreparedTestSubject(root);
 
-        suj.startCrawl(mTestInfo, root, "package.name");
+        suj.start();
     }
 
     @Test
-    public void startCrawl_withApkDirectoryContainingOtherFileTypes_doesNotThrowException()
+    public void start_withApkDirectoryContainingOtherFileTypes_doesNotThrowException()
             throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("single.apk"));
         Files.createFile(root.resolve("single.not_apk"));
+        AppCrawlTester suj = createPreparedTestSubject(root);
 
-        suj.startCrawl(mTestInfo, root, "package.name");
+        suj.start();
     }
 
     @Test
-    public void startCrawl_withApkDirectoryContainingNoApks_throwException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_withApkDirectoryContainingNoApks_throwException() throws Exception {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("single.not_apk"));
+        AppCrawlTester suj = createPreparedTestSubject(root);
 
-        assertThrows(
-                AppCrawlTester.CrawlerException.class,
-                () -> suj.startCrawl(mTestInfo, root, "package.name"));
+        assertThrows(AppCrawlTester.CrawlerException.class, () -> suj.start());
     }
 
     @Test
-    public void startCrawl_withNonApkPath_throwException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_withNonApkPath_throwException() throws Exception {
         Path root = mFileSystem.getPath("single.not_apk");
         Files.createFile(root);
+        AppCrawlTester suj = createPreparedTestSubject(root);
 
-        assertThrows(
-                AppCrawlTester.CrawlerException.class,
-                () -> suj.startCrawl(mTestInfo, root, "package.name"));
+        assertThrows(AppCrawlTester.CrawlerException.class, () -> suj.start());
     }
 
     @Test
-    public void startCrawl_withApksInMultipleDirectories_throwException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
+    public void start_withApksInMultipleDirectories_throwException() throws Exception {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createDirectories(root.resolve("1"));
         Files.createDirectories(root.resolve("2"));
         Files.createFile(root.resolve("1").resolve("single.apk"));
         Files.createFile(root.resolve("2").resolve("single.apk"));
+        AppCrawlTester suj = createPreparedTestSubject(root);
 
-        assertThrows(
-                AppCrawlTester.CrawlerException.class,
-                () -> suj.startCrawl(mTestInfo, root, "package.name"));
+        assertThrows(AppCrawlTester.CrawlerException.class, () -> suj.start());
     }
 
     @Test
-    public void startCrawl_preparerNotRun_throwsException() {
-        AppCrawlTester suj = createNotPreparedTestSubject();
+    public void start_preparerNotRun_throwsException() throws Exception {
+        AppCrawlTester suj = createNotPreparedTestSubject(createApkPathWithSplitApks());
 
-        assertThrows(
-                AppCrawlTester.CrawlerException.class,
-                () -> suj.startCrawl(mTestInfo, createApkPathWithSplitApks(), "package.name"));
+        assertThrows(AppCrawlTester.CrawlerException.class, () -> suj.start());
     }
 
     @Test
-    public void startCrawl_alreadyRun_throwsException() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
-        Path apk = createApkPathWithSplitApks();
-        suj.startCrawl(mTestInfo, apk, "package.name");
+    public void start_alreadyRun_throwsException() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.start();
 
-        assertThrows(
-                AppCrawlTester.CrawlerException.class,
-                () -> suj.startCrawl(mTestInfo, apk, "package.name"));
+        assertThrows(AppCrawlTester.CrawlerException.class, () -> suj.start());
     }
 
     @Test
     public void cleanUp_removesOutputDirectory() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
-        suj.startCrawl(mTestInfo, createApkPathWithSplitApks(), "package.name");
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.start();
         assertTrue(Files.exists(suj.mOutput));
 
         suj.cleanUp();
@@ -197,8 +186,8 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void createCrawlerRunCommand_containsRequiredCrawlerParams() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
-        suj.startCrawl(mTestInfo, createApkPathWithSplitApks(), "package.name");
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.start();
         List<Path> apks = Arrays.asList(Path.of("some.apk"));
 
         String[] result = suj.createCrawlerRunCommand(mTestInfo, apks);
@@ -211,8 +200,8 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void createCrawlerRunCommand_crawlerIsExecutedThroughJavaJar() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
-        suj.startCrawl(mTestInfo, createApkPathWithSplitApks(), "package.name");
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.start();
         List<Path> apks = Arrays.asList(Path.of("some.apk"));
 
         String[] result = suj.createCrawlerRunCommand(mTestInfo, apks);
@@ -224,8 +213,8 @@ public final class AppCrawlTesterTest {
     @Test
     public void createCrawlerRunCommand_splitApksProvided_useApkFileAndSplitApkFilesParams()
             throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
-        suj.startCrawl(mTestInfo, createApkPathWithSplitApks(), "package.name");
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.start();
         List<Path> apks =
                 Arrays.asList(Path.of("base.apk"), Path.of("config1.apk"), Path.of("config2.apk"));
 
@@ -242,8 +231,8 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void createCrawlerRunCommand_doesNotContainNullOrEmptyStrings() throws Exception {
-        AppCrawlTester suj = createPreparedTestSubject();
-        suj.startCrawl(mTestInfo, createApkPathWithSplitApks(), "package.name");
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.start();
         List<Path> apks =
                 Arrays.asList(Path.of("base.apk"), Path.of("config1.apk"), Path.of("config2.apk"));
 
@@ -273,20 +262,20 @@ public final class AppCrawlTesterTest {
         preparer.setUp(mTestInfo);
     }
 
-    private AppCrawlTester createNotPreparedTestSubject() {
+    private AppCrawlTester createNotPreparedTestSubject(Path apkPath) {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
-        return new AppCrawlTester(() -> mRunUtil);
+        return new AppCrawlTester(apkPath, "package.name", mTestInfo, () -> mRunUtil);
     }
 
-    private AppCrawlTester createPreparedTestSubject()
+    private AppCrawlTester createPreparedTestSubject(Path apkPath)
             throws IOException, ConfigurationException, TargetSetupError {
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
         simulatePreparerWasExecutedSuccessfully();
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
-        return new AppCrawlTester(() -> mRunUtil);
+        return new AppCrawlTester(apkPath, "package.name", mTestInfo, () -> mRunUtil);
     }
 
     private TestInformation createTestInfo() {

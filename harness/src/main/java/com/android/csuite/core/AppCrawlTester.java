@@ -42,16 +42,35 @@ import java.util.stream.Stream;
 /** A tester that interact with an app crawler during testing. */
 public final class AppCrawlTester {
     @VisibleForTesting Path mOutput;
-    private RunUtilProvider mRunUtilProvider;
+    private final RunUtilProvider mRunUtilProvider;
+    private final TestInformation mTestInfo;
+    private final String mPackageName;
+    private final Path mApkRoot;
     private static final long COMMAND_TIMEOUT_MILLIS = 4 * 60 * 1000;
 
-    public static AppCrawlTester newInstance() {
-        return new AppCrawlTester(() -> new RunUtil());
+    /**
+     * Creates an {@link AppCrawlTester} instance.
+     *
+     * @param testInfo TradeFed test information
+     * @param apkRoot The root path for an apk or a directory that contains apk files for a package.
+     * @param packageName The package name of the apk files.
+     * @return an {@link AppCrawlTester} instance.
+     */
+    public static AppCrawlTester newInstance(
+            Path apkRoot, String packageName, TestInformation testInfo) {
+        return new AppCrawlTester(apkRoot, packageName, testInfo, () -> new RunUtil());
     }
 
     @VisibleForTesting
-    AppCrawlTester(RunUtilProvider runUtilProvider) {
+    AppCrawlTester(
+            Path apkRoot,
+            String packageName,
+            TestInformation testInfo,
+            RunUtilProvider runUtilProvider) {
         mRunUtilProvider = runUtilProvider;
+        mApkRoot = apkRoot;
+        mPackageName = packageName;
+        mTestInfo = testInfo;
     }
 
     /** An exception class representing crawler test failures. */
@@ -88,15 +107,11 @@ public final class AppCrawlTester {
     /**
      * Starts a crawler run on the configured app.
      *
-     * @param testInfo TradeFed test information
-     * @param apkRoot The root path for an apk or a directory that contains apk files for a package.
-     * @param packageName The package name of the apk files.
      * @throws CrawlerException When the crawler was not set up correctly or the crawler run command
      *     failed.
      */
-    public void startCrawl(TestInformation testInfo, Path apkRoot, String packageName)
-            throws CrawlerException {
-        if (!AppCrawlTesterPreparer.isReady(testInfo)) {
+    public void start() throws CrawlerException {
+        if (!AppCrawlTesterPreparer.isReady(mTestInfo)) {
             throw new CrawlerException(
                     "The "
                             + AppCrawlTesterPreparer.class.getName()
@@ -118,22 +133,22 @@ public final class AppCrawlTester {
             throw new CrawlerException("Failed to create temp directory for output.", e);
         }
 
-        List<Path> apks = getApks(apkRoot);
-        String[] command = createCrawlerRunCommand(testInfo, apks);
+        List<Path> apks = getApks(mApkRoot);
+        String[] command = createCrawlerRunCommand(mTestInfo, apks);
 
-        CLog.d("Launching package: %s.", packageName);
+        CLog.d("Launching package: %s.", mPackageName);
 
         IRunUtil runUtil = mRunUtilProvider.get();
 
         runUtil.setEnvVariable(
                 "GOOGLE_APPLICATION_CREDENTIALS",
-                AppCrawlTesterPreparer.getCredentialPath(testInfo).toString());
+                AppCrawlTesterPreparer.getCredentialPath(mTestInfo).toString());
         CommandResult res = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, command);
         if (!res.getStatus().equals(CommandStatus.SUCCESS)) {
             throw new CrawlerException("Crawler command failed: " + res);
         }
 
-        CLog.i("Completed crawling the package %s. Outputs: %s", packageName, res);
+        CLog.i("Completed crawling the package %s. Outputs: %s", mPackageName, res);
     }
 
     /**
@@ -150,7 +165,7 @@ public final class AppCrawlTester {
         // Compress the crawler output directory and add it to test outputs.
         try {
             File outputZip = ZipUtil.createZip(mOutput.toFile());
-            baseTest.addTestArtifact("crawler_output", LogDataType.ZIP, outputZip);
+            baseTest.addTestArtifact(mPackageName + "-crawler_output", LogDataType.ZIP, outputZip);
         } catch (IOException e) {
             CLog.e("Failed to zip the output directory: " + e);
         }
