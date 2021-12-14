@@ -65,8 +65,7 @@ public class AppCrawlTest extends AbstractCSuiteTest {
      */
     @Override
     protected void run() throws DeviceNotAvailableException {
-        AppCrawlTester crawler =
-                AppCrawlTester.newInstance(mApk.toPath(), mPackageName, getTestInfo());
+        AppCrawlTester crawler = AppCrawlTester.newInstance(mApk.toPath(), mPackageName, this);
         TestUtils testUtils = TestUtils.getInstance(this);
 
         if (mCollectGmsVersion) {
@@ -89,7 +88,6 @@ public class AppCrawlTest extends AbstractCSuiteTest {
         }
 
         getDevice().uninstallPackage(mPackageName);
-        crawler.collectOutputZip(this);
         crawler.cleanUp();
     }
 
