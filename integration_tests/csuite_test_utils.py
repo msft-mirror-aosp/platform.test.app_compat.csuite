@@ -182,7 +182,7 @@ class Adb:
     return [l.split(':')[1] for l in p.stdout.splitlines()]
 
 
-def _run_command(args, check=True, **kwargs) -> subprocess.CompletedProcess:
+def _run_command(args, check=False, **kwargs) -> subprocess.CompletedProcess:
   """A wrapper for subprocess.run that overrides defaults and adds logging."""
   env = kwargs.get('env', {})
 
