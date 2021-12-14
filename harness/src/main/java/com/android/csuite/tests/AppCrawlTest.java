@@ -119,7 +119,8 @@ public class AppCrawlTest extends AbstractCSuiteTest {
         if (!failureMessages.isEmpty()) {
             testFailed(
                     String.join(
-                            "\n\n", failureMessages.toArray(new String[failureMessages.size()])));
+                            "\n============\n",
+                            failureMessages.toArray(new String[failureMessages.size()])));
         }
     }
 
