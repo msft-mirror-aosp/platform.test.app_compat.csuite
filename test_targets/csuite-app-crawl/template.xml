@@ -20,7 +20,8 @@
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
         <option name="run-command" value="input keyevent KEYCODE_HOME"/>
     </target_preparer>
-    <test class="com.android.csuite.tests.AppCrawlTest">
-        <option name="apk" value="app://{package}"/>
+    <test class="com.android.tradefed.testtype.HostTest" >
+        <option name="set-option" value="apk:app://{package}"/>
+        <option name="class" value="com.android.csuite.tests.AppCrawlTest" />
     </test>
 </configuration>
