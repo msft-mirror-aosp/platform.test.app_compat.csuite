@@ -39,9 +39,11 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
         test_app_package=test_app_package,
         test_app_module='csuite_no_crash_test_app')
 
-    self.expect_regex(completed_process.stdout, r"""PASSED\s*:\s*1""")
-    self.expect_app_launched(test_app_package)
-    self.expect_package_not_installed(test_app_package)
+    self.expect_regex(completed_process.stdout, r"""PASSED\s*:\s*1""",
+                      msg=str(completed_process))
+    self.expect_app_launched(test_app_package, msg=str(completed_process))
+    self.expect_package_not_installed(test_app_package,
+                                      msg=str(completed_process))
 
   def test_crash_on_launch_test_fails(self):
     test_app_package = 'android.csuite.crashonlaunchtestapp'
@@ -51,9 +53,11 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
         test_app_package=test_app_package,
         test_app_module='csuite_crash_on_launch_test_app')
 
-    self.expect_regex(completed_process.stdout, r"""FAILED\s*:\s*1""")
-    self.expect_app_launched(test_app_package)
-    self.expect_package_not_installed(test_app_package)
+    self.expect_regex(completed_process.stdout, r"""FAILED\s*:\s*1""",
+                      msg=str(completed_process))
+    self.expect_app_launched(test_app_package, msg=str(completed_process))
+    self.expect_package_not_installed(test_app_package,
+                                      msg=str(completed_process))
 
   def run_test(self, test_app_package, test_app_module):
     """Set up and run the launcher for a given test app."""
@@ -82,21 +86,21 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
         test_app_package
     ])
 
-  def expect_regex(self, s, regex):
+  def expect_regex(self, s, regex, msg=None):
     with self.subTest():
-      self.assertRegex(s, regex)
+      self.assertRegex(s, regex, msg=msg)
 
-  def assert_package_not_installed(self, package_name):
-    self.assertNotIn(package_name, self.adb.list_packages())
+  def assert_package_not_installed(self, package_name, msg=None):
+    self.assertNotIn(package_name, self.adb.list_packages(), msg=msg)
 
-  def expect_package_not_installed(self, package_name):
+  def expect_package_not_installed(self, package_name, msg=None):
     with self.subTest():
-      self.assert_package_not_installed(package_name)
+      self.assert_package_not_installed(package_name, msg=msg)
 
-  def expect_app_launched(self, tag):
+  def expect_app_launched(self, tag, msg=None):
     logcat_process = self.adb.run(['logcat', '-d', '-v', 'brief', '-s', tag])
     with self.subTest():
-      self.assertIn('App launched', logcat_process.stdout)
+      self.assertIn('App launched', logcat_process.stdout, msg=msg)
 
 
 if __name__ == '__main__':
