@@ -75,7 +75,8 @@ public final class TestUtils {
      * @param prefix The file name prefix.
      * @throws DeviceNotAvailableException
      */
-    public void collectScreenRecord(DeviceUtils.RunnerTask job, String prefix)
+    public void collectScreenRecord(
+            DeviceUtils.RunnableThrowingDeviceNotAvailable job, String prefix)
             throws DeviceNotAvailableException {
         File video = mDeviceUtils.runWithScreenRecording(job);
         if (video != null) {
