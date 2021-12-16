@@ -66,7 +66,7 @@ public class AppLaunchTest extends AbstractCSuiteTest {
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
-    private int mAppLaunchTimeoutMs = 5000;
+    private int mAppLaunchTimeoutMs = 15000;
 
     public AppLaunchTest() {
         this(null);
