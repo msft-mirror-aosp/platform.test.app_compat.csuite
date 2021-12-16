@@ -90,6 +90,10 @@ class CSuiteHarness(contextlib.AbstractContextManager):
     # connected device that wasn't explicitly specified.
     env.pop('ANDROID_SERIAL', None)
 
+    # Unset environment variables that might cause the TradeFed to load classes
+    # that weren't included in the standalone suite zip.
+    env.pop('TF_GLOBAL_CONFIG', None)
+
     # Set the environment variable that TradeFed requires to find test modules.
     env['ANDROID_TARGET_OUT_TESTCASES'] = self._testcases_dir
 
