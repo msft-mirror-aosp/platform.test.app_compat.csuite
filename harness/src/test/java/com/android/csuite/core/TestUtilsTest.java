@@ -27,7 +27,6 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
@@ -188,37 +187,6 @@ public final class TestUtilsTest {
     }
 
     @Test
-    public void getDropboxPackageCrashedLog_instrumentationTestFailed_returnsCrashLog()
-            throws Exception {
-        String stackTrace = "test failed";
-        TestUtils sut =
-                new TestUtils(
-                        createBaseTest(),
-                        DeviceUtils.getInstance(mMockDevice),
-                        () -> createFailingInstrumentationTest(stackTrace));
-        when(mMockDevice.executeShellV2Command(
-                        Mockito.startsWith(DeviceUtils.RESET_PACKAGE_COMMAND_PREFIX)))
-                .thenReturn(createSuccessfulCommandResult());
-
-        String result = sut.getDropboxPackageCrashedLog(TEST_PACKAGE_NAME, 0);
-
-        assertThat(result).isEqualTo(stackTrace);
-    }
-
-    @Test
-    public void getDropboxPackageCrashedLog_instrumentationTestPassed_returnsNull()
-            throws Exception {
-        TestUtils sut = createSubjectUnderTest();
-        when(mMockDevice.executeShellV2Command(
-                        Mockito.startsWith(DeviceUtils.RESET_PACKAGE_COMMAND_PREFIX)))
-                .thenReturn(createSuccessfulCommandResult());
-
-        String result = sut.getDropboxPackageCrashedLog(TEST_PACKAGE_NAME, 0);
-
-        assertThat(result).isNull();
-    }
-
-    @Test
     public void isPackageProcessRunning_processIsRunning_returnsTrue() throws Exception {
         TestUtils sut = createSubjectUnderTest();
         when(mMockDevice.executeShellV2Command(Mockito.startsWith("pidof")))
@@ -256,22 +224,58 @@ public final class TestUtilsTest {
     @Test
     public void getDropboxPackageCrashLog_noEntries_returnsNull() throws Exception {
         DeviceUtils util = Mockito.mock(DeviceUtils.class);
-        TestUtils sut =
-                new TestUtils(createBaseTest(), util, () -> createPassingInstrumentationTest());
+        TestUtils sut = new TestUtils(createBaseTest(), util);
         when(util.getDropboxEntries(Mockito.any())).thenReturn(List.of());
         long startTime = 0;
 
-        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime);
+        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
 
         assertThat(result).isNull();
+    }
+
+    @Test
+    public void getDropboxPackageCrashLog_noEntries_doesNotSaveOutput() throws Exception {
+        DeviceUtils util = Mockito.mock(DeviceUtils.class);
+        TestUtils sut = new TestUtils(createBaseTest(), util);
+        when(util.getDropboxEntries(Mockito.any())).thenReturn(List.of());
+        long startTime = 0;
+        boolean saveToFile = true;
+
+        sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, saveToFile);
+
+        Mockito.verify(mMockListener, Mockito.never())
+                .testLog(Mockito.contains("dropbox"), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void getDropboxPackageCrashLog_appCrashed_saveOutput() throws Exception {
+        DeviceUtils util = Mockito.mock(DeviceUtils.class);
+        TestUtils sut = new TestUtils(createBaseTest(), util);
+        when(util.getDropboxEntries(Mockito.any()))
+                .thenReturn(
+                        List.of(
+                                new DeviceUtils.DropboxEntry(
+                                        2,
+                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                .toArray(
+                                                        new String
+                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                                        .size()])[0],
+                                        TEST_PACKAGE_NAME)));
+        long startTime = 0;
+        boolean saveToFile = true;
+
+        sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, saveToFile);
+
+        Mockito.verify(mMockListener, Mockito.times(1))
+                .testLog(Mockito.contains("dropbox"), Mockito.any(), Mockito.any());
     }
 
     @Test
     public void getDropboxPackageCrashLog_containsOldEntries_onlyReturnsNewEntries()
             throws Exception {
         DeviceUtils util = Mockito.mock(DeviceUtils.class);
-        TestUtils sut =
-                new TestUtils(createBaseTest(), util, () -> createPassingInstrumentationTest());
+        TestUtils sut = new TestUtils(createBaseTest(), util);
         long startTime = 1;
         when(util.getDropboxEntries(Mockito.any()))
                 .thenReturn(
@@ -293,7 +297,7 @@ public final class TestUtilsTest {
                                                                         .size()])[0],
                                         TEST_PACKAGE_NAME + "entry2")));
 
-        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime);
+        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
 
         assertThat(result).doesNotContain("entry1");
         assertThat(result).contains("entry2");
@@ -303,8 +307,7 @@ public final class TestUtilsTest {
     public void getDropboxPackageCrashLog_containsOtherProcessEntries_onlyReturnsPackageEntries()
             throws Exception {
         DeviceUtils util = Mockito.mock(DeviceUtils.class);
-        TestUtils sut =
-                new TestUtils(createBaseTest(), util, () -> createPassingInstrumentationTest());
+        TestUtils sut = new TestUtils(createBaseTest(), util);
         long startTime = 1;
         when(util.getDropboxEntries(Mockito.any()))
                 .thenReturn(
@@ -326,41 +329,14 @@ public final class TestUtilsTest {
                                                                         .size()])[0],
                                         TEST_PACKAGE_NAME + "entry2")));
 
-        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime);
+        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
 
         assertThat(result).doesNotContain("entry1");
         assertThat(result).contains("entry2");
     }
 
     private TestUtils createSubjectUnderTest() {
-        return new TestUtils(
-                createBaseTest(),
-                DeviceUtils.getInstance(mMockDevice),
-                () -> createPassingInstrumentationTest());
-    }
-
-    private static InstrumentationTest createFailingInstrumentationTest(String stackTrace) {
-        InstrumentationTest instrumentation =
-                new InstrumentationTest() {
-                    @Override
-                    public void run(
-                            final TestInformation testInfo, final ITestInvocationListener listener)
-                            throws DeviceNotAvailableException {
-                        listener.testFailed(new TestDescription("", ""), stackTrace);
-                    }
-                };
-        return instrumentation;
-    }
-
-    private static InstrumentationTest createPassingInstrumentationTest() {
-        InstrumentationTest instrumentation =
-                new InstrumentationTest() {
-                    @Override
-                    public void run(
-                            final TestInformation testInfo, final ITestInvocationListener listener)
-                            throws DeviceNotAvailableException {}
-                };
-        return instrumentation;
+        return new TestUtils(createBaseTest(), DeviceUtils.getInstance(mMockDevice));
     }
 
     private static CommandResult createSuccessfulCommandResult() {

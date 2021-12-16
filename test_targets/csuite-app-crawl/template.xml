@@ -13,16 +13,14 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.csuite.crash_check">
-    <uses-sdk android:minSdkVersion="21"
-              android:targetSdkVersion="21" />
-    <application />
-    <uses-permission android:name="android.permission.READ_LOGS" />
-    <uses-permission android:name="android.permission.REAL_GET_TASKS" />
-    <instrumentation
-        android:name=".AppCrashCheckTestRunner"
-        android:targetPackage="com.android.csuite.crash_check"
-        android:label="App Crash Check Test Runner" />
-</manifest>
+<configuration description="C-Suite Crawler test configuration">
+    <option name="package-name" value="{package}"/>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
+        <option name="run-command" value="input keyevent KEYCODE_MENU"/>
+        <option name="run-command" value="input keyevent KEYCODE_HOME"/>
+    </target_preparer>
+    <test class="com.android.csuite.tests.AppCrawlTest">
+        <option name="apk" value="app://{package}"/>
+    </test>
+</configuration>

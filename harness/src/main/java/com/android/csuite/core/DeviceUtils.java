@@ -96,10 +96,10 @@ public class DeviceUtils {
     }
 
     /**
-     * A task that throws DeviceNotAvailableException. Use this interface instead of Runnable so
+     * A runnable that throws DeviceNotAvailableException. Use this interface instead of Runnable so
      * that the DeviceNotAvailableException won't need to be handled inside the run() method.
      */
-    public interface RunnerTask {
+    public interface RunnableThrowingDeviceNotAvailable {
         void run() throws DeviceNotAvailableException;
     }
 
@@ -139,7 +139,8 @@ public class DeviceUtils {
      *     from the device.
      * @throws DeviceNotAvailableException When the device is unresponsive.
      */
-    public File runWithScreenRecording(RunnerTask action) throws DeviceNotAvailableException {
+    public File runWithScreenRecording(RunnableThrowingDeviceNotAvailable action)
+            throws DeviceNotAvailableException {
         String videoPath = String.format(VIDEO_PATH_ON_DEVICE_TEMPLATE, new Random().nextInt());
         mDevice.deleteFile(videoPath);
         File video = null;

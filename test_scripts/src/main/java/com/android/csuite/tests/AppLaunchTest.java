@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.compatibility.testtype;
+package com.android.csuite.tests;
 
 import com.android.csuite.core.AbstractCSuiteTest;
 import com.android.csuite.core.DeviceUtils;
@@ -38,11 +38,6 @@ public class AppLaunchTest extends AbstractCSuiteTest {
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
     @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
 
-    /**
-     * @deprecated this option no longer affects the result and splash screen is now always enabled.
-     */
-    @Deprecated static final String ENABLE_SPLASH_SCREEN = "enable-splash-screen";
-
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
 
@@ -65,24 +60,13 @@ public class AppLaunchTest extends AbstractCSuiteTest {
                             + " test log files.")
     private boolean mCollectGmsVersion;
 
-    @Option(
-            name = ENABLE_SPLASH_SCREEN,
-            description =
-                    "Whether to enable splash screen when launching an package from the"
-                            + " instrumentation test.")
-    @Deprecated
-    /**
-     * @deprecated this option no longer affects the result and splash screen is now always enabled.
-     */
-    private boolean mEnableSplashScreen;
-
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
-    private int mAppLaunchTimeoutMs = 5000;
+    private int mAppLaunchTimeoutMs = 15000;
 
     public AppLaunchTest() {
         this(null);
@@ -155,7 +139,7 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         CLog.d("Completed launching package: %s", mPackageName);
 
         try {
-            String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime);
+            String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
             if (crashLog != null) {
                 testFailed(crashLog);
                 return;
