@@ -63,7 +63,6 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
     self.adb.uninstall(test_app_package, check=False)
     self.assert_package_not_installed(test_app_package)
 
-    module_name = self.harness.add_module(test_app_package)
     self.repo.add_package_apks(
         test_app_package, csuite_test_utils.get_test_app_apks(test_app_module))
 
@@ -74,13 +73,13 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
         csuite_test_utils.get_device_serial(),
         'run',
         'commandAndExit',
-        'launch',
-        '-m',
-        module_name,
+        'csuite-app-launch',
         '--enable-module-dynamic-download',
         '--dynamic-download-args',
         '%s:uri-template=file://%s/{package}' %
-        (file_resolver_class, self.repo.get_path())
+        (file_resolver_class, self.repo.get_path()),
+        '--package',
+        test_app_package
     ])
 
   def expect_regex(self, s, regex):
