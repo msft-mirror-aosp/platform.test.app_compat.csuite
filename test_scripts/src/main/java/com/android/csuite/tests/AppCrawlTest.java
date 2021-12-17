@@ -107,7 +107,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
                 failureMessages.add(dropboxCrashLog);
             }
         } catch (IOException e) {
-            Assert.fail("Error while getting dropbox crash log: " + e);
+            failureMessages.add("Error while getting dropbox crash log: " + e.getMessage());
         }
 
         if (crawlerException != null) {
