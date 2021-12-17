@@ -26,7 +26,9 @@ import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,6 +44,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private static final String COLLECT_GMS_VERSION = "collect-gms-version";
     private static final String RECORD_SCREEN = "record-screen";
     @Rule public TestLogData mLogData = new TestLogData();
+    AppCrawlTester mCrawler;
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -70,29 +73,26 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     @Option(name = "package-name", mandatory = true, description = "Package name of testing app.")
     private String mPackageName;
 
-    @Test
-    public void testAppCrash() throws DeviceNotAvailableException {
-        AppCrawlTester crawler =
+    @Before
+    public void setUp() {
+        mCrawler =
                 AppCrawlTester.newInstance(
                         mApk.toPath(), mPackageName, getTestInformation(), mLogData);
-        crawler.setRecordScreen(mRecordScreen);
-        crawler.setCollectGmsVersion(mCollectGmsVersion);
-        crawler.setCollectAppVersion(mCollectAppVersion);
-
-        startAndCheckForCrash(crawler);
-
-        getDevice().uninstallPackage(mPackageName);
-        crawler.cleanUp();
+        mCrawler.setRecordScreen(mRecordScreen);
+        mCrawler.setCollectGmsVersion(mCollectGmsVersion);
+        mCrawler.setCollectAppVersion(mCollectAppVersion);
     }
 
-    private void startAndCheckForCrash(AppCrawlTester crawler) throws DeviceNotAvailableException {
+    @Test
+    public void testAppCrash() throws DeviceNotAvailableException {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         long startTime = deviceUtils.currentTimeMillis();
 
         CrawlerException crawlerException = null;
         try {
-            crawler.start();
+            mCrawler.start();
         } catch (CrawlerException e) {
             crawlerException = e;
         }
@@ -100,11 +100,10 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         ArrayList<String> failureMessages = new ArrayList<>();
 
         try {
-            TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
             String dropboxCrashLog =
                     testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
-            if (dropboxCrashLog
-                    != null) { // Put dropbox crash log on the top of the failure messages.
+            if (dropboxCrashLog != null) {
+                // Put dropbox crash log on the top of the failure messages.
                 failureMessages.add(dropboxCrashLog);
             }
         } catch (IOException e) {
@@ -120,5 +119,11 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
                         "\n============\n",
                         failureMessages.toArray(new String[failureMessages.size()])),
                 failureMessages.isEmpty());
+    }
+
+    @After
+    public void tearDown() throws DeviceNotAvailableException {
+        getDevice().uninstallPackage(mPackageName);
+        mCrawler.cleanUp();
     }
 }
