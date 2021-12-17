@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.compatibility.testtype;
+package com.android.csuite.tests;
 
 import com.android.csuite.core.AbstractCSuiteTest;
 import com.android.csuite.core.DeviceUtils;
