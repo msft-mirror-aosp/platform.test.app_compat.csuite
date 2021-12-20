@@ -126,12 +126,12 @@ public final class AppCrawlTester {
      * @throws DeviceNotAvailableException When device because unavailable.
      */
     public void start() throws CrawlerException, DeviceNotAvailableException {
-        if (!AppCrawlTesterPreparer.isReady(mTestUtils.getTestInformation())) {
+        if (!AppCrawlTesterHostPreparer.isReady(mTestUtils.getTestInformation())) {
             throw new CrawlerException(
                     "The "
-                            + AppCrawlTesterPreparer.class.getName()
+                            + AppCrawlTesterHostPreparer.class.getName()
                             + " is not ready. Please check whether "
-                            + AppCrawlTesterPreparer.class.getName()
+                            + AppCrawlTesterHostPreparer.class.getName()
                             + " was included in the test plan and completed successfully.");
         }
 
@@ -158,7 +158,7 @@ public final class AppCrawlTester {
         AtomicReference<CommandResult> commandResult = new AtomicReference<>();
         runUtil.setEnvVariable(
                 "GOOGLE_APPLICATION_CREDENTIALS",
-                AppCrawlTesterPreparer.getCredentialPath(mTestUtils.getTestInformation())
+                AppCrawlTesterHostPreparer.getCredentialPath(mTestUtils.getTestInformation())
                         .toString());
 
         if (mCollectGmsVersion) {
@@ -312,18 +312,18 @@ public final class AppCrawlTester {
                 Arrays.asList(
                         "java",
                         "-jar",
-                        AppCrawlTesterPreparer.getCrawlerBinPath(testInfo)
+                        AppCrawlTesterHostPreparer.getCrawlerBinPath(testInfo)
                                 .resolve("crawl_launcher_deploy.jar")
                                 .toString(),
                         "--android-sdk-path",
-                        AppCrawlTesterPreparer.getSdkPath(testInfo).toString(),
+                        AppCrawlTesterHostPreparer.getSdkPath(testInfo).toString(),
                         "--device-serial-code",
                         testInfo.getDevice().getSerialNumber(),
                         "--output-dir",
                         mOutput.toString(),
                         "--key-store-file",
                         // Using the publicly known default file name of the debug keystore.
-                        AppCrawlTesterPreparer.getCrawlerBinPath(testInfo)
+                        AppCrawlTesterHostPreparer.getCrawlerBinPath(testInfo)
                                 .resolve("debug.keystore")
                                 .toString(),
                         "--key-store-password",
