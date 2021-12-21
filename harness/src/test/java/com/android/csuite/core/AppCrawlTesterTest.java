@@ -73,12 +73,14 @@ public final class AppCrawlTesterTest {
     @Test
     public void startAndAssertAppNoCrash_noCrashDetected_doesNotThrow() throws Exception {
         AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
-        Mockito.doReturn(1L).when(mDeviceUtils).currentTimeMillis();
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
         String noCrashLog = null;
         Mockito.doReturn(noCrashLog)
                 .when(mTestUtils)
                 .getDropboxPackageCrashLog(
-                        Mockito.anyString(), Mockito.anyLong(), Mockito.anyBoolean());
+                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
 
         suj.startAndAssertAppNoCrash();
     }
@@ -86,11 +88,13 @@ public final class AppCrawlTesterTest {
     @Test
     public void startAndAssertAppNoCrash_dropboxEntriesDetected_throws() throws Exception {
         AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
-        Mockito.doReturn(1L).when(mDeviceUtils).currentTimeMillis();
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
         Mockito.doReturn("crash")
                 .when(mTestUtils)
                 .getDropboxPackageCrashLog(
-                        Mockito.anyString(), Mockito.anyLong(), Mockito.anyBoolean());
+                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
 
         assertThrows(AssertionError.class, () -> suj.startAndAssertAppNoCrash());
     }
@@ -98,12 +102,14 @@ public final class AppCrawlTesterTest {
     @Test
     public void startAndAssertAppNoCrash_crawlerExceptionIsThrown_throws() throws Exception {
         AppCrawlTester suj = createNotPreparedTestSubject(createApkPathWithSplitApks());
-        Mockito.doReturn(1L).when(mDeviceUtils).currentTimeMillis();
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
         String noCrashLog = null;
         Mockito.doReturn(noCrashLog)
                 .when(mTestUtils)
                 .getDropboxPackageCrashLog(
-                        Mockito.anyString(), Mockito.anyLong(), Mockito.anyBoolean());
+                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
 
         assertThrows(AssertionError.class, () -> suj.startAndAssertAppNoCrash());
     }
