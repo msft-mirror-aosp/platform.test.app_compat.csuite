@@ -17,6 +17,7 @@
 package com.android.csuite.tests;
 
 import com.android.csuite.core.DeviceUtils;
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
@@ -129,7 +130,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
-        long startTime = deviceUtils.currentTimeMillis();
+        DeviceTimestamp startTime = deviceUtils.currentTimeMillis();
         try {
             deviceUtils.launchPackage(mPackageName);
         } catch (DeviceUtilsException e) {
