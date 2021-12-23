@@ -65,6 +65,7 @@ public final class AppCrawlTesterTest {
 
     @Before
     public void setUp() throws Exception {
+        Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
         mTestInfo = createTestInfo();
         mTestUtils = createTestUtils();
     }
@@ -384,7 +385,6 @@ public final class AppCrawlTesterTest {
 
     private AppCrawlTester createPreparedTestSubject(Path apkPath)
             throws IOException, ConfigurationException, TargetSetupError {
-        Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
         simulatePreparerWasExecutedSuccessfully();
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
