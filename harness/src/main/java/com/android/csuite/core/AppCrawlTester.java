@@ -16,9 +16,12 @@
 
 package com.android.csuite.core;
 
+import com.android.csuite.core.TestUtils.TestArtifactReceiver;
+import com.android.csuite.core.TestUtils.TestLogDataTestArtifactReceiver;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
@@ -43,7 +46,8 @@ import java.util.stream.Stream;
 public final class AppCrawlTester {
     @VisibleForTesting Path mOutput;
     private final RunUtilProvider mRunUtilProvider;
-    private final AbstractCSuiteTest mTestBase;
+    private final TestInformation mTestInformation;
+    private final TestArtifactReceiver mTestArtifactReceiver;
     private final String mPackageName;
     private final Path mApkRoot;
     private static final long COMMAND_TIMEOUT_MILLIS = 4 * 60 * 1000;
@@ -53,24 +57,35 @@ public final class AppCrawlTester {
      *
      * @param apkRoot The root path for an apk or a directory that contains apk files for a package.
      * @param packageName The package name of the apk files.
-     * @param testBase The test's base class that contains the test information and output receiver.
+     * @param testInformation The TradeFed test information.
+     * @param testLogData The TradeFed test output receiver.
      * @return an {@link AppCrawlTester} instance.
      */
     public static AppCrawlTester newInstance(
-            Path apkRoot, String packageName, AbstractCSuiteTest testBase) {
-        return new AppCrawlTester(apkRoot, packageName, testBase, () -> new RunUtil());
+            Path apkRoot,
+            String packageName,
+            TestInformation testInformation,
+            TestLogData testLogData) {
+        return new AppCrawlTester(
+                apkRoot,
+                packageName,
+                testInformation,
+                new TestLogDataTestArtifactReceiver(testLogData),
+                () -> new RunUtil());
     }
 
     @VisibleForTesting
     AppCrawlTester(
             Path apkRoot,
             String packageName,
-            AbstractCSuiteTest testBase,
+            TestInformation testInformation,
+            TestArtifactReceiver testArtifactReceiver,
             RunUtilProvider runUtilProvider) {
         mRunUtilProvider = runUtilProvider;
         mApkRoot = apkRoot;
         mPackageName = packageName;
-        mTestBase = testBase;
+        mTestInformation = testInformation;
+        mTestArtifactReceiver = testArtifactReceiver;
     }
 
     /** An exception class representing crawler test failures. */
@@ -111,7 +126,7 @@ public final class AppCrawlTester {
      *     failed.
      */
     public void start() throws CrawlerException {
-        if (!AppCrawlTesterPreparer.isReady(mTestBase.getTestInfo())) {
+        if (!AppCrawlTesterPreparer.isReady(mTestInformation)) {
             throw new CrawlerException(
                     "The "
                             + AppCrawlTesterPreparer.class.getName()
@@ -134,7 +149,7 @@ public final class AppCrawlTester {
         }
 
         List<Path> apks = getApks(mApkRoot);
-        String[] command = createCrawlerRunCommand(mTestBase.getTestInfo(), apks);
+        String[] command = createCrawlerRunCommand(mTestInformation, apks);
 
         CLog.d("Launching package: %s.", mPackageName);
 
@@ -142,7 +157,7 @@ public final class AppCrawlTester {
 
         runUtil.setEnvVariable(
                 "GOOGLE_APPLICATION_CREDENTIALS",
-                AppCrawlTesterPreparer.getCredentialPath(mTestBase.getTestInfo()).toString());
+                AppCrawlTesterPreparer.getCredentialPath(mTestInformation).toString());
         CommandResult res = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, command);
         collectOutputZip();
         collectCrawlStepScreenshots();
@@ -173,7 +188,7 @@ public final class AppCrawlTester {
             files.filter(path -> path.getFileName().toString().toLowerCase().endsWith(".png"))
                     .forEach(
                             path -> {
-                                mTestBase.addTestArtifact(
+                                mTestArtifactReceiver.addTestArtifact(
                                         mPackageName
                                                 + "-crawl_step_screenshot_"
                                                 + path.getFileName(),
@@ -195,7 +210,8 @@ public final class AppCrawlTester {
         // Compress the crawler output directory and add it to test outputs.
         try {
             File outputZip = ZipUtil.createZip(mOutput.toFile());
-            mTestBase.addTestArtifact(mPackageName + "-crawler_output", LogDataType.ZIP, outputZip);
+            mTestArtifactReceiver.addTestArtifact(
+                    mPackageName + "-crawler_output", LogDataType.ZIP, outputZip);
         } catch (IOException e) {
             CLog.e("Failed to zip the output directory: " + e);
         }
