@@ -76,15 +76,6 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             description = "Time to wait for app to launch in msecs.")
     private int mAppLaunchTimeoutMs = 15000;
 
-    public AppLaunchTest() {
-        this(null);
-    }
-
-    @VisibleForTesting
-    AppLaunchTest(String packageName) {
-        mPackageName = packageName;
-    }
-
     @Before
     public void setUp() throws DeviceNotAvailableException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
