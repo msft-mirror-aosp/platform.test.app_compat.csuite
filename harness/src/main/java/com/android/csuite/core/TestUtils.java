@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** A utility class that contains common methods used by tests. */
-public final class TestUtils {
+public class TestUtils {
     private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
     private final TestInformation mTestInformation;
     private final TestArtifactReceiver mTestArtifactReceiver;
@@ -51,6 +51,14 @@ public final class TestUtils {
         return new TestUtils(
                 testInformation,
                 new TestLogDataTestArtifactReceiver(testLogData),
+                DeviceUtils.getInstance(testInformation.getDevice()));
+    }
+
+    public static TestUtils getInstance(
+            TestInformation testInformation, TestArtifactReceiver testArtifactReceiver) {
+        return new TestUtils(
+                testInformation,
+                testArtifactReceiver,
                 DeviceUtils.getInstance(testInformation.getDevice()));
     }
 
@@ -290,6 +298,16 @@ public final class TestUtils {
                 (first, second) -> first.getFileName().toString().equals("base.apk") ? -1 : 0);
 
         return apks;
+    }
+
+    /** Returns the test information. */
+    public TestInformation getTestInformation() {
+        return mTestInformation;
+    }
+
+    /** Returns the test artifact receiver. */
+    public TestArtifactReceiver getTestArtifactReceiver() {
+        return mTestArtifactReceiver;
     }
 
     /** An exception class representing crawler test failures. */
