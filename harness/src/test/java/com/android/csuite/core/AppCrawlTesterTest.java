@@ -61,11 +61,50 @@ public final class AppCrawlTesterTest {
     private final IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
     private TestInformation mTestInfo;
     private TestUtils mTestUtils;
+    private DeviceUtils mDeviceUtils = Mockito.spy(DeviceUtils.getInstance(mDevice));
 
     @Before
     public void setUp() throws Exception {
         mTestInfo = createTestInfo();
         mTestUtils = createTestUtils();
+    }
+
+    @Test
+    public void startAndAssertAppNoCrash_noCrashDetected_doesNotThrow() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        Mockito.doReturn(1L).when(mDeviceUtils).currentTimeMillis();
+        String noCrashLog = null;
+        Mockito.doReturn(noCrashLog)
+                .when(mTestUtils)
+                .getDropboxPackageCrashLog(
+                        Mockito.anyString(), Mockito.anyLong(), Mockito.anyBoolean());
+
+        suj.startAndAssertAppNoCrash();
+    }
+
+    @Test
+    public void startAndAssertAppNoCrash_dropboxEntriesDetected_throws() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        Mockito.doReturn(1L).when(mDeviceUtils).currentTimeMillis();
+        Mockito.doReturn("crash")
+                .when(mTestUtils)
+                .getDropboxPackageCrashLog(
+                        Mockito.anyString(), Mockito.anyLong(), Mockito.anyBoolean());
+
+        assertThrows(AssertionError.class, () -> suj.startAndAssertAppNoCrash());
+    }
+
+    @Test
+    public void startAndAssertAppNoCrash_crawlerExceptionIsThrown_throws() throws Exception {
+        AppCrawlTester suj = createNotPreparedTestSubject(createApkPathWithSplitApks());
+        Mockito.doReturn(1L).when(mDeviceUtils).currentTimeMillis();
+        String noCrashLog = null;
+        Mockito.doReturn(noCrashLog)
+                .when(mTestUtils)
+                .getDropboxPackageCrashLog(
+                        Mockito.anyString(), Mockito.anyLong(), Mockito.anyBoolean());
+
+        assertThrows(AssertionError.class, () -> suj.startAndAssertAppNoCrash());
     }
 
     @Test
@@ -353,7 +392,8 @@ public final class AppCrawlTesterTest {
     }
 
     private TestUtils createTestUtils() throws DeviceNotAvailableException {
-        TestUtils testUtils = Mockito.spy(TestUtils.getInstance(mTestInfo, mTestArtifactReceiver));
+        TestUtils testUtils =
+                Mockito.spy(new TestUtils(mTestInfo, mTestArtifactReceiver, mDeviceUtils));
         Mockito.doAnswer(
                         invocation -> {
                             ((DeviceUtils.RunnableThrowingDeviceNotAvailable)
