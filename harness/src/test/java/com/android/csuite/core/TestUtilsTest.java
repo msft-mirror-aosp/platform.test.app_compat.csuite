@@ -17,16 +17,14 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.FileInputStreamSource;
-import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
-import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
@@ -52,8 +50,10 @@ import java.util.stream.Collectors;
 
 @RunWith(JUnit4.class)
 public final class TestUtilsTest {
-    private final ITestInvocationListener mMockListener = mock(ITestInvocationListener.class);
+    private final TestArtifactReceiver mMockTestArtifactReceiver =
+            Mockito.mock(TestArtifactReceiver.class);
     private final ITestDevice mMockDevice = mock(ITestDevice.class);
+    private final DeviceUtils mMockDeviceUtils = Mockito.mock(DeviceUtils.class);
     private static final String TEST_PACKAGE_NAME = "package_name";
     @Rule public final TemporaryFolder mTempFolder = new TemporaryFolder();
     private final FileSystem mFileSystem =
@@ -217,15 +217,17 @@ public final class TestUtilsTest {
 
         sut.collectScreenshot(TEST_PACKAGE_NAME);
 
-        Mockito.verify(mMockListener, times(1))
-                .testLog(Mockito.contains("screenshot"), Mockito.any(), Mockito.eq(screenshotData));
+        Mockito.verify(mMockTestArtifactReceiver, times(1))
+                .addTestArtifact(
+                        Mockito.contains("screenshot"),
+                        Mockito.any(),
+                        Mockito.any(InputStreamSource.class));
     }
 
     @Test
     public void getDropboxPackageCrashLog_noEntries_returnsNull() throws Exception {
-        DeviceUtils util = Mockito.mock(DeviceUtils.class);
-        TestUtils sut = new TestUtils(createBaseTest(), util);
-        when(util.getDropboxEntries(Mockito.any())).thenReturn(List.of());
+        TestUtils sut = createSubjectUnderTest();
+        when(mMockDeviceUtils.getDropboxEntries(Mockito.any())).thenReturn(List.of());
         long startTime = 0;
 
         String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
@@ -235,23 +237,22 @@ public final class TestUtilsTest {
 
     @Test
     public void getDropboxPackageCrashLog_noEntries_doesNotSaveOutput() throws Exception {
-        DeviceUtils util = Mockito.mock(DeviceUtils.class);
-        TestUtils sut = new TestUtils(createBaseTest(), util);
-        when(util.getDropboxEntries(Mockito.any())).thenReturn(List.of());
+        TestUtils sut = createSubjectUnderTest();
+        when(mMockDeviceUtils.getDropboxEntries(Mockito.any())).thenReturn(List.of());
         long startTime = 0;
         boolean saveToFile = true;
 
         sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, saveToFile);
 
-        Mockito.verify(mMockListener, Mockito.never())
-                .testLog(Mockito.contains("dropbox"), Mockito.any(), Mockito.any());
+        Mockito.verify(mMockTestArtifactReceiver, Mockito.never())
+                .addTestArtifact(
+                        Mockito.contains("dropbox"), Mockito.any(), Mockito.any(byte[].class));
     }
 
     @Test
     public void getDropboxPackageCrashLog_appCrashed_saveOutput() throws Exception {
-        DeviceUtils util = Mockito.mock(DeviceUtils.class);
-        TestUtils sut = new TestUtils(createBaseTest(), util);
-        when(util.getDropboxEntries(Mockito.any()))
+        TestUtils sut = createSubjectUnderTest();
+        when(mMockDeviceUtils.getDropboxEntries(Mockito.any()))
                 .thenReturn(
                         List.of(
                                 new DeviceUtils.DropboxEntry(
@@ -267,17 +268,17 @@ public final class TestUtilsTest {
 
         sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, saveToFile);
 
-        Mockito.verify(mMockListener, Mockito.times(1))
-                .testLog(Mockito.contains("dropbox"), Mockito.any(), Mockito.any());
+        Mockito.verify(mMockTestArtifactReceiver, Mockito.times(1))
+                .addTestArtifact(
+                        Mockito.contains("dropbox"), Mockito.any(), Mockito.any(byte[].class));
     }
 
     @Test
     public void getDropboxPackageCrashLog_containsOldEntries_onlyReturnsNewEntries()
             throws Exception {
-        DeviceUtils util = Mockito.mock(DeviceUtils.class);
-        TestUtils sut = new TestUtils(createBaseTest(), util);
+        TestUtils sut = createSubjectUnderTest();
         long startTime = 1;
-        when(util.getDropboxEntries(Mockito.any()))
+        when(mMockDeviceUtils.getDropboxEntries(Mockito.any()))
                 .thenReturn(
                         List.of(
                                 new DeviceUtils.DropboxEntry(
@@ -306,10 +307,9 @@ public final class TestUtilsTest {
     @Test
     public void getDropboxPackageCrashLog_containsOtherProcessEntries_onlyReturnsPackageEntries()
             throws Exception {
-        DeviceUtils util = Mockito.mock(DeviceUtils.class);
-        TestUtils sut = new TestUtils(createBaseTest(), util);
+        TestUtils sut = createSubjectUnderTest();
         long startTime = 1;
-        when(util.getDropboxEntries(Mockito.any()))
+        when(mMockDeviceUtils.getDropboxEntries(Mockito.any()))
                 .thenReturn(
                         List.of(
                                 new DeviceUtils.DropboxEntry(
@@ -336,7 +336,7 @@ public final class TestUtilsTest {
     }
 
     private TestUtils createSubjectUnderTest() {
-        return new TestUtils(createBaseTest(), DeviceUtils.getInstance(mMockDevice));
+        return new TestUtils(createTestInfo(), mMockTestArtifactReceiver, mMockDeviceUtils);
     }
 
     private static CommandResult createSuccessfulCommandResult() {
@@ -357,24 +357,6 @@ public final class TestUtilsTest {
         commandResult.setStdout("");
         commandResult.setStderr("error");
         return commandResult;
-    }
-
-    private AbstractCSuiteTest createBaseTest() {
-        AbstractCSuiteTest res =
-                new AbstractCSuiteTest(createTestInfo(), mMockListener) {
-
-                    @Override
-                    public void run() throws DeviceNotAvailableException {
-                        // Intentionally left empty
-                    }
-
-                    @Override
-                    public TestDescription createTestDescription() {
-                        return new TestDescription("", "");
-                    }
-                };
-        res.setDevice(mMockDevice);
-        return res;
     }
 
     private TestInformation createTestInfo() {

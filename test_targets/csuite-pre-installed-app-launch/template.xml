@@ -14,12 +14,14 @@
      limitations under the License.
 -->
 <configuration description="Launches an app that exists on the device and check for crashes">
-    <option name="package-name" value="{package}"/>
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
         <option name="run-command" value="input keyevent KEYCODE_HOME"/>
     </target_preparer>
-    <test class="com.android.csuite.tests.AppLaunchTest"/>
+    <test class="com.android.tradefed.testtype.HostTest" >
+        <option name="set-option" value="package-name:{package}"/>
+        <option name="class" value="com.android.csuite.tests.AppLaunchTest" />
+    </test>
 </configuration>

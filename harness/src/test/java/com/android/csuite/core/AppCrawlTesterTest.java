@@ -21,17 +21,16 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
-import com.android.tradefed.result.ITestInvocationListener;
-import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.targetprep.TargetSetupError;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
@@ -53,11 +52,14 @@ import java.util.List;
 
 @RunWith(JUnit4.class)
 public final class AppCrawlTesterTest {
+    private final TestArtifactReceiver mMockTestArtifactReceiver =
+            Mockito.mock(TestArtifactReceiver.class);
     private final FileSystem mFileSystem =
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
-    ITestDevice mDevice = Mockito.mock(ITestDevice.class);
-    TestInformation mTestInfo = createTestInfo();
-    IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
+    private final ITestDevice mDevice = Mockito.mock(ITestDevice.class);
+    private final TestInformation mTestInfo = createTestInfo();
+    private final TestLogData mMockTestLogData = Mockito.mock(TestLogData.class);
+    private final IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
 
     @Test
     public void start_withSplitApksDirectory_doesNotThrowException() throws Exception {
@@ -269,7 +271,8 @@ public final class AppCrawlTesterTest {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
-        return new AppCrawlTester(apkPath, "package.name", createFakeTestBase(), () -> mRunUtil);
+        return new AppCrawlTester(
+                apkPath, "package.name", mTestInfo, mMockTestArtifactReceiver, () -> mRunUtil);
     }
 
     private AppCrawlTester createPreparedTestSubject(Path apkPath)
@@ -278,21 +281,8 @@ public final class AppCrawlTesterTest {
         simulatePreparerWasExecutedSuccessfully();
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
-        return new AppCrawlTester(apkPath, "package.name", createFakeTestBase(), () -> mRunUtil);
-    }
-
-    private AbstractCSuiteTest createFakeTestBase() {
-        return new AbstractCSuiteTest(mTestInfo, Mockito.mock(ITestInvocationListener.class)) {
-            @Override
-            protected void run() throws DeviceNotAvailableException {
-                // Intentionally left blank.
-            }
-
-            @Override
-            protected TestDescription createTestDescription() {
-                return new TestDescription("class", "test");
-            }
-        };
+        return new AppCrawlTester(
+                apkPath, "package.name", mTestInfo, mMockTestArtifactReceiver, () -> mRunUtil);
     }
 
     private TestInformation createTestInfo() {
