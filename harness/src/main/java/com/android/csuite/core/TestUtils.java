@@ -16,6 +16,7 @@
 
 package com.android.csuite.core;
 
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
@@ -168,7 +169,8 @@ public class TestUtils {
      * @throws IOException unexpected IOException
      */
     public String getDropboxPackageCrashLog(
-            String packageName, long startTimeOnDevice, boolean saveToFile) throws IOException {
+            String packageName, DeviceTimestamp startTimeOnDevice, boolean saveToFile)
+            throws IOException {
         BiFunction<String, Integer, String> truncate =
                 (text, maxLines) -> {
                     String[] lines = text.split("\\r?\\n");
@@ -187,7 +189,7 @@ public class TestUtils {
 
         List<DropboxEntry> entries =
                 mDeviceUtils.getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS).stream()
-                        .filter(entry -> (entry.getTime() >= startTimeOnDevice))
+                        .filter(entry -> (entry.getTime() >= startTimeOnDevice.get()))
                         .filter(entry -> entry.getData().contains(packageName))
                         .collect(Collectors.toList());
 

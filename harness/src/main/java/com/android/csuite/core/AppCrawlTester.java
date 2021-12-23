@@ -16,6 +16,7 @@
 
 package com.android.csuite.core;
 
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -126,7 +127,7 @@ public final class AppCrawlTester {
      * @throws DeviceNotAvailableException When device because unavailable.
      */
     public void startAndAssertAppNoCrash() throws DeviceNotAvailableException {
-        long startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
+        DeviceTimestamp startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
         CrawlerException crawlerException = null;
         try {
