@@ -17,6 +17,7 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.device.ITestDevice;
@@ -228,7 +229,7 @@ public final class TestUtilsTest {
     public void getDropboxPackageCrashLog_noEntries_returnsNull() throws Exception {
         TestUtils sut = createSubjectUnderTest();
         when(mMockDeviceUtils.getDropboxEntries(Mockito.any())).thenReturn(List.of());
-        long startTime = 0;
+        DeviceTimestamp startTime = new DeviceTimestamp(0);
 
         String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
 
@@ -239,7 +240,7 @@ public final class TestUtilsTest {
     public void getDropboxPackageCrashLog_noEntries_doesNotSaveOutput() throws Exception {
         TestUtils sut = createSubjectUnderTest();
         when(mMockDeviceUtils.getDropboxEntries(Mockito.any())).thenReturn(List.of());
-        long startTime = 0;
+        DeviceTimestamp startTime = new DeviceTimestamp(0);
         boolean saveToFile = true;
 
         sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, saveToFile);
@@ -263,7 +264,7 @@ public final class TestUtilsTest {
                                                                 [DeviceUtils.DROPBOX_APP_CRASH_TAGS
                                                                         .size()])[0],
                                         TEST_PACKAGE_NAME)));
-        long startTime = 0;
+        DeviceTimestamp startTime = new DeviceTimestamp(0);
         boolean saveToFile = true;
 
         sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, saveToFile);
@@ -277,7 +278,7 @@ public final class TestUtilsTest {
     public void getDropboxPackageCrashLog_containsOldEntries_onlyReturnsNewEntries()
             throws Exception {
         TestUtils sut = createSubjectUnderTest();
-        long startTime = 1;
+        DeviceTimestamp startTime = new DeviceTimestamp(1);
         when(mMockDeviceUtils.getDropboxEntries(Mockito.any()))
                 .thenReturn(
                         List.of(
@@ -308,7 +309,7 @@ public final class TestUtilsTest {
     public void getDropboxPackageCrashLog_containsOtherProcessEntries_onlyReturnsPackageEntries()
             throws Exception {
         TestUtils sut = createSubjectUnderTest();
-        long startTime = 1;
+        DeviceTimestamp startTime = new DeviceTimestamp(1);
         when(mMockDeviceUtils.getDropboxEntries(Mockito.any()))
                 .thenReturn(
                         List.of(
