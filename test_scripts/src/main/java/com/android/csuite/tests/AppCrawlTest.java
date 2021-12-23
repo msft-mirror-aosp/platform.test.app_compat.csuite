@@ -16,24 +16,32 @@
 
 package com.android.csuite.tests;
 
-import com.android.csuite.core.AbstractCSuiteTest;
 import com.android.csuite.core.AppCrawlTester;
 import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import org.junit.Assert;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
 /** A test that verifies that a single app can be successfully launched. */
-public class AppCrawlTest extends AbstractCSuiteTest {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class AppCrawlTest extends BaseHostJUnit4Test {
     private static final String COLLECT_APP_VERSION = "collect-app-version";
     private static final String COLLECT_GMS_VERSION = "collect-gms-version";
     private static final String RECORD_SCREEN = "record-screen";
+    @Rule public TestLogData mLogData = new TestLogData();
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -62,13 +70,12 @@ public class AppCrawlTest extends AbstractCSuiteTest {
     @Option(name = "package-name", mandatory = true, description = "Package name of testing app.")
     private String mPackageName;
 
-    /*
-     * {@inheritDoc}
-     */
-    @Override
-    protected void run() throws DeviceNotAvailableException {
-        AppCrawlTester crawler = AppCrawlTester.newInstance(mApk.toPath(), mPackageName, this);
-        TestUtils testUtils = TestUtils.getInstance(this);
+    @Test
+    public void testAppCrash() throws DeviceNotAvailableException {
+        AppCrawlTester crawler =
+                AppCrawlTester.newInstance(
+                        mApk.toPath(), mPackageName, getTestInformation(), mLogData);
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (mCollectGmsVersion) {
             testUtils.collectGmsVersion(mPackageName);
@@ -108,33 +115,25 @@ public class AppCrawlTest extends AbstractCSuiteTest {
         ArrayList<String> failureMessages = new ArrayList<>();
 
         try {
+            TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
             String dropboxCrashLog =
-                    TestUtils.getInstance(this)
-                            .getDropboxPackageCrashLog(mPackageName, startTime, true);
+                    testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
             if (dropboxCrashLog
                     != null) { // Put dropbox crash log on the top of the failure messages.
                 failureMessages.add(dropboxCrashLog);
             }
         } catch (IOException e) {
-            testFailed("Error while getting dropbox crash log: " + e);
-            return;
+            Assert.fail("Error while getting dropbox crash log: " + e);
         }
 
         if (crawlerException != null) {
             failureMessages.add(crawlerException.getMessage());
         }
 
-        if (!failureMessages.isEmpty()) {
-            testFailed(
-                    String.join(
-                            "\n============\n",
-                            failureMessages.toArray(new String[failureMessages.size()])));
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected TestDescription createTestDescription() {
-        return new TestDescription(getClass().getSimpleName(), mPackageName);
+        Assert.assertTrue(
+                String.join(
+                        "\n============\n",
+                        failureMessages.toArray(new String[failureMessages.size()])),
+                failureMessages.isEmpty());
     }
 }
