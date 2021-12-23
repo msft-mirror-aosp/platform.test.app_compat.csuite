@@ -28,7 +28,9 @@ import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -83,8 +85,8 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         mPackageName = packageName;
     }
 
-    @Test
-    public void testAppCrash() throws DeviceNotAvailableException {
+    @Before
+    public void setUp() throws DeviceNotAvailableException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
@@ -98,8 +100,13 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             testUtils.collectAppVersion(mPackageName);
         }
 
-        deviceUtils.freezeRotation();
         deviceUtils.resetPackage(mPackageName);
+        deviceUtils.freezeRotation();
+    }
+
+    @Test
+    public void testAppCrash() throws DeviceNotAvailableException {
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (mRecordScreen) {
             testUtils.collectScreenRecord(
@@ -110,6 +117,12 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         } else {
             launchPackageAndCheckForCrash();
         }
+    }
+
+    @After
+    public void tearDown() throws DeviceNotAvailableException {
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (mScreenshotAfterLaunch) {
             testUtils.collectScreenshot(mPackageName);
