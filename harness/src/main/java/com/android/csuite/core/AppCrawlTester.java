@@ -30,6 +30,8 @@ import com.android.tradefed.util.ZipUtil;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.MoreFiles;
 
+import org.junit.Assert;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -116,6 +118,45 @@ public final class AppCrawlTester {
         private CrawlerException(Throwable cause) {
             super(cause);
         }
+    }
+
+    /**
+     * Starts crawling the app and throw AssertionError if app crash is detected.
+     *
+     * @throws DeviceNotAvailableException When device because unavailable.
+     */
+    public void startAndAssertAppNoCrash() throws DeviceNotAvailableException {
+        long startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
+
+        CrawlerException crawlerException = null;
+        try {
+            start();
+        } catch (CrawlerException e) {
+            crawlerException = e;
+        }
+
+        ArrayList<String> failureMessages = new ArrayList<>();
+
+        try {
+            String dropboxCrashLog =
+                    mTestUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
+            if (dropboxCrashLog != null) {
+                // Put dropbox crash log on the top of the failure messages.
+                failureMessages.add(dropboxCrashLog);
+            }
+        } catch (IOException e) {
+            failureMessages.add("Error while getting dropbox crash log: " + e.getMessage());
+        }
+
+        if (crawlerException != null) {
+            failureMessages.add(crawlerException.getMessage());
+        }
+
+        Assert.assertTrue(
+                String.join(
+                        "\n============\n",
+                        failureMessages.toArray(new String[failureMessages.size()])),
+                failureMessages.isEmpty());
     }
 
     /**
