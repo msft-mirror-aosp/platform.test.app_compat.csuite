@@ -75,26 +75,11 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         AppCrawlTester crawler =
                 AppCrawlTester.newInstance(
                         mApk.toPath(), mPackageName, getTestInformation(), mLogData);
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+        crawler.setRecordScreen(mRecordScreen);
+        crawler.setCollectGmsVersion(mCollectGmsVersion);
+        crawler.setCollectAppVersion(mCollectAppVersion);
 
-        if (mCollectGmsVersion) {
-            testUtils.collectGmsVersion(mPackageName);
-        }
-
-        if (mRecordScreen) {
-            testUtils.collectScreenRecord(
-                    () -> {
-                        startAndCheckForCrash(crawler);
-                    },
-                    mPackageName);
-        } else {
-            startAndCheckForCrash(crawler);
-        }
-
-        // Must be done after the crawler run because the app is installed.
-        if (mCollectAppVersion) {
-            testUtils.collectAppVersion(mPackageName);
-        }
+        startAndCheckForCrash(crawler);
 
         getDevice().uninstallPackage(mPackageName);
         crawler.cleanUp();

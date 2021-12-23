@@ -25,18 +25,19 @@ import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.TargetSetupError;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 
 import com.google.common.jimfs.Jimfs;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,14 +53,82 @@ import java.util.List;
 
 @RunWith(JUnit4.class)
 public final class AppCrawlTesterTest {
-    private final TestArtifactReceiver mMockTestArtifactReceiver =
+    private final TestArtifactReceiver mTestArtifactReceiver =
             Mockito.mock(TestArtifactReceiver.class);
     private final FileSystem mFileSystem =
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
     private final ITestDevice mDevice = Mockito.mock(ITestDevice.class);
-    private final TestInformation mTestInfo = createTestInfo();
-    private final TestLogData mMockTestLogData = Mockito.mock(TestLogData.class);
     private final IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
+    private TestInformation mTestInfo;
+    private TestUtils mTestUtils;
+
+    @Before
+    public void setUp() throws Exception {
+        mTestInfo = createTestInfo();
+        mTestUtils = createTestUtils();
+    }
+
+    @Test
+    public void start_screenRecordEnabled_screenIsRecorded() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setRecordScreen(true);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.times(1))
+                .collectScreenRecord(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void start_screenRecordDisabled_screenIsNotRecorded() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setRecordScreen(false);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.never())
+                .collectScreenRecord(Mockito.any(), Mockito.anyString());
+    }
+
+    @Test
+    public void start_collectGmsVersionEnabled_versionIsCollected() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setCollectGmsVersion(true);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.times(1)).collectGmsVersion(Mockito.anyString());
+    }
+
+    @Test
+    public void start_collectGmsVersionDisabled_versionIsNotCollected() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setCollectGmsVersion(false);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.never()).collectGmsVersion(Mockito.anyString());
+    }
+
+    @Test
+    public void start_collectAppVersionEnabled_versionIsCollected() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setCollectAppVersion(true);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.times(1)).collectAppVersion(Mockito.anyString());
+    }
+
+    @Test
+    public void start_collectAppVersionDisabled_versionIsNotCollected() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setCollectAppVersion(false);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.never()).collectAppVersion(Mockito.anyString());
+    }
 
     @Test
     public void start_withSplitApksDirectory_doesNotThrowException() throws Exception {
@@ -271,8 +340,7 @@ public final class AppCrawlTesterTest {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
-        return new AppCrawlTester(
-                apkPath, "package.name", mTestInfo, mMockTestArtifactReceiver, () -> mRunUtil);
+        return new AppCrawlTester(apkPath, "package.name", mTestUtils, () -> mRunUtil);
     }
 
     private AppCrawlTester createPreparedTestSubject(Path apkPath)
@@ -281,8 +349,23 @@ public final class AppCrawlTesterTest {
         simulatePreparerWasExecutedSuccessfully();
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
-        return new AppCrawlTester(
-                apkPath, "package.name", mTestInfo, mMockTestArtifactReceiver, () -> mRunUtil);
+        return new AppCrawlTester(apkPath, "package.name", mTestUtils, () -> mRunUtil);
+    }
+
+    private TestUtils createTestUtils() throws DeviceNotAvailableException {
+        TestUtils testUtils = Mockito.spy(TestUtils.getInstance(mTestInfo, mTestArtifactReceiver));
+        Mockito.doAnswer(
+                        invocation -> {
+                            ((DeviceUtils.RunnableThrowingDeviceNotAvailable)
+                                            invocation.getArguments()[0])
+                                    .run();
+                            return null;
+                        })
+                .when(testUtils)
+                .collectScreenRecord(Mockito.any(), Mockito.anyString());
+        Mockito.doNothing().when(testUtils).collectAppVersion(Mockito.anyString());
+        Mockito.doNothing().when(testUtils).collectGmsVersion(Mockito.anyString());
+        return testUtils;
     }
 
     private TestInformation createTestInfo() {
