@@ -322,16 +322,16 @@ public final class AppCrawlTesterTest {
         IRunUtil runUtil = Mockito.mock(IRunUtil.class);
         Mockito.when(runUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
-        AppCrawlTesterPreparer preparer = new AppCrawlTesterPreparer(() -> runUtil);
+        AppCrawlTesterHostPreparer preparer = new AppCrawlTesterHostPreparer(() -> runUtil);
         OptionSetter optionSetter = new OptionSetter(preparer);
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.SDK_TAR_OPTION,
+                AppCrawlTesterHostPreparer.SDK_TAR_OPTION,
                 Files.createDirectories(mFileSystem.getPath("sdk")).toString());
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.CRAWLER_BIN_OPTION,
+                AppCrawlTesterHostPreparer.CRAWLER_BIN_OPTION,
                 Files.createDirectories(mFileSystem.getPath("bin")).toString());
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.CREDENTIAL_JSON_OPTION,
+                AppCrawlTesterHostPreparer.CREDENTIAL_JSON_OPTION,
                 Files.createDirectories(mFileSystem.getPath("cred.json")).toString());
         preparer.setUp(mTestInfo);
     }
