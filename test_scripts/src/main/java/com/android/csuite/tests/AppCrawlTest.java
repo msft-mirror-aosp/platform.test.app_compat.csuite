@@ -17,9 +17,6 @@
 package com.android.csuite.tests;
 
 import com.android.csuite.core.AppCrawlTester;
-import com.android.csuite.core.AppCrawlTester.CrawlerException;
-import com.android.csuite.core.DeviceUtils;
-import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -27,15 +24,12 @@ import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -85,40 +79,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
 
     @Test
     public void testAppCrash() throws DeviceNotAvailableException {
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
-
-        long startTime = deviceUtils.currentTimeMillis();
-
-        CrawlerException crawlerException = null;
-        try {
-            mCrawler.start();
-        } catch (CrawlerException e) {
-            crawlerException = e;
-        }
-
-        ArrayList<String> failureMessages = new ArrayList<>();
-
-        try {
-            String dropboxCrashLog =
-                    testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
-            if (dropboxCrashLog != null) {
-                // Put dropbox crash log on the top of the failure messages.
-                failureMessages.add(dropboxCrashLog);
-            }
-        } catch (IOException e) {
-            failureMessages.add("Error while getting dropbox crash log: " + e.getMessage());
-        }
-
-        if (crawlerException != null) {
-            failureMessages.add(crawlerException.getMessage());
-        }
-
-        Assert.assertTrue(
-                String.join(
-                        "\n============\n",
-                        failureMessages.toArray(new String[failureMessages.size()])),
-                failureMessages.isEmpty());
+        mCrawler.startAndAssertAppNoCrash();
     }
 
     @After

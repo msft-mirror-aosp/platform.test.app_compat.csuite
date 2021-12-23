@@ -310,6 +310,11 @@ public class TestUtils {
         return mTestArtifactReceiver;
     }
 
+    /** Returns the device utils. */
+    public DeviceUtils getDeviceUtils() {
+        return mDeviceUtils;
+    }
+
     /** An exception class representing crawler test failures. */
     public static final class TestUtilsException extends Exception {
         /**
