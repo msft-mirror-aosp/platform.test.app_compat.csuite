@@ -111,7 +111,8 @@ public class DeviceUtils {
      * @throws DeviceRuntimeException When the command to get device time failed or failed to parse
      *     the timestamp.
      */
-    public long currentTimeMillis() throws DeviceNotAvailableException, DeviceRuntimeException {
+    public DeviceTimestamp currentTimeMillis()
+            throws DeviceNotAvailableException, DeviceRuntimeException {
         CommandResult result = mDevice.executeShellV2Command("echo ${EPOCHREALTIME:0:14}");
         if (result.getStatus() != CommandStatus.SUCCESS) {
             throw new DeviceRuntimeException(
@@ -119,7 +120,7 @@ public class DeviceUtils {
                     DeviceErrorIdentifier.DEVICE_UNEXPECTED_RESPONSE);
         }
         try {
-            return Long.parseLong(result.getStdout().replace(".", "").trim());
+            return new DeviceTimestamp(Long.parseLong(result.getStdout().replace(".", "").trim()));
         } catch (NumberFormatException e) {
             CLog.e("Cannot parse device time string: " + result.getStdout());
             throw new DeviceRuntimeException(
@@ -423,6 +424,25 @@ public class DeviceUtils {
          */
         private DeviceUtilsException(Throwable cause) {
             super(cause);
+        }
+    }
+
+    /**
+     * A class to contain a device timestamp.
+     *
+     * <p>Use this class instead of long to pass device timestamps so that they are less likely to
+     * be confused with host timestamps.
+     */
+    public static class DeviceTimestamp {
+        private final long mTimestamp;
+
+        public DeviceTimestamp(long timestamp) {
+            mTimestamp = timestamp;
+        }
+
+        /** Gets the timestamp on a device. */
+        public long get() {
+            return mTimestamp;
         }
     }
 

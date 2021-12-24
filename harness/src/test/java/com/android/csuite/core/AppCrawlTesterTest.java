@@ -21,6 +21,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
@@ -29,8 +30,6 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
-import com.android.tradefed.result.ITestInvocationListener;
-import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -38,6 +37,7 @@ import com.android.tradefed.util.IRunUtil;
 
 import com.google.common.jimfs.Jimfs;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -53,11 +53,128 @@ import java.util.List;
 
 @RunWith(JUnit4.class)
 public final class AppCrawlTesterTest {
+    private final TestArtifactReceiver mTestArtifactReceiver =
+            Mockito.mock(TestArtifactReceiver.class);
     private final FileSystem mFileSystem =
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
-    ITestDevice mDevice = Mockito.mock(ITestDevice.class);
-    TestInformation mTestInfo = createTestInfo();
-    IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
+    private final ITestDevice mDevice = Mockito.mock(ITestDevice.class);
+    private final IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
+    private TestInformation mTestInfo;
+    private TestUtils mTestUtils;
+    private DeviceUtils mDeviceUtils = Mockito.spy(DeviceUtils.getInstance(mDevice));
+
+    @Before
+    public void setUp() throws Exception {
+        Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
+        mTestInfo = createTestInfo();
+        mTestUtils = createTestUtils();
+    }
+
+    @Test
+    public void startAndAssertAppNoCrash_noCrashDetected_doesNotThrow() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
+        String noCrashLog = null;
+        Mockito.doReturn(noCrashLog)
+                .when(mTestUtils)
+                .getDropboxPackageCrashLog(
+                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+
+        suj.startAndAssertAppNoCrash();
+    }
+
+    @Test
+    public void startAndAssertAppNoCrash_dropboxEntriesDetected_throws() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
+        Mockito.doReturn("crash")
+                .when(mTestUtils)
+                .getDropboxPackageCrashLog(
+                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+
+        assertThrows(AssertionError.class, () -> suj.startAndAssertAppNoCrash());
+    }
+
+    @Test
+    public void startAndAssertAppNoCrash_crawlerExceptionIsThrown_throws() throws Exception {
+        AppCrawlTester suj = createNotPreparedTestSubject(createApkPathWithSplitApks());
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
+        String noCrashLog = null;
+        Mockito.doReturn(noCrashLog)
+                .when(mTestUtils)
+                .getDropboxPackageCrashLog(
+                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+
+        assertThrows(AssertionError.class, () -> suj.startAndAssertAppNoCrash());
+    }
+
+    @Test
+    public void start_screenRecordEnabled_screenIsRecorded() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setRecordScreen(true);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.times(1))
+                .collectScreenRecord(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void start_screenRecordDisabled_screenIsNotRecorded() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setRecordScreen(false);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.never())
+                .collectScreenRecord(Mockito.any(), Mockito.anyString());
+    }
+
+    @Test
+    public void start_collectGmsVersionEnabled_versionIsCollected() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setCollectGmsVersion(true);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.times(1)).collectGmsVersion(Mockito.anyString());
+    }
+
+    @Test
+    public void start_collectGmsVersionDisabled_versionIsNotCollected() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setCollectGmsVersion(false);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.never()).collectGmsVersion(Mockito.anyString());
+    }
+
+    @Test
+    public void start_collectAppVersionEnabled_versionIsCollected() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setCollectAppVersion(true);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.times(1)).collectAppVersion(Mockito.anyString());
+    }
+
+    @Test
+    public void start_collectAppVersionDisabled_versionIsNotCollected() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject(createApkPathWithSplitApks());
+        suj.setCollectAppVersion(false);
+
+        suj.start();
+
+        Mockito.verify(mTestUtils, Mockito.never()).collectAppVersion(Mockito.anyString());
+    }
 
     @Test
     public void start_withSplitApksDirectory_doesNotThrowException() throws Exception {
@@ -251,16 +368,16 @@ public final class AppCrawlTesterTest {
         IRunUtil runUtil = Mockito.mock(IRunUtil.class);
         Mockito.when(runUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
-        AppCrawlTesterPreparer preparer = new AppCrawlTesterPreparer(() -> runUtil);
+        AppCrawlTesterHostPreparer preparer = new AppCrawlTesterHostPreparer(() -> runUtil);
         OptionSetter optionSetter = new OptionSetter(preparer);
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.SDK_TAR_OPTION,
+                AppCrawlTesterHostPreparer.SDK_TAR_OPTION,
                 Files.createDirectories(mFileSystem.getPath("sdk")).toString());
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.CRAWLER_BIN_OPTION,
+                AppCrawlTesterHostPreparer.CRAWLER_BIN_OPTION,
                 Files.createDirectories(mFileSystem.getPath("bin")).toString());
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.CREDENTIAL_JSON_OPTION,
+                AppCrawlTesterHostPreparer.CREDENTIAL_JSON_OPTION,
                 Files.createDirectories(mFileSystem.getPath("cred.json")).toString());
         preparer.setUp(mTestInfo);
     }
@@ -269,30 +386,32 @@ public final class AppCrawlTesterTest {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
-        return new AppCrawlTester(apkPath, "package.name", createFakeTestBase(), () -> mRunUtil);
+        return new AppCrawlTester(apkPath, "package.name", mTestUtils, () -> mRunUtil);
     }
 
     private AppCrawlTester createPreparedTestSubject(Path apkPath)
             throws IOException, ConfigurationException, TargetSetupError {
-        Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
         simulatePreparerWasExecutedSuccessfully();
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
-        return new AppCrawlTester(apkPath, "package.name", createFakeTestBase(), () -> mRunUtil);
+        return new AppCrawlTester(apkPath, "package.name", mTestUtils, () -> mRunUtil);
     }
 
-    private AbstractCSuiteTest createFakeTestBase() {
-        return new AbstractCSuiteTest(mTestInfo, Mockito.mock(ITestInvocationListener.class)) {
-            @Override
-            protected void run() throws DeviceNotAvailableException {
-                // Intentionally left blank.
-            }
-
-            @Override
-            protected TestDescription createTestDescription() {
-                return new TestDescription("class", "test");
-            }
-        };
+    private TestUtils createTestUtils() throws DeviceNotAvailableException {
+        TestUtils testUtils =
+                Mockito.spy(new TestUtils(mTestInfo, mTestArtifactReceiver, mDeviceUtils));
+        Mockito.doAnswer(
+                        invocation -> {
+                            ((DeviceUtils.RunnableThrowingDeviceNotAvailable)
+                                            invocation.getArguments()[0])
+                                    .run();
+                            return null;
+                        })
+                .when(testUtils)
+                .collectScreenRecord(Mockito.any(), Mockito.anyString());
+        Mockito.doNothing().when(testUtils).collectAppVersion(Mockito.anyString());
+        Mockito.doNothing().when(testUtils).collectGmsVersion(Mockito.anyString());
+        return testUtils;
     }
 
     private TestInformation createTestInfo() {
