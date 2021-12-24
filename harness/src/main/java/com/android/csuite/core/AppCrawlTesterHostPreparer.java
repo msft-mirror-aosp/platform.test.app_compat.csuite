@@ -34,8 +34,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/** A Tradefed preparer that preparers an app crawler for testing. */
-public final class AppCrawlTesterPreparer implements ITargetPreparer {
+/** A Tradefed preparer that preparers an app crawler on the host before testing. */
+public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
     private static final long COMMAND_TIMEOUT_MILLIS = 4 * 60 * 1000;
     private static final String SDK_PATH_KEY = "SDK_PATH_KEY";
     private static final String CRAWLER_BIN_PATH_KEY = "CSUITE_INTERNAL_CRAWLER_BIN_PATH";
@@ -65,12 +65,12 @@ public final class AppCrawlTesterPreparer implements ITargetPreparer {
 
     private RunUtilProvider mRunUtilProvider;
 
-    public AppCrawlTesterPreparer() {
+    public AppCrawlTesterHostPreparer() {
         this(() -> new RunUtil());
     }
 
     @VisibleForTesting
-    AppCrawlTesterPreparer(RunUtilProvider runUtilProvider) {
+    AppCrawlTesterHostPreparer(RunUtilProvider runUtilProvider) {
         mRunUtilProvider = runUtilProvider;
     }
 
