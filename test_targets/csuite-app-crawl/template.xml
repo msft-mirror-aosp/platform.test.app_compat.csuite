@@ -13,15 +13,15 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Launches an app that exists on the device and check for crashes">
-    <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
+<configuration description="C-Suite Crawler test configuration">
+    <option name="package-name" value="{package}"/>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
         <option name="run-command" value="input keyevent KEYCODE_HOME"/>
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
-        <option name="set-option" value="package-name:{package}"/>
-        <option name="class" value="com.android.csuite.tests.AppLaunchTest" />
+        <option name="set-option" value="apk:app://{package}"/>
+        <option name="class" value="com.android.csuite.tests.AppCrawlTest" />
     </test>
 </configuration>
