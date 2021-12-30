@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import android.service.dropbox.DropBoxManagerServiceDumpProto;
 
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceRuntimeException;
@@ -97,9 +98,9 @@ public final class DeviceUtilsTest {
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("123"));
 
-        long result = sut.currentTimeMillis();
+        DeviceTimestamp result = sut.currentTimeMillis();
 
-        assertThat(result).isEqualTo(Long.parseLong("123"));
+        assertThat(result.get()).isEqualTo(Long.parseLong("123"));
     }
 
     @Test

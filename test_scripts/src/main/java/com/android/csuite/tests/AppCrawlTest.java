@@ -16,24 +16,29 @@
 
 package com.android.csuite.tests;
 
-import com.android.csuite.core.AbstractCSuiteTest;
 import com.android.csuite.core.AppCrawlTester;
-import com.android.csuite.core.AppCrawlTester.CrawlerException;
-import com.android.csuite.core.DeviceUtils;
-import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
 
 /** A test that verifies that a single app can be successfully launched. */
-public class AppCrawlTest extends AbstractCSuiteTest {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class AppCrawlTest extends BaseHostJUnit4Test {
     private static final String COLLECT_APP_VERSION = "collect-app-version";
     private static final String COLLECT_GMS_VERSION = "collect-gms-version";
     private static final String RECORD_SCREEN = "record-screen";
+    @Rule public TestLogData mLogData = new TestLogData();
+    AppCrawlTester mCrawler;
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -62,79 +67,24 @@ public class AppCrawlTest extends AbstractCSuiteTest {
     @Option(name = "package-name", mandatory = true, description = "Package name of testing app.")
     private String mPackageName;
 
-    /*
-     * {@inheritDoc}
-     */
-    @Override
-    protected void run() throws DeviceNotAvailableException {
-        AppCrawlTester crawler = AppCrawlTester.newInstance(mApk.toPath(), mPackageName, this);
-        TestUtils testUtils = TestUtils.getInstance(this);
+    @Before
+    public void setUp() {
+        mCrawler =
+                AppCrawlTester.newInstance(
+                        mApk.toPath(), mPackageName, getTestInformation(), mLogData);
+        mCrawler.setRecordScreen(mRecordScreen);
+        mCrawler.setCollectGmsVersion(mCollectGmsVersion);
+        mCrawler.setCollectAppVersion(mCollectAppVersion);
+    }
 
-        if (mCollectGmsVersion) {
-            testUtils.collectGmsVersion(mPackageName);
-        }
+    @Test
+    public void testAppCrash() throws DeviceNotAvailableException {
+        mCrawler.startAndAssertAppNoCrash();
+    }
 
-        if (mRecordScreen) {
-            testUtils.collectScreenRecord(
-                    () -> {
-                        startAndCheckForCrash(crawler);
-                    },
-                    mPackageName);
-        } else {
-            startAndCheckForCrash(crawler);
-        }
-
-        // Must be done after the crawler run because the app is installed.
-        if (mCollectAppVersion) {
-            testUtils.collectAppVersion(mPackageName);
-        }
-
+    @After
+    public void tearDown() throws DeviceNotAvailableException {
         getDevice().uninstallPackage(mPackageName);
-        crawler.cleanUp();
-    }
-
-    private void startAndCheckForCrash(AppCrawlTester crawler) throws DeviceNotAvailableException {
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-
-        long startTime = deviceUtils.currentTimeMillis();
-
-        CrawlerException crawlerException = null;
-        try {
-            crawler.start();
-        } catch (CrawlerException e) {
-            crawlerException = e;
-        }
-
-        ArrayList<String> failureMessages = new ArrayList<>();
-
-        try {
-            String dropboxCrashLog =
-                    TestUtils.getInstance(this)
-                            .getDropboxPackageCrashLog(mPackageName, startTime, true);
-            if (dropboxCrashLog
-                    != null) { // Put dropbox crash log on the top of the failure messages.
-                failureMessages.add(dropboxCrashLog);
-            }
-        } catch (IOException e) {
-            testFailed("Error while getting dropbox crash log: " + e);
-            return;
-        }
-
-        if (crawlerException != null) {
-            failureMessages.add(crawlerException.getMessage());
-        }
-
-        if (!failureMessages.isEmpty()) {
-            testFailed(
-                    String.join(
-                            "\n============\n",
-                            failureMessages.toArray(new String[failureMessages.size()])));
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected TestDescription createTestDescription() {
-        return new TestDescription(getClass().getSimpleName(), mPackageName);
+        mCrawler.cleanUp();
     }
 }
