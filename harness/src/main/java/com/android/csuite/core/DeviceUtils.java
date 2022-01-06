@@ -16,6 +16,9 @@
 
 package com.android.csuite.core;
 
+import android.service.dropbox.DropBoxManagerServiceDumpProto;
+import android.service.dropbox.DropBoxManagerServiceDumpProto.Entry;
+
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceRuntimeException;
 import com.android.tradefed.device.ITestDevice;
@@ -30,14 +33,28 @@ import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 /** A utility class that contains common methods to interact with the test device. */
-public final class DeviceUtils {
+public class DeviceUtils {
     @VisibleForTesting static final String UNKNOWN = "Unknown";
     @VisibleForTesting static final String VERSION_CODE_PREFIX = "versionCode=";
     @VisibleForTesting static final String VERSION_NAME_PREFIX = "versionName=";
     @VisibleForTesting static final String RESET_PACKAGE_COMMAND_PREFIX = "pm clear ";
+    public static final Set<String> DROPBOX_APP_CRASH_TAGS =
+            Set.of(
+                    "SYSTEM_TOMBSTONE",
+                    "system_app_anr",
+                    "system_app_native_crash",
+                    "system_app_crash",
+                    "data_app_anr",
+                    "data_app_native_crash",
+                    "data_app_crash");
 
     @VisibleForTesting
     static final String LAUNCH_PACKAGE_COMMAND_TEMPLATE =
@@ -51,6 +68,7 @@ public final class DeviceUtils {
     private final Sleeper mSleeper;
     private final Clock mClock;
     private final RunUtilProvider mRunUtilProvider;
+    private final TempFileSupplier mTempFileSupplier;
 
     public static DeviceUtils getInstance(ITestDevice device) {
         return new DeviceUtils(
@@ -59,22 +77,29 @@ public final class DeviceUtils {
                     Thread.sleep(duration);
                 },
                 () -> System.currentTimeMillis(),
-                () -> RunUtil.getDefault());
+                () -> RunUtil.getDefault(),
+                () -> Files.createTempFile(TestUtils.class.getName(), ".tmp"));
     }
 
     @VisibleForTesting
-    DeviceUtils(ITestDevice device, Sleeper sleeper, Clock clock, RunUtilProvider runUtilProvider) {
+    DeviceUtils(
+            ITestDevice device,
+            Sleeper sleeper,
+            Clock clock,
+            RunUtilProvider runUtilProvider,
+            TempFileSupplier tempFileSupplier) {
         mDevice = device;
         mSleeper = sleeper;
         mClock = clock;
         mRunUtilProvider = runUtilProvider;
+        mTempFileSupplier = tempFileSupplier;
     }
 
     /**
-     * A task that throws DeviceNotAvailableException. Use this interface instead of Runnable so
+     * A runnable that throws DeviceNotAvailableException. Use this interface instead of Runnable so
      * that the DeviceNotAvailableException won't need to be handled inside the run() method.
      */
-    public interface RunnerTask {
+    public interface RunnableThrowingDeviceNotAvailable {
         void run() throws DeviceNotAvailableException;
     }
 
@@ -86,7 +111,8 @@ public final class DeviceUtils {
      * @throws DeviceRuntimeException When the command to get device time failed or failed to parse
      *     the timestamp.
      */
-    public long currentTimeMillis() throws DeviceNotAvailableException, DeviceRuntimeException {
+    public DeviceTimestamp currentTimeMillis()
+            throws DeviceNotAvailableException, DeviceRuntimeException {
         CommandResult result = mDevice.executeShellV2Command("echo ${EPOCHREALTIME:0:14}");
         if (result.getStatus() != CommandStatus.SUCCESS) {
             throw new DeviceRuntimeException(
@@ -94,7 +120,7 @@ public final class DeviceUtils {
                     DeviceErrorIdentifier.DEVICE_UNEXPECTED_RESPONSE);
         }
         try {
-            return Long.parseLong(result.getStdout().replace(".", "").trim());
+            return new DeviceTimestamp(Long.parseLong(result.getStdout().replace(".", "").trim()));
         } catch (NumberFormatException e) {
             CLog.e("Cannot parse device time string: " + result.getStdout());
             throw new DeviceRuntimeException(
@@ -114,7 +140,8 @@ public final class DeviceUtils {
      *     from the device.
      * @throws DeviceNotAvailableException When the device is unresponsive.
      */
-    public File runWithScreenRecording(RunnerTask action) throws DeviceNotAvailableException {
+    public File runWithScreenRecording(RunnableThrowingDeviceNotAvailable action)
+            throws DeviceNotAvailableException {
         String videoPath = String.format(VIDEO_PATH_ON_DEVICE_TEMPLATE, new Random().nextInt());
         mDevice.deleteFile(videoPath);
         File video = null;
@@ -297,6 +324,75 @@ public final class DeviceUtils {
                 == CommandStatus.SUCCESS;
     }
 
+    /**
+     * Gets dropbox entries from the device filtered by the provided tags.
+     *
+     * @param tags Dropbox tags to query.
+     * @return A list of dropbox entries.
+     * @throws IOException when failed to dump or read the dropbox protos.
+     */
+    public List<DropboxEntry> getDropboxEntries(Set<String> tags) throws IOException {
+        List<DropboxEntry> entries = new ArrayList<>();
+
+        for (String tag : tags) {
+            Path dumpFile = mTempFileSupplier.get();
+
+            CommandResult res =
+                    mRunUtilProvider
+                            .get()
+                            .runTimedCmd(
+                                    6000,
+                                    "sh",
+                                    "-c",
+                                    String.format(
+                                            "adb -s %s shell dumpsys dropbox --proto %s > %s",
+                                            mDevice.getSerialNumber(), tag, dumpFile));
+            if (res.getStatus() != CommandStatus.SUCCESS) {
+                throw new IOException("Dropbox dump command failed: " + res);
+            }
+
+            DropBoxManagerServiceDumpProto p =
+                    DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
+            Files.delete(dumpFile);
+
+            for (Entry entry : p.getEntriesList()) {
+                entries.add(
+                        new DropboxEntry(entry.getTimeMs(), tag, entry.getData().toStringUtf8()));
+            }
+        }
+
+        return entries;
+    }
+
+    /** A class that stores the information of a dropbox entry. */
+    public static final class DropboxEntry {
+        private final long mTime;
+        private final String mTag;
+        private final String mData;
+
+        /** Returns the entrt's time stamp on device. */
+        public long getTime() {
+            return mTime;
+        }
+
+        /** Returns the entrt's tag. */
+        public String getTag() {
+            return mTag;
+        }
+
+        /** Returns the entrt's data. */
+        public String getData() {
+            return mData;
+        }
+
+        @VisibleForTesting
+        DropboxEntry(long time, String tag, String data) {
+            mTime = time;
+            mTag = tag;
+            mData = data;
+        }
+    }
+
     /** A general exception class representing failed device utility operations. */
     public static final class DeviceUtilsException extends Exception {
         /**
@@ -331,6 +427,25 @@ public final class DeviceUtils {
         }
     }
 
+    /**
+     * A class to contain a device timestamp.
+     *
+     * <p>Use this class instead of long to pass device timestamps so that they are less likely to
+     * be confused with host timestamps.
+     */
+    public static class DeviceTimestamp {
+        private final long mTimestamp;
+
+        public DeviceTimestamp(long timestamp) {
+            mTimestamp = timestamp;
+        }
+
+        /** Gets the timestamp on a device. */
+        public long get() {
+            return mTimestamp;
+        }
+    }
+
     @VisibleForTesting
     interface Sleeper {
         void sleep(long milliseconds) throws InterruptedException;
@@ -344,5 +459,10 @@ public final class DeviceUtils {
     @VisibleForTesting
     interface RunUtilProvider {
         IRunUtil get();
+    }
+
+    @VisibleForTesting
+    interface TempFileSupplier {
+        Path get() throws IOException;
     }
 }

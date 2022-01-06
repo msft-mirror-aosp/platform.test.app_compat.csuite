@@ -20,12 +20,19 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
+import android.service.dropbox.DropBoxManagerServiceDumpProto;
+
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
+import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceRuntimeException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
+
+import com.google.common.jimfs.Jimfs;
+import com.google.protobuf.ByteString;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,18 +41,26 @@ import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.nio.file.FileSystem;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @RunWith(JUnit4.class)
 public final class DeviceUtilsTest {
-    ITestDevice mDevice = Mockito.mock(ITestDevice.class);
+    private ITestDevice mDevice = Mockito.mock(ITestDevice.class);
+    private IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
+    private final FileSystem mFileSystem =
+            Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
 
     @Test
     public void launchPackage_packageDoesNotExist_returnsFalse() throws Exception {
         when(mDevice.executeShellV2Command(Mockito.startsWith("monkey -p")))
                 .thenReturn(createFailedCommandResult());
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
 
         assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("package.name"));
     }
@@ -54,14 +69,14 @@ public final class DeviceUtilsTest {
     public void launchPackage_successfullyLaunchedThePackage_returnsTrue() throws Exception {
         when(mDevice.executeShellV2Command(Mockito.startsWith("monkey -p")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
 
         sut.launchPackage("package.name");
     }
 
     @Test
     public void currentTimeMillis_deviceCommandFailed_throwsException() throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createFailedCommandResult());
 
@@ -70,7 +85,7 @@ public final class DeviceUtilsTest {
 
     @Test
     public void currentTimeMillis_unexpectedFormat_throwsException() throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
 
@@ -79,22 +94,24 @@ public final class DeviceUtilsTest {
 
     @Test
     public void currentTimeMillis_successful_returnsTime() throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("123"));
 
-        long result = sut.currentTimeMillis();
+        DeviceTimestamp result = sut.currentTimeMillis();
 
-        assertThat(result).isEqualTo(Long.parseLong("123"));
+        assertThat(result.get()).isEqualTo(Long.parseLong("123"));
     }
 
     @Test
     public void runWithScreenRecording_recordingDidNotStart_jobIsExecuted() throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.startsWith("ls")))
                 .thenReturn(createFailedCommandResult());
+        when(mRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
+                .thenReturn(Mockito.mock(Process.class));
         AtomicBoolean executed = new AtomicBoolean(false);
-        DeviceUtils.RunnerTask job = () -> executed.set(true);
+        DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
         sut.runWithScreenRecording(job);
 
@@ -104,15 +121,11 @@ public final class DeviceUtilsTest {
     @Test
     public void runWithScreenRecording_recordCommandThrowsException_jobIsExecuted()
             throws Exception {
-        when(mDevice.getSerialNumber()).thenReturn("SERIAL");
-        IRunUtil fakeRunUtil = Mockito.mock(IRunUtil.class);
-        when(fakeRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
+        when(mRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
                 .thenThrow(new IOException());
-        FakeClock fakeClock = new FakeClock();
-        DeviceUtils sut =
-                new DeviceUtils(mDevice, fakeClock.getSleeper(), fakeClock, () -> fakeRunUtil);
+        DeviceUtils sut = createSubjectUnderTest();
         AtomicBoolean executed = new AtomicBoolean(false);
-        DeviceUtils.RunnerTask job = () -> executed.set(true);
+        DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
         sut.runWithScreenRecording(job);
 
@@ -121,7 +134,7 @@ public final class DeviceUtilsTest {
 
     @Test
     public void getPackageVersionName_deviceCommandFailed_returnsUnknown() throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionName")))
                 .thenReturn(createFailedCommandResult());
 
@@ -133,7 +146,7 @@ public final class DeviceUtilsTest {
     @Test
     public void getPackageVersionName_deviceCommandReturnsUnexpected_returnsUnknown()
             throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionName")))
                 .thenReturn(
                         createSuccessfulCommandResultWithStdout(
@@ -146,7 +159,7 @@ public final class DeviceUtilsTest {
 
     @Test
     public void getPackageVersionName_deviceCommandSucceed_returnsVersionName() throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionName")))
                 .thenReturn(
                         createSuccessfulCommandResultWithStdout(
@@ -159,7 +172,7 @@ public final class DeviceUtilsTest {
 
     @Test
     public void getPackageVersionCode_deviceCommandFailed_returnsUnknown() throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionCode")))
                 .thenReturn(createFailedCommandResult());
 
@@ -171,7 +184,7 @@ public final class DeviceUtilsTest {
     @Test
     public void getPackageVersionCode_deviceCommandReturnsUnexpected_returnsUnknown()
             throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionCode")))
                 .thenReturn(
                         createSuccessfulCommandResultWithStdout(
@@ -184,7 +197,7 @@ public final class DeviceUtilsTest {
 
     @Test
     public void getPackageVersionCode_deviceCommandSucceed_returnVersionCode() throws Exception {
-        DeviceUtils sut = createSubjectUnderTest(mDevice);
+        DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionCode")))
                 .thenReturn(
                         createSuccessfulCommandResultWithStdout(
@@ -195,14 +208,63 @@ public final class DeviceUtilsTest {
         assertThat(result).isEqualTo("123");
     }
 
-    private static DeviceUtils createSubjectUnderTest(ITestDevice device) throws IOException {
-        when(device.getSerialNumber()).thenReturn("SERIAL");
-        IRunUtil fakeRunUtil = Mockito.mock(IRunUtil.class);
-        when(fakeRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
-                .thenReturn(Mockito.mock(Process.class));
-        FakeClock fakeClock = new FakeClock();
+    @Test
+    public void getDropboxEntries_noEntries_returnsEmptyList() throws Exception {
+        DeviceUtils sut = createSubjectUnderTest();
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("dumpsys dropbox")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
 
-        return new DeviceUtils(device, fakeClock.getSleeper(), fakeClock, () -> fakeRunUtil);
+        List<DropboxEntry> result = sut.getDropboxEntries(Set.of(""));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void getDropboxEntries_entryExists_returnsEntry() throws Exception {
+        Path dumpFile = Files.createTempFile(mFileSystem.getPath("/"), "test", ".tmp");
+        long time = 123;
+        String data = "abc";
+        String tag = "tag";
+        DropBoxManagerServiceDumpProto proto =
+                DropBoxManagerServiceDumpProto.newBuilder()
+                        .addEntries(
+                                DropBoxManagerServiceDumpProto.Entry.newBuilder()
+                                        .setTimeMs(time)
+                                        .setData(ByteString.copyFromUtf8(data)))
+                        .build();
+        Files.write(dumpFile, proto.toByteArray());
+        DeviceUtils sut = createSubjectUnderTestWithTempFile(dumpFile);
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(), Mockito.eq("sh"), Mockito.eq("-c"), Mockito.anyString()))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+
+        List<DropboxEntry> result = sut.getDropboxEntries(Set.of(tag));
+
+        assertThat(result.get(0).getTime()).isEqualTo(time);
+        assertThat(result.get(0).getData()).isEqualTo(data);
+        assertThat(result.get(0).getTag()).isEqualTo(tag);
+    }
+
+    private DeviceUtils createSubjectUnderTestWithTempFile(Path tempFile) {
+        when(mDevice.getSerialNumber()).thenReturn("SERIAL");
+        FakeClock fakeClock = new FakeClock();
+        return new DeviceUtils(
+                mDevice, fakeClock.getSleeper(), fakeClock, () -> mRunUtil, () -> tempFile);
+    }
+
+    private DeviceUtils createSubjectUnderTest() {
+        when(mDevice.getSerialNumber()).thenReturn("SERIAL");
+        FakeClock fakeClock = new FakeClock();
+        return new DeviceUtils(
+                mDevice,
+                fakeClock.getSleeper(),
+                fakeClock,
+                () -> mRunUtil,
+                () -> Files.createTempFile(mFileSystem.getPath("/"), "test", ".tmp"));
     }
 
     private static class FakeClock implements DeviceUtils.Clock {
