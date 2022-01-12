@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
 
+import com.android.csuite.core.ModuleTemplate.ResourceLoader;
 import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfiguration;
@@ -30,6 +31,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -86,16 +89,48 @@ public final class ModuleTemplateTest {
     }
 
     @Test
+    public void substitute_templateMapsSpecified_useTemplateMaps() throws Exception {
+        IConfiguration config =
+                new ConfigurationBuilder(
+                                "", "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .addTemplateMappings(Map.of("module1", "template1"))
+                        .addExtraTemplatePath("template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .setExtraTemplateContent(
+                                "template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION, "a")
+                        .build();
+        ModuleTemplate sut = ModuleTemplate.loadFrom(config);
+
+        String content = sut.substitute("module1", Map.of("a", "b"));
+
+        assertThat(content).isEqualTo("b");
+    }
+
+    @Test
+    public void substitute_templateFileIsInADirectory_canFindTheTemplates() throws Exception {
+        IConfiguration config =
+                new ConfigurationBuilder(
+                                "", "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .addTemplateMappings(Map.of("module1", "dir/template1"))
+                        .addExtraTemplatePath(
+                                "dir/template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .setExtraTemplateContent(
+                                "dir/template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION, "a")
+                        .build();
+        ModuleTemplate sut = ModuleTemplate.loadFrom(config);
+
+        String content = sut.substitute("module1", Map.of("a", "b"));
+
+        assertThat(content).isEqualTo("b");
+    }
+
+    @Test
     public void loadFrom_templateMappingContainsNonexistTemplates_throwsException()
             throws Exception {
-        String defaultTemplate = "";
-        Map<String, String> map1 = Map.of("module1", "template1");
         IConfiguration config =
-                createConfiguration(
-                        defaultTemplate,
-                        List.of(map1),
-                        "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION,
-                        List.of());
+                new ConfigurationBuilder(
+                                "", "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .addTemplateMappings(Map.of("module1", "template1"))
+                        .build();
 
         assertThrows(IllegalArgumentException.class, () -> ModuleTemplate.loadFrom(config));
     }
@@ -103,29 +138,34 @@ public final class ModuleTemplateTest {
     @Test
     public void loadFrom_templateMappingContainsExistingExtraTemplates_doesNotThrow()
             throws Exception {
-        String defaultTemplate = "";
-        Map<String, String> map1 = Map.of("module1", "template1");
         IConfiguration config =
-                createConfiguration(
-                        defaultTemplate,
-                        List.of(map1),
-                        "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION,
-                        List.of("template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION));
+                new ConfigurationBuilder(
+                                "", "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .addTemplateMappings(Map.of("module1", "template1"))
+                        .addExtraTemplatePath("template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .setExtraTemplateContent(
+                                "template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION, "")
+                        .build();
 
         ModuleTemplate.loadFrom(config);
     }
 
     @Test
     public void loadFrom_templateMappingContainsXmlExtension_doesNotThrow() throws Exception {
-        String defaultTemplate = "";
-        Map<String, String> map1 =
-                Map.of("module1", "template1" + ModuleTemplate.XML_FILE_EXTENSION);
         IConfiguration config =
-                createConfiguration(
-                        defaultTemplate,
-                        List.of(map1),
-                        "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION,
-                        List.of("template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION));
+                new ConfigurationBuilder(
+                                "", "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .addTemplateMappings(
+                                Map.of(
+                                        "module1",
+                                        "template1"
+                                                + ModuleTemplate.XML_FILE_EXTENSION.toUpperCase()))
+                        .addExtraTemplatePath(
+                                "template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION.toLowerCase())
+                        .setExtraTemplateContent(
+                                "template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION.toLowerCase(),
+                                "")
+                        .build();
 
         ModuleTemplate.loadFrom(config);
     }
@@ -133,93 +173,117 @@ public final class ModuleTemplateTest {
     @Test
     public void loadFrom_templateMappingContainsCaseMismatchingXmlExtension_doesNotThrow()
             throws Exception {
-        String defaultTemplate = "";
-        Map<String, String> map1 =
-                Map.of("module1", "template1" + ModuleTemplate.XML_FILE_EXTENSION.toUpperCase());
         IConfiguration config =
-                createConfiguration(
-                        defaultTemplate,
-                        List.of(map1),
-                        "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION,
-                        List.of(
-                                "template1"
-                                        + ModuleTemplate.TEMPLATE_FILE_EXTENSION.toLowerCase()));
+                new ConfigurationBuilder(
+                                "", "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .addTemplateMappings(
+                                Map.of("module1", "template1" + ModuleTemplate.XML_FILE_EXTENSION))
+                        .addExtraTemplatePath("template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .setExtraTemplateContent(
+                                "template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION, "")
+                        .build();
 
         ModuleTemplate.loadFrom(config);
     }
 
     @Test
     public void loadFrom_templateMappingContainsDefaultTemplate_doesNotThrow() throws Exception {
-        String defaultTemplate = "";
-        Map<String, String> map1 = Map.of("module1", "default_template");
         IConfiguration config =
-                createConfiguration(
-                        defaultTemplate,
-                        List.of(map1),
-                        "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION,
-                        List.of());
+                new ConfigurationBuilder(
+                                "", "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .addTemplateMappings(Map.of("module1", "default_template"))
+                        .build();
 
         ModuleTemplate.loadFrom(config);
     }
 
     @Test
     public void loadFrom_duplicateTemplateMappingEntries_throwsException() throws Exception {
-        String defaultTemplate = "";
-        Map<String, String> map1 = Map.of("module1", "template1");
-        Map<String, String> map2 = Map.of("module1", "template1");
         IConfiguration config =
-                createConfiguration(
-                        defaultTemplate,
-                        List.of(map1, map2),
-                        "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION,
-                        List.of("template1.xml"));
+                new ConfigurationBuilder(
+                                "", "default_template" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .addTemplateMappings(Map.of("module1", "template1"))
+                        .addTemplateMappings(Map.of("module1", "template1"))
+                        .addExtraTemplatePath("template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .setExtraTemplateContent(
+                                "template1" + ModuleTemplate.TEMPLATE_FILE_EXTENSION, "")
+                        .build();
 
         assertThrows(IllegalArgumentException.class, () -> ModuleTemplate.loadFrom(config));
     }
 
     private static ModuleTemplate createTestSubject(String defaultTemplate)
-            throws ConfigurationException, IOException {
-        return createTestSubjectWithTemplateMapping(
-                defaultTemplate,
-                List.of(),
-                "any_path" + ModuleTemplate.TEMPLATE_FILE_EXTENSION,
-                List.of());
-    }
-
-    private static ModuleTemplate createTestSubjectWithTemplateMapping(
-            String defaultTemplate,
-            List<Map<String, String>> templateMappings,
-            String defaultTemplatePath,
-            List<String> extraTemplatePath)
-            throws ConfigurationException, IOException {
+            throws IOException, ConfigurationException {
         return ModuleTemplate.loadFrom(
-                createConfiguration(
-                        defaultTemplate, templateMappings, defaultTemplatePath, extraTemplatePath));
+                new ConfigurationBuilder(
+                                defaultTemplate,
+                                "any_path" + ModuleTemplate.TEMPLATE_FILE_EXTENSION)
+                        .build());
     }
 
-    private static IConfiguration createConfiguration(
-            String defaultTemplate,
-            List<Map<String, String>> templateMappings,
-            String defaultTemplatePath,
-            List<String> extraTemplatePath)
-            throws ConfigurationException {
-        IConfiguration configuration = new Configuration("name", "description");
+    private static final class ConfigurationBuilder {
+        private final String mDefaultTemplateContent;
+        private final String mDefaultTemplatePath;
+        private String mTemplateRoot = "";
+        private Map<String, String> mExtraTemplateContents = new HashMap<>();
+        private List<String> mExtraTemplatePaths = new ArrayList<>();
+        private List<Map<String, String>> mTemplateMappings = new ArrayList<>();
 
-        ModuleTemplate moduleTemplate = new ModuleTemplate(resource -> defaultTemplate);
-        OptionSetter optionSetter = new OptionSetter(moduleTemplate);
-        optionSetter.setOptionValue(ModuleTemplate.TEMPLATE_OPTION, defaultTemplatePath);
-        for (String extraTemplate : extraTemplatePath) {
-            optionSetter.setOptionValue(ModuleTemplate.EXTRA_TEMPLATES_OPTION, extraTemplate);
+        ConfigurationBuilder(String defaultTemplateContent, String defaultTemplatePath) {
+            mDefaultTemplateContent = defaultTemplateContent;
+            mDefaultTemplatePath = defaultTemplatePath;
         }
-        configuration.setConfigurationObject(
-                ModuleTemplate.MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE, moduleTemplate);
 
-        for (Map<String, String> map : templateMappings) {
-            TemplateMappingProvider provider = () -> map.entrySet().stream();
+        ConfigurationBuilder setExtraTemplateContent(String path, String content) {
+            mExtraTemplateContents.put(path, content);
+            return this;
+        }
+
+        ConfigurationBuilder setTemplateRoot(String path) {
+            mTemplateRoot = path;
+            return this;
+        }
+
+        ConfigurationBuilder addExtraTemplatePath(String path) {
+            mExtraTemplatePaths.add(path);
+            return this;
+        }
+
+        ConfigurationBuilder addTemplateMappings(Map<String, String> map) {
+            mTemplateMappings.add(map);
+            return this;
+        }
+
+        IConfiguration build() throws ConfigurationException {
+            IConfiguration configuration = new Configuration("name", "description");
+
+            ResourceLoader resourceLoader =
+                    path -> {
+                        if (mExtraTemplateContents.containsKey(path)) {
+                            return mExtraTemplateContents.get(path);
+                        }
+                        return mDefaultTemplateContent;
+                    };
+
+            ModuleTemplate moduleTemplate = new ModuleTemplate(resourceLoader);
+            OptionSetter optionSetter = new OptionSetter(moduleTemplate);
+            optionSetter.setOptionValue(
+                    ModuleTemplate.DEFAULT_TEMPLATE_OPTION, mDefaultTemplatePath);
+            optionSetter.setOptionValue(ModuleTemplate.TEMPLATE_ROOT_OPTION, mTemplateRoot);
+            for (String extraTemplate : mExtraTemplatePaths) {
+                optionSetter.setOptionValue(ModuleTemplate.EXTRA_TEMPLATES_OPTION, extraTemplate);
+            }
             configuration.setConfigurationObject(
-                    TemplateMappingProvider.TEMPLATE_MAPPING_PROVIDER_OBJECT_TYPE, provider);
-        }
+                    ModuleTemplate.MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE, moduleTemplate);
 
-        return configuration;
+            if (!mTemplateMappings.isEmpty()) {
+                List<TemplateMappingProvider> list = new ArrayList<>();
+                mTemplateMappings.forEach(map -> list.add(() -> map.entrySet().stream()));
+                configuration.setConfigurationObjectList(
+                        TemplateMappingProvider.TEMPLATE_MAPPING_PROVIDER_OBJECT_TYPE, list);
+            }
+
+            return configuration;
+        }
     }
 }
