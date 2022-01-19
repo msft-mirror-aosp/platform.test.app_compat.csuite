@@ -196,7 +196,8 @@ public final class PackagesFileModuleInfoProviderTest {
     private ModuleTemplate createModuleTemplate(String template) throws ConfigurationException {
         ModuleTemplate moduleTemplate = new ModuleTemplate(resource -> template);
         new OptionSetter(moduleTemplate)
-                .setOptionValue(ModuleTemplate.TEMPLATE_OPTION, "path.xml.template");
+                .setOptionValue(ModuleTemplate.DEFAULT_TEMPLATE_OPTION, "path.xml.template");
+        new OptionSetter(moduleTemplate).setOptionValue(ModuleTemplate.TEMPLATE_ROOT_OPTION, "");
         return moduleTemplate;
     }
 
