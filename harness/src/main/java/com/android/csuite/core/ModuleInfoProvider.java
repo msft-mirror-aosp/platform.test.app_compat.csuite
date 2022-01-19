@@ -16,12 +16,18 @@
 
 package com.android.csuite.core;
 
+import com.android.tradefed.config.IConfiguration;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.MustBeClosed;
 
 import java.io.IOException;
 import java.util.stream.Stream;
 
+/** An interface for providing module configuration contents. */
 public interface ModuleInfoProvider {
+    @VisibleForTesting String MODULE_INFO_PROVIDER_OBJECT_TYPE = "MODULE_INFO_PROVIDER";
+
     final class ModuleInfo {
         private final String mName;
         private final String mContent;
@@ -40,6 +46,13 @@ public interface ModuleInfoProvider {
         }
     }
 
+    /**
+     * Returns a stream of module configuration contents.
+     *
+     * @param configuration TradeFed suite configuration.
+     * @return A stream of ModuleInfo objects.
+     * @throws IOException if any IO exception occurs.
+     */
     @MustBeClosed
-    Stream<ModuleInfo> get() throws IOException;
+    Stream<ModuleInfo> get(IConfiguration configuration) throws IOException;
 }
