@@ -16,7 +16,7 @@
 
 package com.android.csuite.core;
 
-import com.android.csuite.core.ModuleTemplate.ResourceLoader;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.util.AaptParser;
@@ -35,18 +35,11 @@ import java.util.stream.Stream;
 /** Generates modules from package files in a directory. */
 public final class DirectoryBasedModuleInfoProvider implements ModuleInfoProvider {
     @VisibleForTesting static final String DIRECTORY_OPTION = "directory";
-    @VisibleForTesting static final String TEMPLATE_OPTION = "template";
 
     @VisibleForTesting
     static final String PACKAGE_INSTALL_FILE_PLACEHOLDER = "{package_install_file}";
 
     @VisibleForTesting static final String PACKAGE_PLACEHOLDER = "{package}";
-
-    @Option(
-            name = TEMPLATE_OPTION,
-            description = "Module config template resource path.",
-            importance = Importance.ALWAYS)
-    private String mTemplate;
 
     // TODO(yuexima): Add split APK directories support.
     @Option(
@@ -56,26 +49,24 @@ public final class DirectoryBasedModuleInfoProvider implements ModuleInfoProvide
                         + " will be generated using the package installation file names as the"
                         + " module names. Currently, only non-split APK files placed on the root"
                         + " of the directory are scanned. Directories and other type of files will"
-                        + " be ignored.")
+                        + " be ignored.",
+            importance = Importance.NEVER)
     private final Set<File> mDirectories = new HashSet<>();
 
     private final PackageNameParser mPackageNameParser;
-    private final ResourceLoader mResourceLoader;
 
     public DirectoryBasedModuleInfoProvider() {
-        this(new AaptPackageNameParser(), new ModuleTemplate.ClassResourceLoader());
+        this(new AaptPackageNameParser());
     }
 
     @VisibleForTesting
-    DirectoryBasedModuleInfoProvider(
-            PackageNameParser packageNameParser, ResourceLoader resourceLoader) {
+    DirectoryBasedModuleInfoProvider(PackageNameParser packageNameParser) {
         mPackageNameParser = packageNameParser;
-        mResourceLoader = resourceLoader;
     }
 
     @Override
-    public Stream<ModuleInfo> get() throws IOException {
-        ModuleTemplate template = ModuleTemplate.load(mTemplate, mResourceLoader);
+    public Stream<ModuleInfo> get(IConfiguration configuration) throws IOException {
+        ModuleTemplate template = ModuleTemplate.loadFrom(configuration);
         return mDirectories.stream()
                 .flatMap(dir -> Arrays.stream(dir.listFiles()))
                 .filter(File::isFile)
@@ -86,6 +77,7 @@ public final class DirectoryBasedModuleInfoProvider implements ModuleInfoProvide
                                 return new ModuleInfo(
                                         file.getName(),
                                         template.substitute(
+                                                file.getName(),
                                                 Map.of(
                                                         PACKAGE_PLACEHOLDER,
                                                         mPackageNameParser.parsePackageName(file),

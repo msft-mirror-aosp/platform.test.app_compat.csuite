@@ -21,7 +21,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
 import com.android.csuite.core.ModuleInfoProvider.ModuleInfo;
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 
 import com.google.common.truth.Correspondence;
@@ -45,7 +47,7 @@ public final class DirectoryBasedModuleInfoProviderTest {
     public void get_directoryUnset_returnsEmptyStream() throws Exception {
         DirectoryBasedModuleInfoProvider provider = createProvider();
 
-        Stream<ModuleInfo> modules = provider.get();
+        Stream<ModuleInfo> modules = provider.get(createIConfig());
 
         assertThat(modules.collect(toList())).isEmpty();
     }
@@ -54,7 +56,7 @@ public final class DirectoryBasedModuleInfoProviderTest {
     public void get_directoryIsEmpty_returnsEmptyStream() throws Exception {
         DirectoryBasedModuleInfoProvider provider = createProvider(createDirectoryWithApkFiles());
 
-        Stream<ModuleInfo> modules = provider.get();
+        Stream<ModuleInfo> modules = provider.get(createIConfig());
 
         assertThat(modules.collect(toList())).isEmpty();
     }
@@ -64,7 +66,7 @@ public final class DirectoryBasedModuleInfoProviderTest {
         DirectoryBasedModuleInfoProvider provider =
                 createProvider(createDirectoryWithApkFiles("package1.apk", "package2.apk"));
 
-        Stream<ModuleInfo> modules = provider.get();
+        Stream<ModuleInfo> modules = provider.get(createIConfig());
 
         assertThat(modules.collect(toList()))
                 .comparingElementsUsing(MODULE_NAME_CORRESPONDENCE)
@@ -76,7 +78,7 @@ public final class DirectoryBasedModuleInfoProviderTest {
         DirectoryBasedModuleInfoProvider provider =
                 createProvider(createDirectoryWithApkFiles("package.apk", "not_package.not_apk"));
 
-        Stream<ModuleInfo> modules = provider.get();
+        Stream<ModuleInfo> modules = provider.get(createIConfig());
 
         assertThat(modules.collect(toList()))
                 .comparingElementsUsing(MODULE_NAME_CORRESPONDENCE)
@@ -88,13 +90,12 @@ public final class DirectoryBasedModuleInfoProviderTest {
             throws Exception {
         String apkFileName = "package.apk";
         Path apkDir = createDirectoryWithApkFiles(apkFileName);
-        DirectoryBasedModuleInfoProvider provider =
-                createProviderWithTemplate(
-                        DirectoryBasedModuleInfoProvider.PACKAGE_INSTALL_FILE_PLACEHOLDER,
-                        apk -> "package.name",
-                        apkDir);
+        DirectoryBasedModuleInfoProvider provider = createProvider(apkDir);
+        IConfiguration config =
+                createIConfigWithTemplate(
+                        DirectoryBasedModuleInfoProvider.PACKAGE_INSTALL_FILE_PLACEHOLDER);
 
-        Stream<ModuleInfo> modules = provider.get();
+        Stream<ModuleInfo> modules = provider.get(config);
 
         assertThat(modules.collect(toList()))
                 .comparingElementsUsing(MODULE_CONTENT_CORRESPONDENCE)
@@ -105,12 +106,12 @@ public final class DirectoryBasedModuleInfoProviderTest {
     public void get_directoryContainsApk_packagePlaceholderIsSubstituted() throws Exception {
         String packageName = "package.name";
         DirectoryBasedModuleInfoProvider provider =
-                createProviderWithTemplate(
-                        DirectoryBasedModuleInfoProvider.PACKAGE_PLACEHOLDER,
-                        apk -> packageName,
-                        createDirectoryWithApkFiles("package.apk"));
+                createProviderWithParser(
+                        apk -> packageName, createDirectoryWithApkFiles("package.apk"));
+        IConfiguration config =
+                createIConfigWithTemplate(DirectoryBasedModuleInfoProvider.PACKAGE_PLACEHOLDER);
 
-        Stream<ModuleInfo> modules = provider.get();
+        Stream<ModuleInfo> modules = provider.get(config);
 
         assertThat(modules.collect(toList()))
                 .comparingElementsUsing(MODULE_CONTENT_CORRESPONDENCE)
@@ -119,16 +120,13 @@ public final class DirectoryBasedModuleInfoProviderTest {
 
     private DirectoryBasedModuleInfoProvider createProvider(Path... paths)
             throws ConfigurationException {
-        return createProviderWithTemplate(MODULE_TEMPLATE_CONTENT, file -> "package.name", paths);
+        return createProviderWithParser(apk -> "package.name", paths);
     }
 
-    private DirectoryBasedModuleInfoProvider createProviderWithTemplate(
-            String templateContent,
-            DirectoryBasedModuleInfoProvider.PackageNameParser parser,
-            Path... paths)
+    private DirectoryBasedModuleInfoProvider createProviderWithParser(
+            DirectoryBasedModuleInfoProvider.PackageNameParser parser, Path... paths)
             throws ConfigurationException {
-        DirectoryBasedModuleInfoProvider provider =
-                new DirectoryBasedModuleInfoProvider(parser, resource -> templateContent);
+        DirectoryBasedModuleInfoProvider provider = new DirectoryBasedModuleInfoProvider(parser);
         OptionSetter optionSetter = new OptionSetter(provider);
         for (Path dir : paths) {
             optionSetter.setOptionValue(
@@ -143,6 +141,26 @@ public final class DirectoryBasedModuleInfoProviderTest {
             Files.createFile(tempDir.resolve(apkFileName));
         }
         return tempDir;
+    }
+
+    private IConfiguration createIConfig() throws ConfigurationException {
+        return createIConfigWithTemplate(MODULE_TEMPLATE_CONTENT);
+    }
+
+    private IConfiguration createIConfigWithTemplate(String template)
+            throws ConfigurationException {
+        IConfiguration configuration = new Configuration("name", "description");
+        configuration.setConfigurationObject(
+                ModuleTemplate.MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE,
+                createModuleTemplate(template));
+        return configuration;
+    }
+
+    private ModuleTemplate createModuleTemplate(String template) throws ConfigurationException {
+        ModuleTemplate moduleTemplate = new ModuleTemplate(resource -> template);
+        new OptionSetter(moduleTemplate)
+                .setOptionValue(ModuleTemplate.TEMPLATE_OPTION, "path.xml.template");
+        return moduleTemplate;
     }
 
     private static final Correspondence<ModuleInfo, String> MODULE_NAME_CORRESPONDENCE =
