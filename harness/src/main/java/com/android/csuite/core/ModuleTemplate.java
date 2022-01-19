@@ -16,32 +16,163 @@
 
 package com.android.csuite.core;
 
+import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.Option;
+import com.android.tradefed.config.Option.Importance;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.io.Resources;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class ModuleTemplate {
-    private final String mTemplateContent;
+    @VisibleForTesting static final String XML_FILE_EXTENSION = ".xml";
+    @VisibleForTesting static final String TEMPLATE_FILE_EXTENSION = ".xml.template";
 
-    public static ModuleTemplate load(String template, ResourceLoader resourceLoader)
-            throws IOException {
-        return new ModuleTemplate(resourceLoader.load(template));
+    @VisibleForTesting
+    static final String MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE = "MODULE_TEMPLATE_PROVIDER";
+
+    @VisibleForTesting static final String TEMPLATE_OPTION = "template";
+    @VisibleForTesting static final String EXTRA_TEMPLATES_OPTION = "extra-templates";
+
+    @Option(
+            name = TEMPLATE_OPTION,
+            description = "The default module config template resource path.",
+            importance = Importance.ALWAYS)
+    private String mTemplate;
+
+    @Option(
+            name = EXTRA_TEMPLATES_OPTION,
+            description = "Extra module config template resource paths.",
+            importance = Importance.NEVER)
+    private List<String> mExtraTemplates = new ArrayList<>();
+
+    private final ResourceLoader mResourceLoader;
+    private String mDefaultTemplateContent;
+    private Map<String, String> mTemplateContentMap;
+    private Map<String, String> mTemplateMapping;
+
+    /**
+     * Load the ModuleTemplate object from a suite configuration.
+     *
+     * <p>An error will be thrown if there's no such objects or more than one objects.
+     *
+     * @param configuration The suite configuration.
+     * @return A ModuleTemplate object.
+     * @throws IOException
+     */
+    public static ModuleTemplate loadFrom(IConfiguration configuration) throws IOException {
+        List<?> moduleTemplates =
+                configuration.getConfigurationObjectList(MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE);
+        Preconditions.checkNotNull(
+                moduleTemplates, "Missing " + MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE);
+        Preconditions.checkArgument(
+                moduleTemplates.size() == 1,
+                "Only one module template object is expected. Found " + moduleTemplates.size());
+        ModuleTemplate moduleTemplate = (ModuleTemplate) moduleTemplates.get(0);
+        moduleTemplate.init(configuration);
+        return moduleTemplate;
+    }
+
+    public ModuleTemplate() {
+        this(new ClassResourceLoader());
     }
 
     @VisibleForTesting
-    ModuleTemplate(String templateContent) {
-        mTemplateContent = templateContent;
+    ModuleTemplate(ResourceLoader resourceLoader) {
+        mResourceLoader = resourceLoader;
     }
 
-    public String substitute(Map<String, String> replacementPairs) {
+    @SuppressWarnings("MustBeClosedChecker")
+    private void init(IConfiguration configuration) throws IOException {
+        if (mDefaultTemplateContent != null) { // Already loaded.
+            return;
+        }
+
+        mTemplateContentMap = new HashMap<>();
+
+        String defaultTemplateContent = mResourceLoader.load(mTemplate);
+        mDefaultTemplateContent = defaultTemplateContent;
+        mTemplateContentMap.put(getTemplateNameFromTemplateFile(mTemplate), defaultTemplateContent);
+
+        for (String extraTemplate : mExtraTemplates) {
+            mTemplateContentMap.put(
+                    getTemplateNameFromTemplateFile(extraTemplate),
+                    mResourceLoader.load(extraTemplate));
+        }
+
+        mTemplateMapping = new HashMap<>();
+
+        List<?> templateMappingObjects =
+                configuration.getConfigurationObjectList(
+                        TemplateMappingProvider.TEMPLATE_MAPPING_PROVIDER_OBJECT_TYPE);
+
+        if (templateMappingObjects == null) { // No mapping objects found.
+            return;
+        }
+
+        for (Object provider : templateMappingObjects) {
+            ((TemplateMappingProvider) provider)
+                    .get()
+                    .forEach(
+                            entry -> {
+                                String moduleName = entry.getKey();
+                                String templateName =
+                                        getTemplateNameFromTemplateMapping(entry.getValue());
+
+                                Preconditions.checkArgument(
+                                        !mTemplateMapping.containsKey(moduleName),
+                                        "Duplicated module template map key: " + moduleName);
+                                Preconditions.checkArgument(
+                                        mTemplateContentMap.containsKey(templateName),
+                                        "The template specified in module template map does not"
+                                                + " exist: "
+                                                + templateName);
+
+                                mTemplateMapping.put(moduleName, templateName);
+                            });
+        }
+    }
+
+    private String getTemplateNameFromTemplateMapping(String name) {
+        String fileName = Path.of(name).getFileName().toString();
+        if (fileName.toLowerCase().endsWith(XML_FILE_EXTENSION)) {
+            return fileName.substring(0, fileName.length() - XML_FILE_EXTENSION.length());
+        }
+        return fileName;
+    }
+
+    private String getTemplateNameFromTemplateFile(String path) {
+        Preconditions.checkArgument(
+                path.endsWith(TEMPLATE_FILE_EXTENSION),
+                "Unexpected file extension for template path: " + path);
+        String fileName = Path.of(path).getFileName().toString();
+        return fileName.substring(0, fileName.length() - TEMPLATE_FILE_EXTENSION.length());
+    }
+
+    public String substitute(String moduleName, Map<String, String> replacementPairs) {
+        Preconditions.checkNotNull(
+                mDefaultTemplateContent, "The module template object is not fully loaded.");
         return replacementPairs.keySet().stream()
                 .reduce(
-                        mTemplateContent,
+                        getTemplateContent(moduleName),
                         (res, placeholder) ->
                                 res.replace(placeholder, replacementPairs.get(placeholder)));
+    }
+
+    private String getTemplateContent(String moduleName) {
+        if (!mTemplateMapping.containsKey(moduleName)) {
+            return mDefaultTemplateContent;
+        }
+
+        return mTemplateContentMap.get(mTemplateMapping.get(moduleName));
     }
 
     public interface ResourceLoader {
