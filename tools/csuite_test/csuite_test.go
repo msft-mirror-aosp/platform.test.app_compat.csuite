@@ -54,7 +54,7 @@ func (cSuiteTest *CSuiteTest) buildCopyConfigTemplateCommand(ctx android.ModuleC
 	}
 
 	inputPath := android.PathForModuleSrc(ctx, templatePath)
-	genPath := android.PathForModuleGen(ctx, planConfigDirName, ctx.ModuleName(), inputPath.Rel()+configTemplateFileExtension)
+	genPath := android.PathForModuleGen(ctx, configDirName, ctx.ModuleName(), inputPath.Rel()+configTemplateFileExtension)
 	rule.Command().Textf("cp").Input(inputPath).Output(genPath)
 	cSuiteTest.AddExtraResource(genPath)
 	return genPath.Rel()
@@ -75,7 +75,7 @@ func (cSuiteTest *CSuiteTest) buildCopyPlanIncludeCommand(ctx android.ModuleCont
 		return emptyPlanIncludePath
 	}
 	inputPath := android.PathForModuleSrc(ctx, *cSuiteTest.csuiteTestProperties.Test_plan_include)
-	genPath := android.PathForModuleGen(ctx, planConfigDirName, "includes", ctx.ModuleName()+".xml")
+	genPath := android.PathForModuleGen(ctx, configDirName, "includes", ctx.ModuleName()+".xml")
 	rule.Command().Textf("cp").Input(inputPath).Output(genPath)
 	cSuiteTest.AddExtraResource(genPath)
 	return strings.Replace(genPath.Rel(), "config/", "", -1)
@@ -85,6 +85,7 @@ func (cSuiteTest *CSuiteTest) buildWritePlanConfigRule(ctx android.ModuleContext
 	planName := ctx.ModuleName()
 	content := strings.Replace(planTemplate, "{planName}", planName, -1)
 	content = strings.Replace(content, "{templatePath}", configTemplatePath, -1)
+	content = strings.Replace(content, "{templateRoot}", android.PathForModuleGen(ctx, configDirName, ctx.ModuleName()).Rel(), -1)
 	content = strings.Replace(content, "{planInclude}", planIncludePath, -1)
 
 	extraTemplateConfigLines := ""
@@ -93,7 +94,7 @@ func (cSuiteTest *CSuiteTest) buildWritePlanConfigRule(ctx android.ModuleContext
 	}
 	content = strings.Replace(content, "{extraTemplatePaths}", extraTemplateConfigLines, -1)
 
-	genPath := android.PathForModuleGen(ctx, planConfigDirName, planName+xmlFileExtension)
+	genPath := android.PathForModuleGen(ctx, configDirName, planName+xmlFileExtension)
 	android.WriteFileRule(ctx, genPath, content)
 	cSuiteTest.AddExtraResource(genPath)
 }
@@ -128,7 +129,7 @@ func CSuiteTestFactory() android.Module {
 
 const (
 	emptyPlanIncludePath        = `empty`
-	planConfigDirName           = `config`
+	configDirName               = `config`
 	configTemplateFileExtension = `.template`
 	xmlFileExtension            = `.xml`
 	extraTemplatePathsTemplate  = `
@@ -154,7 +155,8 @@ const (
      <!-- Cleans the generated module files after the test. -->
      <target_preparer class="com.android.csuite.core.ModuleGenerator" />
      <object type="MODULE_TEMPLATE_PROVIDER" class="com.android.csuite.core.ModuleTemplate" >
-        <option name="template" value="{templatePath}"/>{extraTemplatePaths}
+        <option name="template-root" value="{templateRoot}" />
+        <option name="default-template" value="{templatePath}" />{extraTemplatePaths}
     </object>
 
      <include name="csuite-base" />
