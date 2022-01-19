@@ -39,14 +39,21 @@ public final class ModuleTemplate {
     @VisibleForTesting
     static final String MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE = "MODULE_TEMPLATE_PROVIDER";
 
-    @VisibleForTesting static final String TEMPLATE_OPTION = "template";
+    @VisibleForTesting static final String DEFAULT_TEMPLATE_OPTION = "default-template";
     @VisibleForTesting static final String EXTRA_TEMPLATES_OPTION = "extra-templates";
+    @VisibleForTesting static final String TEMPLATE_ROOT_OPTION = "template-root";
 
     @Option(
-            name = TEMPLATE_OPTION,
+            name = DEFAULT_TEMPLATE_OPTION,
             description = "The default module config template resource path.",
             importance = Importance.ALWAYS)
-    private String mTemplate;
+    private String mDefaultTemplate;
+
+    @Option(
+            name = TEMPLATE_ROOT_OPTION,
+            description = "The root path of the template files.",
+            importance = Importance.ALWAYS)
+    private String mTemplateRoot;
 
     @Option(
             name = EXTRA_TEMPLATES_OPTION,
@@ -98,9 +105,10 @@ public final class ModuleTemplate {
 
         mTemplateContentMap = new HashMap<>();
 
-        String defaultTemplateContent = mResourceLoader.load(mTemplate);
+        String defaultTemplateContent = mResourceLoader.load(mDefaultTemplate);
         mDefaultTemplateContent = defaultTemplateContent;
-        mTemplateContentMap.put(getTemplateNameFromTemplateFile(mTemplate), defaultTemplateContent);
+        mTemplateContentMap.put(
+                getTemplateNameFromTemplateFile(mDefaultTemplate), defaultTemplateContent);
 
         for (String extraTemplate : mExtraTemplates) {
             mTemplateContentMap.put(
@@ -142,7 +150,7 @@ public final class ModuleTemplate {
     }
 
     private String getTemplateNameFromTemplateMapping(String name) {
-        String fileName = Path.of(name).getFileName().toString();
+        String fileName = Path.of(name).toString();
         if (fileName.toLowerCase().endsWith(XML_FILE_EXTENSION)) {
             return fileName.substring(0, fileName.length() - XML_FILE_EXTENSION.length());
         }
@@ -153,7 +161,7 @@ public final class ModuleTemplate {
         Preconditions.checkArgument(
                 path.endsWith(TEMPLATE_FILE_EXTENSION),
                 "Unexpected file extension for template path: " + path);
-        String fileName = Path.of(path).getFileName().toString();
+        String fileName = Path.of(mTemplateRoot).relativize(Path.of(path)).toString();
         return fileName.substring(0, fileName.length() - TEMPLATE_FILE_EXTENSION.length());
     }
 
