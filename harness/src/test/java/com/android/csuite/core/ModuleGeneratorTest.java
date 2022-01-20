@@ -90,12 +90,12 @@ public final class ModuleGeneratorTest {
                 new GeneratorBuilder()
                         .setTestsDir(testsDir)
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Stream.of(
                                                 new ModuleInfoProvider.ModuleInfo(
                                                         TEST_PACKAGE_NAME1, "")))
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Stream.of(
                                                 new ModuleInfoProvider.ModuleInfo(
                                                         TEST_PACKAGE_NAME2, "")))
@@ -123,7 +123,7 @@ public final class ModuleGeneratorTest {
                 new GeneratorBuilder()
                         .setTestsDir(createTestsDir())
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Stream.of(
                                                         new ModuleInfoProvider.ModuleInfo(
                                                                 TEST_PACKAGE_NAME1, ""))
@@ -144,12 +144,12 @@ public final class ModuleGeneratorTest {
                 new GeneratorBuilder()
                         .setTestsDir(testsDir)
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Stream.of(
                                                 new ModuleInfoProvider.ModuleInfo(
                                                         TEST_PACKAGE_NAME1, content1)))
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Stream.of(
                                                 new ModuleInfoProvider.ModuleInfo(
                                                         TEST_PACKAGE_NAME2, content2)))
@@ -168,7 +168,7 @@ public final class ModuleGeneratorTest {
                 new GeneratorBuilder()
                         .setTestsDir(testsDir)
                         .addModuleInfoProvider(
-                                () -> Stream.of(new ModuleInfoProvider.ModuleInfo(" ", "a")))
+                                config -> Stream.of(new ModuleInfoProvider.ModuleInfo(" ", "a")))
                         .build();
 
         assertThrows(IllegalArgumentException.class, () -> generator.split());
@@ -181,12 +181,12 @@ public final class ModuleGeneratorTest {
                 new GeneratorBuilder()
                         .setTestsDir(testsDir)
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Stream.of(
                                                 new ModuleInfoProvider.ModuleInfo(
                                                         TEST_PACKAGE_NAME1, "a")))
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Stream.of(
                                                 new ModuleInfoProvider.ModuleInfo(
                                                         TEST_PACKAGE_NAME1, "b")))
@@ -202,7 +202,7 @@ public final class ModuleGeneratorTest {
                 new GeneratorBuilder()
                         .setTestsDir(testsDir)
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Arrays.asList(
                                                 new ModuleInfoProvider.ModuleInfo(
                                                         TEST_PACKAGE_NAME1, ""),
@@ -210,7 +210,7 @@ public final class ModuleGeneratorTest {
                                                         TEST_PACKAGE_NAME2, ""))
                                                 .stream())
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Stream.of(
                                                 new ModuleInfoProvider.ModuleInfo(
                                                         TEST_PACKAGE_NAME3, "")))
@@ -231,7 +231,7 @@ public final class ModuleGeneratorTest {
                 new GeneratorBuilder()
                         .setTestsDir(createTestsDir())
                         .addModuleInfoProvider(
-                                () ->
+                                config ->
                                         Arrays.stream(new String[] {"a"})
                                                 .map(
                                                         i -> {
@@ -249,7 +249,7 @@ public final class ModuleGeneratorTest {
                 new GeneratorBuilder()
                         .setTestsDir(createTestsDir())
                         .addModuleInfoProvider(
-                                () -> {
+                                config -> {
                                     throw new UncheckedIOException(new IOException());
                                 })
                         .build();
@@ -310,7 +310,7 @@ public final class ModuleGeneratorTest {
 
             IConfiguration configuration = new Configuration("name", "description");
             configuration.setConfigurationObjectList(
-                    ModuleGenerator.MODULE_INFO_PROVIDER, mModuleInfoProviders);
+                    ModuleInfoProvider.MODULE_INFO_PROVIDER_OBJECT_TYPE, mModuleInfoProviders);
             generator.setConfiguration(configuration);
 
             return generator;
