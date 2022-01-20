@@ -29,6 +29,7 @@ import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.MustBeClosed;
 
 import java.io.IOException;
@@ -37,6 +38,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -81,7 +83,6 @@ public final class ModuleGenerator
                 IConfigurationReceiver,
                 ITargetPreparer {
     @VisibleForTesting static final String MODULE_FILE_NAME_EXTENSION = ".config";
-    @VisibleForTesting static final String MODULE_INFO_PROVIDER = "MODULE_INFO_PROVIDER";
     private static final Collection<IRemoteTest> NOT_SPLITTABLE = null;
 
     private final TestDirectoryProvider mTestDirectoryProvider;
@@ -175,12 +176,17 @@ public final class ModuleGenerator
     @MustBeClosed
     @SuppressWarnings("MustBeClosedChecker")
     private Stream<ModuleInfoProvider.ModuleInfo> getModulesInfo() {
-        return mConfiguration.getConfigurationObjectList(MODULE_INFO_PROVIDER).stream()
+        List<?> configurations =
+                mConfiguration.getConfigurationObjectList(
+                        ModuleInfoProvider.MODULE_INFO_PROVIDER_OBJECT_TYPE);
+        Preconditions.checkNotNull(
+                configurations, "Missing " + ModuleInfoProvider.MODULE_INFO_PROVIDER_OBJECT_TYPE);
+        return configurations.stream()
                 .map(obj -> (ModuleInfoProvider) obj)
                 .flatMap(
                         info -> {
                             try {
-                                return info.get();
+                                return info.get(mConfiguration);
                             } catch (IOException ioException) {
                                 throw new UncheckedIOException(ioException);
                             }

@@ -16,7 +16,7 @@
 
 package com.android.csuite.core;
 
-import com.android.csuite.core.ModuleTemplate.ResourceLoader;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 
@@ -30,33 +30,19 @@ import java.util.stream.Stream;
 
 /** A module info provider that accepts package names and files that contains package names. */
 public final class PackageModuleInfoProvider implements ModuleInfoProvider {
-    @VisibleForTesting static final String PACKAGE = "package";
+    @VisibleForTesting static final String PACKAGE_OPTION = "package";
     @VisibleForTesting static final String PACKAGE_PLACEHOLDER = "{package}";
-    @VisibleForTesting static final String TEMPLATE = "template";
 
     @Option(
-            name = TEMPLATE,
-            description = "Module config template resource path.",
-            importance = Importance.ALWAYS)
-    private String mTemplate;
-
-    @Option(name = PACKAGE, description = "App package names.")
+            name = PACKAGE_OPTION,
+            description = "App package names.",
+            importance = Importance.NEVER)
     private final Set<String> mPackages = new HashSet<>();
 
-    private final ResourceLoader mResourceLoader;
-
-    public PackageModuleInfoProvider() {
-        this(new ModuleTemplate.ClassResourceLoader());
-    }
-
-    @VisibleForTesting
-    PackageModuleInfoProvider(ResourceLoader resourceLoader) {
-        mResourceLoader = resourceLoader;
-    }
-
     @Override
-    public Stream<ModuleInfoProvider.ModuleInfo> get() throws IOException {
-        ModuleTemplate moduleTemplate = ModuleTemplate.load(mTemplate, mResourceLoader);
+    public Stream<ModuleInfoProvider.ModuleInfo> get(IConfiguration configuration)
+            throws IOException {
+        ModuleTemplate moduleTemplate = ModuleTemplate.loadFrom(configuration);
 
         return mPackages.stream()
                 .distinct()
@@ -65,6 +51,7 @@ public final class PackageModuleInfoProvider implements ModuleInfoProvider {
                                 new ModuleInfoProvider.ModuleInfo(
                                         packageName,
                                         moduleTemplate.substitute(
+                                                packageName,
                                                 Map.of(PACKAGE_PLACEHOLDER, packageName))));
     }
 }
