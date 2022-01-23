@@ -18,6 +18,9 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 
 import org.junit.Rule;
@@ -45,16 +48,17 @@ public final class PackagesFileModuleInfoProviderTest {
         String packageName1 = "a";
         String packageName2 = "b";
         PackagesFileModuleInfoProvider provider =
-                createProviderBuilder()
+                new ProviderBuilder()
                         .addPackagesFile(createPackagesFile(packageName1 + "\n" + packageName2))
-                        .setTemplateContent(
-                                String.format(
-                                        content,
-                                        PackagesFileModuleInfoProvider.PACKAGE_PLACEHOLDER,
-                                        PackagesFileModuleInfoProvider.PACKAGE_PLACEHOLDER))
                         .build();
+        IConfiguration config =
+                createIConfigWithTemplate(
+                        String.format(
+                                content,
+                                PackagesFileModuleInfoProvider.PACKAGE_PLACEHOLDER,
+                                PackagesFileModuleInfoProvider.PACKAGE_PLACEHOLDER));
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(config);
 
         assertThat(collectModuleContentStrings(modulesInfo))
                 .containsExactly(
@@ -67,21 +71,21 @@ public final class PackagesFileModuleInfoProviderTest {
         String packageName1 = "a";
         String packageName2 = "b";
         PackagesFileModuleInfoProvider provider =
-                createProviderBuilder()
+                new ProviderBuilder()
                         .addPackagesFile(createPackagesFile(packageName1 + "\n" + packageName1))
                         .addPackagesFile(createPackagesFile(packageName1 + "\n" + packageName2))
                         .build();
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
         assertThat(collectModuleNames(modulesInfo)).containsExactly(packageName1, packageName2);
     }
 
     @Test
     public void get_fileNotSpecified_returnsEmptySet() throws Exception {
-        PackagesFileModuleInfoProvider provider = createProviderBuilder().build();
+        PackagesFileModuleInfoProvider provider = new ProviderBuilder().build();
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
         assertThat(collectModuleNames(modulesInfo)).isEmpty();
     }
@@ -93,12 +97,12 @@ public final class PackagesFileModuleInfoProviderTest {
         String packageName3 = "c";
         String packageName4 = "d";
         PackagesFileModuleInfoProvider provider =
-                createProviderBuilder()
+                new ProviderBuilder()
                         .addPackagesFile(createPackagesFile(packageName1 + "\n" + packageName2))
                         .addPackagesFile(createPackagesFile(packageName3 + "\n" + packageName4))
                         .build();
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
         assertThat(collectModuleNames(modulesInfo))
                 .containsExactly(packageName1, packageName2, packageName3, packageName4);
@@ -109,12 +113,12 @@ public final class PackagesFileModuleInfoProviderTest {
         String packageName1 = "a";
         String packageName2 = "b";
         PackagesFileModuleInfoProvider provider =
-                createProviderBuilder()
+                new ProviderBuilder()
                         .addPackagesFile(
                                 createPackagesFile(packageName1 + "\n \n\n" + packageName2))
                         .build();
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
         assertThat(collectModuleNames(modulesInfo)).containsExactly(packageName1, packageName2);
     }
@@ -124,7 +128,7 @@ public final class PackagesFileModuleInfoProviderTest {
         String packageName1 = "a";
         String packageName2 = "b";
         PackagesFileModuleInfoProvider provider =
-                createProviderBuilder()
+                new ProviderBuilder()
                         .addPackagesFile(
                                 createPackagesFile(
                                         packageName1
@@ -134,7 +138,7 @@ public final class PackagesFileModuleInfoProviderTest {
                                                 + packageName2))
                         .build();
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
         assertThat(collectModuleNames(modulesInfo)).containsExactly(packageName1, packageName2);
     }
@@ -156,36 +160,45 @@ public final class PackagesFileModuleInfoProviderTest {
         return tempFile;
     }
 
-    private ProviderBuilder createProviderBuilder() {
-        return new ProviderBuilder().setTemplateContent(MODULE_TEMPLATE_CONTENT);
-    }
-
     private static final class ProviderBuilder {
         private final Set<Path> mPackagesFiles = new HashSet<>();
-        private String mTemplateContent;
 
         ProviderBuilder addPackagesFile(Path packagesFile) {
             mPackagesFiles.add(packagesFile);
             return this;
         }
 
-        ProviderBuilder setTemplateContent(String templateContent) {
-            mTemplateContent = templateContent;
-            return this;
-        }
-
         PackagesFileModuleInfoProvider build() throws Exception {
-            PackagesFileModuleInfoProvider provider =
-                    new PackagesFileModuleInfoProvider(resource -> mTemplateContent);
+            PackagesFileModuleInfoProvider provider = new PackagesFileModuleInfoProvider();
 
             OptionSetter optionSetter = new OptionSetter(provider);
             for (Path p : mPackagesFiles) {
                 optionSetter.setOptionValue(
-                        PackagesFileModuleInfoProvider.PACKAGES_FILE, p.toString());
+                        PackagesFileModuleInfoProvider.PACKAGES_FILE_OPTION, p.toString());
             }
-            optionSetter.setOptionValue(PackagesFileModuleInfoProvider.TEMPLATE, "empty");
             return provider;
         }
+    }
+
+    private IConfiguration createIConfig() throws ConfigurationException {
+        return createIConfigWithTemplate(MODULE_TEMPLATE_CONTENT);
+    }
+
+    private IConfiguration createIConfigWithTemplate(String template)
+            throws ConfigurationException {
+        IConfiguration configuration = new Configuration("name", "description");
+        configuration.setConfigurationObject(
+                ModuleTemplate.MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE,
+                createModuleTemplate(template));
+        return configuration;
+    }
+
+    private ModuleTemplate createModuleTemplate(String template) throws ConfigurationException {
+        ModuleTemplate moduleTemplate = new ModuleTemplate(resource -> template);
+        new OptionSetter(moduleTemplate)
+                .setOptionValue(ModuleTemplate.DEFAULT_TEMPLATE_OPTION, "path.xml.template");
+        new OptionSetter(moduleTemplate).setOptionValue(ModuleTemplate.TEMPLATE_ROOT_OPTION, "");
+        return moduleTemplate;
     }
 
     private static final String MODULE_TEMPLATE_CONTENT =

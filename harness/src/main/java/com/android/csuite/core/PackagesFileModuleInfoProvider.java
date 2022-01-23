@@ -16,7 +16,7 @@
 
 package com.android.csuite.core;
 
-import com.android.csuite.core.ModuleTemplate.ResourceLoader;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
 
@@ -33,39 +33,23 @@ import java.util.stream.Stream;
 
 /** A module info provider that accepts files that contains package names. */
 public final class PackagesFileModuleInfoProvider implements ModuleInfoProvider {
-    @VisibleForTesting static final String PACKAGES_FILE = "packages-file";
+    @VisibleForTesting static final String PACKAGES_FILE_OPTION = "packages-file";
     @VisibleForTesting static final String COMMENT_LINE_PREFIX = "#";
     @VisibleForTesting static final String PACKAGE_PLACEHOLDER = "{package}";
-    @VisibleForTesting static final String TEMPLATE = "template";
 
     @Option(
-            name = TEMPLATE,
-            description = "Module config template resource path.",
-            importance = Importance.ALWAYS)
-    private String mTemplate;
-
-    @Option(
-            name = PACKAGES_FILE,
+            name = PACKAGES_FILE_OPTION,
             description =
                     "File paths that contain package names separated by newline characters."
                         + " Comment lines are supported only if the lines start with double slash."
-                        + " Trailing comments are not supported. Empty lines are ignored.")
+                        + " Trailing comments are not supported. Empty lines are ignored.",
+            importance = Importance.NEVER)
     private final Set<File> mPackagesFiles = new HashSet<>();
 
-    private final ResourceLoader mResourceLoader;
-
-    public PackagesFileModuleInfoProvider() {
-        this(new ModuleTemplate.ClassResourceLoader());
-    }
-
-    @VisibleForTesting
-    PackagesFileModuleInfoProvider(ResourceLoader resourceLoader) {
-        mResourceLoader = resourceLoader;
-    }
-
     @Override
-    public Stream<ModuleInfoProvider.ModuleInfo> get() throws IOException {
-        ModuleTemplate moduleTemplate = ModuleTemplate.load(mTemplate, mResourceLoader);
+    public Stream<ModuleInfoProvider.ModuleInfo> get(IConfiguration configuration)
+            throws IOException {
+        ModuleTemplate moduleTemplate = ModuleTemplate.loadFrom(configuration);
 
         return mPackagesFiles.stream()
                 .flatMap(
@@ -84,6 +68,7 @@ public final class PackagesFileModuleInfoProvider implements ModuleInfoProvider 
                                 new ModuleInfoProvider.ModuleInfo(
                                         packageName,
                                         moduleTemplate.substitute(
+                                                packageName,
                                                 Map.of(PACKAGE_PLACEHOLDER, packageName))));
     }
 
