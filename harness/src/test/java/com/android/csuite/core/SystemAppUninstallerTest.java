@@ -33,7 +33,6 @@ import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
 public final class SystemAppUninstallerTest {
-    private static final ITestDevice NULL_DEVICE = null;
     private static final String TEST_PACKAGE_NAME = "test.package.name";
     private static final String SYSTEM_APP_INSTALL_DIRECTORY = "/system/app";
     private static final String CHECK_PACKAGE_INSTALLED_COMMAND_PREFIX = "pm list packages ";
