@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import android.service.dropbox.DropBoxManagerServiceDumpProto;
 
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceRuntimeException;
@@ -97,9 +98,9 @@ public final class DeviceUtilsTest {
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("123"));
 
-        long result = sut.currentTimeMillis();
+        DeviceTimestamp result = sut.currentTimeMillis();
 
-        assertThat(result).isEqualTo(Long.parseLong("123"));
+        assertThat(result.get()).isEqualTo(Long.parseLong("123"));
     }
 
     @Test
@@ -110,7 +111,7 @@ public final class DeviceUtilsTest {
         when(mRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
                 .thenReturn(Mockito.mock(Process.class));
         AtomicBoolean executed = new AtomicBoolean(false);
-        DeviceUtils.RunnerTask job = () -> executed.set(true);
+        DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
         sut.runWithScreenRecording(job);
 
@@ -124,7 +125,7 @@ public final class DeviceUtilsTest {
                 .thenThrow(new IOException());
         DeviceUtils sut = createSubjectUnderTest();
         AtomicBoolean executed = new AtomicBoolean(false);
-        DeviceUtils.RunnerTask job = () -> executed.set(true);
+        DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
         sut.runWithScreenRecording(job);
 

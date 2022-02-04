@@ -18,6 +18,9 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 
 import org.junit.Rule;
@@ -42,17 +45,15 @@ public final class PackageModuleInfoProviderTest {
         String packageName1 = "a";
         String packageName2 = "b";
         PackageModuleInfoProvider provider =
-                createProviderBuilder()
-                        .addPackage(packageName1)
-                        .addPackage(packageName2)
-                        .setTemplateContent(
-                                String.format(
-                                        content,
-                                        PackagesFileModuleInfoProvider.PACKAGE_PLACEHOLDER,
-                                        PackagesFileModuleInfoProvider.PACKAGE_PLACEHOLDER))
-                        .build();
+                new ProviderBuilder().addPackage(packageName1).addPackage(packageName2).build();
+        IConfiguration config =
+                createIConfigWithTemplate(
+                        String.format(
+                                content,
+                                PackagesFileModuleInfoProvider.PACKAGE_PLACEHOLDER,
+                                PackagesFileModuleInfoProvider.PACKAGE_PLACEHOLDER));
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(config);
 
         assertThat(collectModuleContentStrings(modulesInfo))
                 .containsExactly(
@@ -65,13 +66,13 @@ public final class PackageModuleInfoProviderTest {
         String packageName1 = "a";
         String packageName2 = "b";
         PackageModuleInfoProvider provider =
-                createProviderBuilder()
+                new ProviderBuilder()
                         .addPackage(packageName1)
                         .addPackage(packageName1)
                         .addPackage(packageName2)
                         .build();
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
         assertThat(collectModuleNames(modulesInfo)).containsExactly(packageName1, packageName2);
     }
@@ -81,9 +82,9 @@ public final class PackageModuleInfoProviderTest {
         String packageName1 = "a";
         String packageName2 = "b";
         PackageModuleInfoProvider provider =
-                createProviderBuilder().addPackage(packageName1).addPackage(packageName2).build();
+                new ProviderBuilder().addPackage(packageName1).addPackage(packageName2).build();
 
-        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get();
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
         assertThat(collectModuleNames(modulesInfo)).containsExactly(packageName1, packageName2);
     }
@@ -99,35 +100,44 @@ public final class PackageModuleInfoProviderTest {
         return modulesInfo.map(ModuleInfoProvider.ModuleInfo::getName).collect(Collectors.toList());
     }
 
-    private ProviderBuilder createProviderBuilder() {
-        return new ProviderBuilder().setTemplateContent(MODULE_TEMPLATE_CONTENT);
-    }
-
     private static final class ProviderBuilder {
         private final Set<String> mPackages = new HashSet<>();
-        private String mTemplateContent;
 
         ProviderBuilder addPackage(String packageName) {
             mPackages.add(packageName);
             return this;
         }
 
-        ProviderBuilder setTemplateContent(String templateContent) {
-            mTemplateContent = templateContent;
-            return this;
-        }
-
         PackageModuleInfoProvider build() throws Exception {
-            PackageModuleInfoProvider provider =
-                    new PackageModuleInfoProvider(resource -> mTemplateContent);
+            PackageModuleInfoProvider provider = new PackageModuleInfoProvider();
 
             OptionSetter optionSetter = new OptionSetter(provider);
             for (String p : mPackages) {
-                optionSetter.setOptionValue(PackageModuleInfoProvider.PACKAGE, p);
+                optionSetter.setOptionValue(PackageModuleInfoProvider.PACKAGE_OPTION, p);
             }
-            optionSetter.setOptionValue(PackageModuleInfoProvider.TEMPLATE, "empty");
             return provider;
         }
+    }
+
+    private IConfiguration createIConfig() throws ConfigurationException {
+        return createIConfigWithTemplate(MODULE_TEMPLATE_CONTENT);
+    }
+
+    private IConfiguration createIConfigWithTemplate(String template)
+            throws ConfigurationException {
+        IConfiguration configuration = new Configuration("name", "description");
+        configuration.setConfigurationObject(
+                ModuleTemplate.MODULE_TEMPLATE_PROVIDER_OBJECT_TYPE,
+                createModuleTemplate(template));
+        return configuration;
+    }
+
+    private ModuleTemplate createModuleTemplate(String template) throws ConfigurationException {
+        ModuleTemplate moduleTemplate = new ModuleTemplate(resource -> template);
+        new OptionSetter(moduleTemplate)
+                .setOptionValue(ModuleTemplate.DEFAULT_TEMPLATE_OPTION, "path.xml.template");
+        new OptionSetter(moduleTemplate).setOptionValue(ModuleTemplate.TEMPLATE_ROOT_OPTION, "");
+        return moduleTemplate;
     }
 
     private static final String MODULE_TEMPLATE_CONTENT =

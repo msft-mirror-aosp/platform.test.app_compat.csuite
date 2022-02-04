@@ -14,29 +14,38 @@
  * limitations under the License.
  */
 
-package com.android.compatibility.testtype;
+package com.android.csuite.tests;
 
-import com.android.csuite.core.AbstractCSuiteTest;
 import com.android.csuite.core.DeviceUtils;
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
 
 /** A test that verifies that a single app can be successfully launched. */
-public class AppLaunchTest extends AbstractCSuiteTest {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class AppLaunchTest extends BaseHostJUnit4Test {
     @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
     @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
     @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
+    @Rule public TestLogData mLogData = new TestLogData();
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -66,26 +75,14 @@ public class AppLaunchTest extends AbstractCSuiteTest {
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
-    private int mAppLaunchTimeoutMs = 5000;
+    private int mAppLaunchTimeoutMs = 15000;
 
-    public AppLaunchTest() {
-        this(null);
-    }
-
-    @VisibleForTesting
-    AppLaunchTest(String packageName) {
-        mPackageName = packageName;
-    }
-
-    /*
-     * {@inheritDoc}
-     */
-    @Override
-    protected void run() throws DeviceNotAvailableException {
+    @Before
+    public void setUp() throws DeviceNotAvailableException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        TestUtils testUtils = TestUtils.getInstance(this);
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (mCollectGmsVersion) {
             testUtils.collectGmsVersion(mPackageName);
@@ -95,8 +92,13 @@ public class AppLaunchTest extends AbstractCSuiteTest {
             testUtils.collectAppVersion(mPackageName);
         }
 
-        deviceUtils.freezeRotation();
         deviceUtils.resetPackage(mPackageName);
+        deviceUtils.freezeRotation();
+    }
+
+    @Test
+    public void testAppCrash() throws DeviceNotAvailableException {
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (mRecordScreen) {
             testUtils.collectScreenRecord(
@@ -107,6 +109,12 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         } else {
             launchPackageAndCheckForCrash();
         }
+    }
+
+    @After
+    public void tearDown() throws DeviceNotAvailableException {
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (mScreenshotAfterLaunch) {
             testUtils.collectScreenshot(mPackageName);
@@ -120,14 +128,13 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         CLog.d("Launching package: %s.", mPackageName);
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        TestUtils testUtils = TestUtils.getInstance(this);
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
-        long startTime = deviceUtils.currentTimeMillis();
+        DeviceTimestamp startTime = deviceUtils.currentTimeMillis();
         try {
             deviceUtils.launchPackage(mPackageName);
         } catch (DeviceUtilsException e) {
-            testFailed(e.getMessage());
-            return;
+            Assert.fail(e.getMessage());
         }
 
         try {
@@ -141,28 +148,18 @@ public class AppLaunchTest extends AbstractCSuiteTest {
         try {
             String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
             if (crashLog != null) {
-                testFailed(crashLog);
-                return;
+                Assert.fail(crashLog);
             }
         } catch (IOException e) {
-            testFailed("Error while getting dropbox crash log: " + e);
-            return;
+            Assert.fail("Error while getting dropbox crash log: " + e);
         }
 
-        if (!testUtils.isPackageProcessRunning(mPackageName)) {
-            testFailed(
-                    String.format(
-                            "The process for package %s is no longer found running on the device,"
-                                    + " but no explicit crashes were detected; Check logcat for"
-                                    + " details.",
-                            mPackageName));
-            return;
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected TestDescription createTestDescription() {
-        return new TestDescription(getClass().getSimpleName(), mPackageName);
+        Assert.assertTrue(
+                String.format(
+                        "The process for package %s is no longer found running on the device,"
+                                + " but no explicit crashes were detected; Check logcat for"
+                                + " details.",
+                        mPackageName),
+                testUtils.isPackageProcessRunning(mPackageName));
     }
 }
