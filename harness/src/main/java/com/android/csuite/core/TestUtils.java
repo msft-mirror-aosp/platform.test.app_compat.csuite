@@ -99,15 +99,20 @@ public class TestUtils {
     public void collectScreenRecord(
             DeviceUtils.RunnableThrowingDeviceNotAvailable job, String prefix)
             throws DeviceNotAvailableException {
-        File video = mDeviceUtils.runWithScreenRecording(job);
-        if (video != null) {
-            mTestArtifactReceiver.addTestArtifact(
-                    prefix + "_screenrecord_" + mTestInformation.getDevice().getSerialNumber(),
-                    LogDataType.MP4,
-                    video);
-        } else {
-            CLog.e("Failed to get screen recording.");
-        }
+        mDeviceUtils.runWithScreenRecording(
+                job,
+                video -> {
+                    if (video != null) {
+                        mTestArtifactReceiver.addTestArtifact(
+                                prefix
+                                        + "_screenrecord_"
+                                        + mTestInformation.getDevice().getSerialNumber(),
+                                LogDataType.MP4,
+                                video);
+                    } else {
+                        CLog.e("Failed to get screen recording.");
+                    }
+                });
     }
 
     /**
