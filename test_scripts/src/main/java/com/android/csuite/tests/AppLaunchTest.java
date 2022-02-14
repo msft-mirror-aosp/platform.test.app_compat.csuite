@@ -26,7 +26,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
-
+import com.android.tradefed.util.RunUtil;
 import com.google.common.annotations.VisibleForTesting;
 
 import org.junit.After;
@@ -137,11 +137,8 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             Assert.fail(e.getMessage());
         }
 
-        try {
-            Thread.sleep(mAppLaunchTimeoutMs);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        CLog.d("Waiting %s milliseconds for the app to launch fully.", mAppLaunchTimeoutMs);
+        RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
 
         CLog.d("Completed launching package: %s", mPackageName);
 
