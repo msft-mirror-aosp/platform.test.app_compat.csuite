@@ -44,7 +44,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 @RunWith(JUnit4.class)
-public final class AppCrawlTesterPreparerTest {
+public final class AppCrawlTesterHostPreparerTest {
     private final FileSystem mFileSystem =
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
     ITestDevice mDevice = Mockito.mock(ITestDevice.class);
@@ -54,16 +54,16 @@ public final class AppCrawlTesterPreparerTest {
     @Test
     public void getSdkPath_wasSet_returnsPath() {
         Path path = Path.of("some");
-        AppCrawlTesterPreparer.setSdkPath(mTestInfo, path);
+        AppCrawlTesterHostPreparer.setSdkPath(mTestInfo, path);
 
-        Path result = AppCrawlTesterPreparer.getSdkPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getSdkPath(mTestInfo);
 
         assertThat(result.toString()).isEqualTo(path.toString());
     }
 
     @Test
     public void getSdkPath_wasNotSet_returnsNull() {
-        Path result = AppCrawlTesterPreparer.getSdkPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getSdkPath(mTestInfo);
 
         assertNull(result);
     }
@@ -71,16 +71,16 @@ public final class AppCrawlTesterPreparerTest {
     @Test
     public void getCrawlerBinPath_wasSet_returnsPath() {
         Path path = Path.of("some");
-        AppCrawlTesterPreparer.setCrawlerBinPath(mTestInfo, path);
+        AppCrawlTesterHostPreparer.setCrawlerBinPath(mTestInfo, path);
 
-        Path result = AppCrawlTesterPreparer.getCrawlerBinPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getCrawlerBinPath(mTestInfo);
 
         assertThat(result.toString()).isEqualTo(path.toString());
     }
 
     @Test
     public void getCrawlerBinPath_wasNotSet_returnsNull() {
-        Path result = AppCrawlTesterPreparer.getCrawlerBinPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getCrawlerBinPath(mTestInfo);
 
         assertNull(result);
     }
@@ -88,16 +88,16 @@ public final class AppCrawlTesterPreparerTest {
     @Test
     public void getCredentialPath_wasSet_returnsPath() {
         Path path = Path.of("some");
-        AppCrawlTesterPreparer.setCredentialPath(mTestInfo, path);
+        AppCrawlTesterHostPreparer.setCredentialPath(mTestInfo, path);
 
-        Path result = AppCrawlTesterPreparer.getCredentialPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getCredentialPath(mTestInfo);
 
         assertThat(result.toString()).isEqualTo(path.toString());
     }
 
     @Test
     public void getCredentialPath_wasNotSet_returnsNull() {
-        Path result = AppCrawlTesterPreparer.getCredentialPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getCredentialPath(mTestInfo);
 
         assertNull(result);
     }
@@ -106,7 +106,7 @@ public final class AppCrawlTesterPreparerTest {
     public void setUp_commandsFailed_throwsException() throws Exception {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createFailedCommandResult());
-        AppCrawlTesterPreparer suj = createTestSubject();
+        AppCrawlTesterHostPreparer suj = createTestSubject();
 
         assertThrows(TargetSetupError.class, () -> suj.setUp(mTestInfo));
     }
@@ -115,10 +115,10 @@ public final class AppCrawlTesterPreparerTest {
     public void isReady_setUpCommandsSucceed_returnsTrue() throws Exception {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
-        AppCrawlTesterPreparer suj = createTestSubject();
+        AppCrawlTesterHostPreparer suj = createTestSubject();
         suj.setUp(mTestInfo);
 
-        boolean ready = AppCrawlTesterPreparer.isReady(mTestInfo);
+        boolean ready = AppCrawlTesterHostPreparer.isReady(mTestInfo);
 
         assertThat(ready).isTrue();
     }
@@ -127,32 +127,32 @@ public final class AppCrawlTesterPreparerTest {
     public void isReady_setUpFailed_returnsFalse() throws Exception {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createFailedCommandResult());
-        AppCrawlTesterPreparer suj = createTestSubject();
+        AppCrawlTesterHostPreparer suj = createTestSubject();
         assertThrows(TargetSetupError.class, () -> suj.setUp(mTestInfo));
 
-        boolean ready = AppCrawlTesterPreparer.isReady(mTestInfo);
+        boolean ready = AppCrawlTesterHostPreparer.isReady(mTestInfo);
 
         assertThat(ready).isFalse();
     }
 
     @Test
     public void isReady_preparerNotExecuted_returnsFalse() throws Exception {
-        boolean ready = AppCrawlTesterPreparer.isReady(mTestInfo);
+        boolean ready = AppCrawlTesterHostPreparer.isReady(mTestInfo);
 
         assertThat(ready).isFalse();
     }
 
-    private AppCrawlTesterPreparer createTestSubject() throws Exception {
-        AppCrawlTesterPreparer suj = new AppCrawlTesterPreparer(() -> mRunUtil);
+    private AppCrawlTesterHostPreparer createTestSubject() throws Exception {
+        AppCrawlTesterHostPreparer suj = new AppCrawlTesterHostPreparer(() -> mRunUtil);
         OptionSetter optionSetter = new OptionSetter(suj);
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.SDK_TAR_OPTION,
+                AppCrawlTesterHostPreparer.SDK_TAR_OPTION,
                 Files.createDirectories(mFileSystem.getPath("sdk")).toString());
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.CRAWLER_BIN_OPTION,
+                AppCrawlTesterHostPreparer.CRAWLER_BIN_OPTION,
                 Files.createDirectories(mFileSystem.getPath("bin")).toString());
         optionSetter.setOptionValue(
-                AppCrawlTesterPreparer.CREDENTIAL_JSON_OPTION,
+                AppCrawlTesterHostPreparer.CREDENTIAL_JSON_OPTION,
                 Files.createDirectories(mFileSystem.getPath("cred.json")).toString());
         return suj;
     }

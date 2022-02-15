@@ -16,9 +16,12 @@
 
 package com.android.csuite.core;
 
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
@@ -28,6 +31,8 @@ import com.android.tradefed.util.ZipUtil;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.MoreFiles;
 
+import org.junit.Assert;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -43,34 +49,45 @@ import java.util.stream.Stream;
 public final class AppCrawlTester {
     @VisibleForTesting Path mOutput;
     private final RunUtilProvider mRunUtilProvider;
-    private final AbstractCSuiteTest mTestBase;
+    private final TestUtils mTestUtils;
     private final String mPackageName;
     private final Path mApkRoot;
     private static final long COMMAND_TIMEOUT_MILLIS = 4 * 60 * 1000;
+    private boolean mRecordScreen = false;
+    private boolean mCollectGmsVersion = false;
+    private boolean mCollectAppVersion = false;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
      *
      * @param apkRoot The root path for an apk or a directory that contains apk files for a package.
      * @param packageName The package name of the apk files.
-     * @param testBase The test's base class that contains the test information and output receiver.
+     * @param testInformation The TradeFed test information.
+     * @param testLogData The TradeFed test output receiver.
      * @return an {@link AppCrawlTester} instance.
      */
     public static AppCrawlTester newInstance(
-            Path apkRoot, String packageName, AbstractCSuiteTest testBase) {
-        return new AppCrawlTester(apkRoot, packageName, testBase, () -> new RunUtil());
+            Path apkRoot,
+            String packageName,
+            TestInformation testInformation,
+            TestLogData testLogData) {
+        return new AppCrawlTester(
+                apkRoot,
+                packageName,
+                TestUtils.getInstance(testInformation, testLogData),
+                () -> new RunUtil());
     }
 
     @VisibleForTesting
     AppCrawlTester(
             Path apkRoot,
             String packageName,
-            AbstractCSuiteTest testBase,
+            TestUtils testUtils,
             RunUtilProvider runUtilProvider) {
         mRunUtilProvider = runUtilProvider;
         mApkRoot = apkRoot;
         mPackageName = packageName;
-        mTestBase = testBase;
+        mTestUtils = testUtils;
     }
 
     /** An exception class representing crawler test failures. */
@@ -105,18 +122,58 @@ public final class AppCrawlTester {
     }
 
     /**
+     * Starts crawling the app and throw AssertionError if app crash is detected.
+     *
+     * @throws DeviceNotAvailableException When device because unavailable.
+     */
+    public void startAndAssertAppNoCrash() throws DeviceNotAvailableException {
+        DeviceTimestamp startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
+
+        CrawlerException crawlerException = null;
+        try {
+            start();
+        } catch (CrawlerException e) {
+            crawlerException = e;
+        }
+
+        ArrayList<String> failureMessages = new ArrayList<>();
+
+        try {
+            String dropboxCrashLog =
+                    mTestUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
+            if (dropboxCrashLog != null) {
+                // Put dropbox crash log on the top of the failure messages.
+                failureMessages.add(dropboxCrashLog);
+            }
+        } catch (IOException e) {
+            failureMessages.add("Error while getting dropbox crash log: " + e.getMessage());
+        }
+
+        if (crawlerException != null) {
+            failureMessages.add(crawlerException.getMessage());
+        }
+
+        Assert.assertTrue(
+                String.join(
+                        "\n============\n",
+                        failureMessages.toArray(new String[failureMessages.size()])),
+                failureMessages.isEmpty());
+    }
+
+    /**
      * Starts a crawler run on the configured app.
      *
      * @throws CrawlerException When the crawler was not set up correctly or the crawler run command
      *     failed.
+     * @throws DeviceNotAvailableException When device because unavailable.
      */
-    public void start() throws CrawlerException {
-        if (!AppCrawlTesterPreparer.isReady(mTestBase.getTestInfo())) {
+    public void start() throws CrawlerException, DeviceNotAvailableException {
+        if (!AppCrawlTesterHostPreparer.isReady(mTestUtils.getTestInformation())) {
             throw new CrawlerException(
                     "The "
-                            + AppCrawlTesterPreparer.class.getName()
+                            + AppCrawlTesterHostPreparer.class.getName()
                             + " is not ready. Please check whether "
-                            + AppCrawlTesterPreparer.class.getName()
+                            + AppCrawlTesterHostPreparer.class.getName()
                             + " was included in the test plan and completed successfully.");
         }
 
@@ -134,24 +191,45 @@ public final class AppCrawlTester {
         }
 
         List<Path> apks = getApks(mApkRoot);
-        String[] command = createCrawlerRunCommand(mTestBase.getTestInfo(), apks);
+        String[] command = createCrawlerRunCommand(mTestUtils.getTestInformation(), apks);
 
         CLog.d("Launching package: %s.", mPackageName);
 
         IRunUtil runUtil = mRunUtilProvider.get();
 
+        AtomicReference<CommandResult> commandResult = new AtomicReference<>();
         runUtil.setEnvVariable(
                 "GOOGLE_APPLICATION_CREDENTIALS",
-                AppCrawlTesterPreparer.getCredentialPath(mTestBase.getTestInfo()).toString());
-        CommandResult res = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, command);
+                AppCrawlTesterHostPreparer.getCredentialPath(mTestUtils.getTestInformation())
+                        .toString());
+
+        if (mCollectGmsVersion) {
+            mTestUtils.collectGmsVersion(mPackageName);
+        }
+
+        if (mRecordScreen) {
+            mTestUtils.collectScreenRecord(
+                    () -> {
+                        commandResult.set(runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, command));
+                    },
+                    mPackageName);
+        } else {
+            commandResult.set(runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, command));
+        }
+
+        // Must be done after the crawler run because the app is installed by the crawler.
+        if (mCollectAppVersion) {
+            mTestUtils.collectAppVersion(mPackageName);
+        }
+
         collectOutputZip();
         collectCrawlStepScreenshots();
 
-        if (!res.getStatus().equals(CommandStatus.SUCCESS)) {
-            throw new CrawlerException("Crawler command failed: " + res);
+        if (!commandResult.get().getStatus().equals(CommandStatus.SUCCESS)) {
+            throw new CrawlerException("Crawler command failed: " + commandResult.get());
         }
 
-        CLog.i("Completed crawling the package %s. Outputs: %s", mPackageName, res);
+        CLog.i("Completed crawling the package %s. Outputs: %s", mPackageName, commandResult.get());
     }
 
     /** Copys the step screenshots into test outputs for easier access. */
@@ -173,12 +251,14 @@ public final class AppCrawlTester {
             files.filter(path -> path.getFileName().toString().toLowerCase().endsWith(".png"))
                     .forEach(
                             path -> {
-                                mTestBase.addTestArtifact(
-                                        mPackageName
-                                                + "-crawl_step_screenshot_"
-                                                + path.getFileName(),
-                                        LogDataType.PNG,
-                                        path.toFile());
+                                mTestUtils
+                                        .getTestArtifactReceiver()
+                                        .addTestArtifact(
+                                                mPackageName
+                                                        + "-crawl_step_screenshot_"
+                                                        + path.getFileName(),
+                                                LogDataType.PNG,
+                                                path.toFile());
                             });
         } catch (IOException e) {
             CLog.e(e);
@@ -195,7 +275,9 @@ public final class AppCrawlTester {
         // Compress the crawler output directory and add it to test outputs.
         try {
             File outputZip = ZipUtil.createZip(mOutput.toFile());
-            mTestBase.addTestArtifact(mPackageName + "-crawler_output", LogDataType.ZIP, outputZip);
+            mTestUtils
+                    .getTestArtifactReceiver()
+                    .addTestArtifact(mPackageName + "-crawler_output", LogDataType.ZIP, outputZip);
         } catch (IOException e) {
             CLog.e("Failed to zip the output directory: " + e);
         }
@@ -272,18 +354,18 @@ public final class AppCrawlTester {
                 Arrays.asList(
                         "java",
                         "-jar",
-                        AppCrawlTesterPreparer.getCrawlerBinPath(testInfo)
+                        AppCrawlTesterHostPreparer.getCrawlerBinPath(testInfo)
                                 .resolve("crawl_launcher_deploy.jar")
                                 .toString(),
                         "--android-sdk-path",
-                        AppCrawlTesterPreparer.getSdkPath(testInfo).toString(),
+                        AppCrawlTesterHostPreparer.getSdkPath(testInfo).toString(),
                         "--device-serial-code",
                         testInfo.getDevice().getSerialNumber(),
                         "--output-dir",
                         mOutput.toString(),
                         "--key-store-file",
                         // Using the publicly known default file name of the debug keystore.
-                        AppCrawlTesterPreparer.getCrawlerBinPath(testInfo)
+                        AppCrawlTesterHostPreparer.getCrawlerBinPath(testInfo)
                                 .resolve("debug.keystore")
                                 .toString(),
                         "--key-store-password",
@@ -311,6 +393,21 @@ public final class AppCrawlTester {
         } catch (IOException e) {
             CLog.e("Failed to clean up the crawler output directory: " + e);
         }
+    }
+
+    /** Sets the option of whether to record the device screen during crawling. */
+    public void setRecordScreen(boolean recordScreen) {
+        mRecordScreen = recordScreen;
+    }
+
+    /** Sets the option of whether to collect GMS version in test artifacts. */
+    public void setCollectGmsVersion(boolean collectGmsVersion) {
+        mCollectGmsVersion = collectGmsVersion;
+    }
+
+    /** Sets the option of whether to collect the app version in test artifacts. */
+    public void setCollectAppVersion(boolean collectAppVersion) {
+        mCollectAppVersion = collectAppVersion;
     }
 
     @VisibleForTesting

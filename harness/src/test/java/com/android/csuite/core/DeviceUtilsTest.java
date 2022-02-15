@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import android.service.dropbox.DropBoxManagerServiceDumpProto;
 
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceRuntimeException;
@@ -97,22 +98,22 @@ public final class DeviceUtilsTest {
         when(mDevice.executeShellV2Command(Mockito.startsWith("echo")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("123"));
 
-        long result = sut.currentTimeMillis();
+        DeviceTimestamp result = sut.currentTimeMillis();
 
-        assertThat(result).isEqualTo(Long.parseLong("123"));
+        assertThat(result.get()).isEqualTo(Long.parseLong("123"));
     }
 
     @Test
     public void runWithScreenRecording_recordingDidNotStart_jobIsExecuted() throws Exception {
         DeviceUtils sut = createSubjectUnderTest();
-        when(mDevice.executeShellV2Command(Mockito.startsWith("ls")))
-                .thenReturn(createFailedCommandResult());
         when(mRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
                 .thenReturn(Mockito.mock(Process.class));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("ls")))
+                .thenReturn(createFailedCommandResult());
         AtomicBoolean executed = new AtomicBoolean(false);
-        DeviceUtils.RunnerTask job = () -> executed.set(true);
+        DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
-        sut.runWithScreenRecording(job);
+        sut.runWithScreenRecording(job, video -> {});
 
         assertThat(executed.get()).isTrue();
     }
@@ -124,11 +125,31 @@ public final class DeviceUtilsTest {
                 .thenThrow(new IOException());
         DeviceUtils sut = createSubjectUnderTest();
         AtomicBoolean executed = new AtomicBoolean(false);
-        DeviceUtils.RunnerTask job = () -> executed.set(true);
+        DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
-        sut.runWithScreenRecording(job);
+        sut.runWithScreenRecording(job, video -> {});
 
         assertThat(executed.get()).isTrue();
+    }
+
+    @Test
+    public void runWithScreenRecording_jobThrowsException_videoFileIsHandled() throws Exception {
+        when(mRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
+                .thenReturn(Mockito.mock(Process.class));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("ls")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest();
+        DeviceUtils.RunnableThrowingDeviceNotAvailable job =
+                () -> {
+                    throw new RuntimeException();
+                };
+        AtomicBoolean handled = new AtomicBoolean(false);
+
+        assertThrows(
+                RuntimeException.class,
+                () -> sut.runWithScreenRecording(job, video -> handled.set(true)));
+
+        assertThat(handled.get()).isTrue();
     }
 
     @Test

@@ -36,7 +36,7 @@ java_test_host {
     ],
     static_libs: [
         "tradefed",
-        "csuite-tradefed",
+        "csuite-harness",
     ],
     test_options: {
         unit_test: true,

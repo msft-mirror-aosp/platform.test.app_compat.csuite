@@ -96,10 +96,10 @@ public class DeviceUtils {
     }
 
     /**
-     * A task that throws DeviceNotAvailableException. Use this interface instead of Runnable so
+     * A runnable that throws DeviceNotAvailableException. Use this interface instead of Runnable so
      * that the DeviceNotAvailableException won't need to be handled inside the run() method.
      */
-    public interface RunnerTask {
+    public interface RunnableThrowingDeviceNotAvailable {
         void run() throws DeviceNotAvailableException;
     }
 
@@ -111,7 +111,8 @@ public class DeviceUtils {
      * @throws DeviceRuntimeException When the command to get device time failed or failed to parse
      *     the timestamp.
      */
-    public long currentTimeMillis() throws DeviceNotAvailableException, DeviceRuntimeException {
+    public DeviceTimestamp currentTimeMillis()
+            throws DeviceNotAvailableException, DeviceRuntimeException {
         CommandResult result = mDevice.executeShellV2Command("echo ${EPOCHREALTIME:0:14}");
         if (result.getStatus() != CommandStatus.SUCCESS) {
             throw new DeviceRuntimeException(
@@ -119,7 +120,7 @@ public class DeviceUtils {
                     DeviceErrorIdentifier.DEVICE_UNEXPECTED_RESPONSE);
         }
         try {
-            return Long.parseLong(result.getStdout().replace(".", "").trim());
+            return new DeviceTimestamp(Long.parseLong(result.getStdout().replace(".", "").trim()));
         } catch (NumberFormatException e) {
             CLog.e("Cannot parse device time string: " + result.getStdout());
             throw new DeviceRuntimeException(
@@ -135,14 +136,15 @@ public class DeviceUtils {
      * device is unresponsive.
      *
      * @param action A runnable job that throws DeviceNotAvailableException.
-     * @return The screen recording file on the host, or null if failed to get the recording file
-     *     from the device.
+     * @param handler A file handler that process the output screen record mp4 file located on the
+     *     host.
      * @throws DeviceNotAvailableException When the device is unresponsive.
      */
-    public File runWithScreenRecording(RunnerTask action) throws DeviceNotAvailableException {
+    public void runWithScreenRecording(
+            RunnableThrowingDeviceNotAvailable action, ScreenrecordFileHandler handler)
+            throws DeviceNotAvailableException {
         String videoPath = String.format(VIDEO_PATH_ON_DEVICE_TEMPLATE, new Random().nextInt());
         mDevice.deleteFile(videoPath);
-        File video = null;
 
         // Start screen recording
         Process recordingProcess = null;
@@ -193,12 +195,21 @@ public class DeviceUtils {
             if (recordingProcess != null) {
                 recordingProcess.destroy();
             }
-            // Try to pull and delete the video file from the device anyway.
-            video = mDevice.pullFile(videoPath);
+            // Try to pull, handle, and delete the video file from the device anyway.
+            handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
             mDevice.deleteFile(videoPath);
         }
+    }
 
-        return video;
+    /** A file handler for screen record results. */
+    public interface ScreenrecordFileHandler {
+        /**
+         * Handles the screen record mp4 file located on the host.
+         *
+         * @param screenRecord The mp4 file located on the host. If screen record failed then the
+         *     input could be null.
+         */
+        void handleScreenRecordFile(File screenRecord);
     }
 
     /**
@@ -422,6 +433,25 @@ public class DeviceUtils {
          */
         private DeviceUtilsException(Throwable cause) {
             super(cause);
+        }
+    }
+
+    /**
+     * A class to contain a device timestamp.
+     *
+     * <p>Use this class instead of long to pass device timestamps so that they are less likely to
+     * be confused with host timestamps.
+     */
+    public static class DeviceTimestamp {
+        private final long mTimestamp;
+
+        public DeviceTimestamp(long timestamp) {
+            mTimestamp = timestamp;
+        }
+
+        /** Gets the timestamp on a device. */
+        public long get() {
+            return mTimestamp;
         }
     }
 

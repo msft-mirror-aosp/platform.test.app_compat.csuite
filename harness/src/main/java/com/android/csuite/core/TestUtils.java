@@ -16,11 +16,16 @@
 
 package com.android.csuite.core;
 
+import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.ByteArrayInputStreamSource;
+import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -36,19 +41,35 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** A utility class that contains common methods used by tests. */
-public final class TestUtils {
+public class TestUtils {
     private static final String GMS_PACKAGE_NAME = "com.google.android.gms";
-    private final AbstractCSuiteTest mTestBase;
+    private final TestInformation mTestInformation;
+    private final TestArtifactReceiver mTestArtifactReceiver;
     private final DeviceUtils mDeviceUtils;
     private static final int MAX_CRASH_SNIPPET_LINES = 60;
 
-    public static TestUtils getInstance(AbstractCSuiteTest testBase) {
-        return new TestUtils(testBase, DeviceUtils.getInstance(testBase.getDevice()));
+    public static TestUtils getInstance(TestInformation testInformation, TestLogData testLogData) {
+        return new TestUtils(
+                testInformation,
+                new TestLogDataTestArtifactReceiver(testLogData),
+                DeviceUtils.getInstance(testInformation.getDevice()));
+    }
+
+    public static TestUtils getInstance(
+            TestInformation testInformation, TestArtifactReceiver testArtifactReceiver) {
+        return new TestUtils(
+                testInformation,
+                testArtifactReceiver,
+                DeviceUtils.getInstance(testInformation.getDevice()));
     }
 
     @VisibleForTesting
-    TestUtils(AbstractCSuiteTest testBase, DeviceUtils deviceUtils) {
-        mTestBase = testBase;
+    TestUtils(
+            TestInformation testInformation,
+            TestArtifactReceiver testArtifactReceiver,
+            DeviceUtils deviceUtils) {
+        mTestInformation = testInformation;
+        mTestArtifactReceiver = testArtifactReceiver;
         mDeviceUtils = deviceUtils;
     }
 
@@ -59,9 +80,9 @@ public final class TestUtils {
      * @throws DeviceNotAvailableException
      */
     public void collectScreenshot(String prefix) throws DeviceNotAvailableException {
-        try (InputStreamSource screenSource = mTestBase.getDevice().getScreenshot()) {
-            mTestBase.addTestArtifact(
-                    prefix + "_screenshot_" + mTestBase.getDevice().getSerialNumber(),
+        try (InputStreamSource screenSource = mTestInformation.getDevice().getScreenshot()) {
+            mTestArtifactReceiver.addTestArtifact(
+                    prefix + "_screenshot_" + mTestInformation.getDevice().getSerialNumber(),
                     LogDataType.PNG,
                     screenSource);
         }
@@ -75,17 +96,23 @@ public final class TestUtils {
      * @param prefix The file name prefix.
      * @throws DeviceNotAvailableException
      */
-    public void collectScreenRecord(DeviceUtils.RunnerTask job, String prefix)
+    public void collectScreenRecord(
+            DeviceUtils.RunnableThrowingDeviceNotAvailable job, String prefix)
             throws DeviceNotAvailableException {
-        File video = mDeviceUtils.runWithScreenRecording(job);
-        if (video != null) {
-            mTestBase.addTestArtifact(
-                    prefix + "_screenrecord_" + mTestBase.getDevice().getSerialNumber(),
-                    LogDataType.MP4,
-                    video);
-        } else {
-            CLog.e("Failed to get screen recording.");
-        }
+        mDeviceUtils.runWithScreenRecording(
+                job,
+                video -> {
+                    if (video != null) {
+                        mTestArtifactReceiver.addTestArtifact(
+                                prefix
+                                        + "_screenrecord_"
+                                        + mTestInformation.getDevice().getSerialNumber(),
+                                LogDataType.MP4,
+                                video);
+                    } else {
+                        CLog.e("Failed to get screen recording.");
+                    }
+                });
     }
 
     /**
@@ -101,11 +128,11 @@ public final class TestUtils {
 
         // Note: If the file name format needs to be modified, do it with cautions as some users may
         // be parsing the output file name to get the version information.
-        mTestBase.addTestArtifact(
+        mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[GMS_versionCode=%s]", prefix, gmsVersionCode),
                 LogDataType.TEXT,
                 gmsVersionCode.getBytes());
-        mTestBase.addTestArtifact(
+        mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[GMS_versionName=%s]", prefix, gmsVersionName),
                 LogDataType.TEXT,
                 gmsVersionName.getBytes());
@@ -125,11 +152,11 @@ public final class TestUtils {
 
         // Note: If the file name format needs to be modified, do it with cautions as some users may
         // be parsing the output file name to get the version information.
-        mTestBase.addTestArtifact(
+        mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[versionCode=%s]", packageName, versionCode),
                 LogDataType.TEXT,
                 versionCode.getBytes());
-        mTestBase.addTestArtifact(
+        mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[versionName=%s]", packageName, versionName),
                 LogDataType.TEXT,
                 versionName.getBytes());
@@ -147,7 +174,8 @@ public final class TestUtils {
      * @throws IOException unexpected IOException
      */
     public String getDropboxPackageCrashLog(
-            String packageName, long startTimeOnDevice, boolean saveToFile) throws IOException {
+            String packageName, DeviceTimestamp startTimeOnDevice, boolean saveToFile)
+            throws IOException {
         BiFunction<String, Integer, String> truncate =
                 (text, maxLines) -> {
                     String[] lines = text.split("\\r?\\n");
@@ -166,7 +194,7 @@ public final class TestUtils {
 
         List<DropboxEntry> entries =
                 mDeviceUtils.getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS).stream()
-                        .filter(entry -> (entry.getTime() >= startTimeOnDevice))
+                        .filter(entry -> (entry.getTime() >= startTimeOnDevice.get()))
                         .filter(entry -> entry.getData().contains(packageName))
                         .collect(Collectors.toList());
 
@@ -193,7 +221,7 @@ public final class TestUtils {
                                                         entry.getData(), MAX_CRASH_SNIPPET_LINES)))
                         .collect(Collectors.joining("\n============\n"));
 
-        mTestBase.addTestArtifact(
+        mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_dropbox_entries", packageName),
                 LogDataType.TEXT,
                 fullText.getBytes());
@@ -208,7 +236,10 @@ public final class TestUtils {
      * @throws DeviceNotAvailableException
      */
     public boolean isPackageProcessRunning(String packageName) throws DeviceNotAvailableException {
-        return mTestBase.getDevice().executeShellV2Command("pidof " + packageName).getExitCode()
+        return mTestInformation
+                        .getDevice()
+                        .executeShellV2Command("pidof " + packageName)
+                        .getExitCode()
                 == 0;
     }
 
@@ -276,7 +307,22 @@ public final class TestUtils {
         return apks;
     }
 
-    /** An exception class representing crawler test failures. */
+    /** Returns the test information. */
+    public TestInformation getTestInformation() {
+        return mTestInformation;
+    }
+
+    /** Returns the test artifact receiver. */
+    public TestArtifactReceiver getTestArtifactReceiver() {
+        return mTestArtifactReceiver;
+    }
+
+    /** Returns the device utils. */
+    public DeviceUtils getDeviceUtils() {
+        return mDeviceUtils;
+    }
+
+    /** An exception class representing exceptions thrown from the test utils. */
     public static final class TestUtilsException extends Exception {
         /**
          * Constructs a new {@link TestUtilsException} with a meaningful error message.
@@ -305,5 +351,59 @@ public final class TestUtils {
         private TestUtilsException(Throwable cause) {
             super(cause);
         }
+    }
+
+    public static class TestLogDataTestArtifactReceiver implements TestArtifactReceiver {
+        @SuppressWarnings("hiding")
+        private final TestLogData mTestLogData;
+
+        public TestLogDataTestArtifactReceiver(TestLogData testLogData) {
+            mTestLogData = testLogData;
+        }
+
+        @Override
+        public void addTestArtifact(String name, LogDataType type, byte[] bytes) {
+            mTestLogData.addTestLog(name, type, new ByteArrayInputStreamSource(bytes));
+        }
+
+        @Override
+        public void addTestArtifact(String name, LogDataType type, File file) {
+            mTestLogData.addTestLog(name, type, new FileInputStreamSource(file));
+        }
+
+        @Override
+        public void addTestArtifact(String name, LogDataType type, InputStreamSource source) {
+            mTestLogData.addTestLog(name, type, source);
+        }
+    }
+
+    public interface TestArtifactReceiver {
+
+        /**
+         * Add a test artifact.
+         *
+         * @param name File name.
+         * @param type Output data type.
+         * @param bytes The output data.
+         */
+        void addTestArtifact(String name, LogDataType type, byte[] bytes);
+
+        /**
+         * Add a test artifact.
+         *
+         * @param name File name.
+         * @param type Output data type.
+         * @param inputStreamSource The inputStreamSource.
+         */
+        void addTestArtifact(String name, LogDataType type, InputStreamSource inputStreamSource);
+
+        /**
+         * Add a test artifact.
+         *
+         * @param name File name.
+         * @param type Output data type.
+         * @param file The output file.
+         */
+        void addTestArtifact(String name, LogDataType type, File file);
     }
 }
