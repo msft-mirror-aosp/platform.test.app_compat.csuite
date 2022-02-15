@@ -322,7 +322,7 @@ public class TestUtils {
         return mDeviceUtils;
     }
 
-    /** An exception class representing crawler test failures. */
+    /** An exception class representing exceptions thrown from the test utils. */
     public static final class TestUtilsException extends Exception {
         /**
          * Constructs a new {@link TestUtilsException} with a meaningful error message.
