@@ -25,10 +25,8 @@ class CSuiteCliTest(csuite_test_utils.TestCase):
       completed_process = harness.run_and_wait(
           ['run', 'commandAndExit', 'version'])
 
-    self.assertEqual(0, completed_process.returncode,
-                     msg=str(completed_process))
-    self.assertIn('App Compatibility Test Suite', completed_process.stdout,
-                  msg=str(completed_process))
+    self.assertEqual(0, completed_process.returncode)
+    self.assertIn('App Compatibility Test Suite', completed_process.stdout)
 
 
 if __name__ == '__main__':
