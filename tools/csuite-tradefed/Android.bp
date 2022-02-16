@@ -25,7 +25,6 @@ tradefed_binary_host {
     static_libs: [
         "cts-tradefed-harness",
         "csuite-harness",
-        "csuite-test-scripts",
     ],
 }
 
@@ -36,7 +35,7 @@ java_test_host {
     ],
     static_libs: [
         "tradefed",
-        "csuite-harness",
+        "csuite-tradefed",
     ],
     test_options: {
         unit_test: true,
