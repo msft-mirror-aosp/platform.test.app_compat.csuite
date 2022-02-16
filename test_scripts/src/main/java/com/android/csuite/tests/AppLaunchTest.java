@@ -27,6 +27,7 @@ import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.RunUtil;
+
 import com.google.common.annotations.VisibleForTesting;
 
 import org.junit.After;
@@ -150,13 +151,5 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         } catch (IOException e) {
             Assert.fail("Error while getting dropbox crash log: " + e);
         }
-
-        Assert.assertTrue(
-                String.format(
-                        "The process for package %s is no longer found running on the device,"
-                                + " but no explicit crashes were detected; Check logcat for"
-                                + " details.",
-                        mPackageName),
-                testUtils.isPackageProcessRunning(mPackageName));
     }
 }
