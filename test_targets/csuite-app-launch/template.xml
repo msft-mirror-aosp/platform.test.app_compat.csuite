@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2021 The Android Open Source Project
+<!-- Copyright (C) 2020 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -13,8 +13,11 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Launches an app that exists on the device and check for crashes">
+<configuration description="Launches an app and check for crashes">
     <option name="package-name" value="{package}"/>
+    <target_preparer class="com.android.compatibility.targetprep.AppSetupPreparer">
+        <option name="test-file-name" value="app://{package}"/>
+    </target_preparer>
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
