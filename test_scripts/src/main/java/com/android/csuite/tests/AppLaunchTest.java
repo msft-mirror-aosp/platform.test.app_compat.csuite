@@ -16,6 +16,8 @@
 
 package com.android.csuite.tests;
 
+import com.android.csuite.core.ApkInstaller;
+import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
@@ -37,7 +39,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -47,6 +52,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
     @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
     @Rule public TestLogData mLogData = new TestLogData();
+    private ApkInstaller mApkInstaller;
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -70,6 +76,18 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
                             + " test log files.")
     private boolean mCollectGmsVersion;
 
+    @Option(
+            name = "install-apk",
+            description =
+                    "The path to an apk file or a directory of apk files of a singe package to be"
+                            + " installed on device. Can be repeated.")
+    private final List<File> mApkPaths = new ArrayList<>();
+
+    @Option(
+            name = "install-arg",
+            description = "Arguments for the 'adb install-multiple' package installation command.")
+    private final List<String> mInstallArgs = new ArrayList<>();
+
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
@@ -79,11 +97,18 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     private int mAppLaunchTimeoutMs = 15000;
 
     @Before
-    public void setUp() throws DeviceNotAvailableException {
+    public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+
+        mApkInstaller = ApkInstaller.getInstance(getDevice());
+        for (File apkPath : mApkPaths) {
+            CLog.d("Installing " + apkPath);
+            mApkInstaller.install(
+                    apkPath.toPath(), mInstallArgs.toArray(new String[mInstallArgs.size()]));
+        }
 
         if (mCollectGmsVersion) {
             testUtils.collectGmsVersion(mPackageName);
@@ -113,7 +138,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     }
 
     @After
-    public void tearDown() throws DeviceNotAvailableException {
+    public void tearDown() throws DeviceNotAvailableException, ApkInstallerException {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
@@ -123,6 +148,8 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
 
         deviceUtils.stopPackage(mPackageName);
         deviceUtils.unfreezeRotation();
+
+        mApkInstaller.uninstallAllInstalledPackages();
     }
 
     private void launchPackageAndCheckForCrash() throws DeviceNotAvailableException {
