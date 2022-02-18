@@ -172,9 +172,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
 
         try {
             String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
-            if (crashLog != null) {
-                Assert.fail(crashLog);
-            }
+            Assert.assertNull(crashLog, crashLog);
         } catch (IOException e) {
             Assert.fail("Error while getting dropbox crash log: " + e);
         }
