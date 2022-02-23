@@ -106,14 +106,14 @@ public final class DeviceUtilsTest {
     @Test
     public void runWithScreenRecording_recordingDidNotStart_jobIsExecuted() throws Exception {
         DeviceUtils sut = createSubjectUnderTest();
-        when(mDevice.executeShellV2Command(Mockito.startsWith("ls")))
-                .thenReturn(createFailedCommandResult());
         when(mRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
                 .thenReturn(Mockito.mock(Process.class));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("ls")))
+                .thenReturn(createFailedCommandResult());
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
-        sut.runWithScreenRecording(job);
+        sut.runWithScreenRecording(job, video -> {});
 
         assertThat(executed.get()).isTrue();
     }
@@ -127,9 +127,29 @@ public final class DeviceUtilsTest {
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
-        sut.runWithScreenRecording(job);
+        sut.runWithScreenRecording(job, video -> {});
 
         assertThat(executed.get()).isTrue();
+    }
+
+    @Test
+    public void runWithScreenRecording_jobThrowsException_videoFileIsHandled() throws Exception {
+        when(mRunUtil.runCmdInBackground(Mockito.argThat(contains("shell", "screenrecord"))))
+                .thenReturn(Mockito.mock(Process.class));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("ls")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest();
+        DeviceUtils.RunnableThrowingDeviceNotAvailable job =
+                () -> {
+                    throw new RuntimeException();
+                };
+        AtomicBoolean handled = new AtomicBoolean(false);
+
+        assertThrows(
+                RuntimeException.class,
+                () -> sut.runWithScreenRecording(job, video -> handled.set(true)));
+
+        assertThat(handled.get()).isTrue();
     }
 
     @Test
