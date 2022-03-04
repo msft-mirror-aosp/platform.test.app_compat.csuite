@@ -99,15 +99,20 @@ public class TestUtils {
     public void collectScreenRecord(
             DeviceUtils.RunnableThrowingDeviceNotAvailable job, String prefix)
             throws DeviceNotAvailableException {
-        File video = mDeviceUtils.runWithScreenRecording(job);
-        if (video != null) {
-            mTestArtifactReceiver.addTestArtifact(
-                    prefix + "_screenrecord_" + mTestInformation.getDevice().getSerialNumber(),
-                    LogDataType.MP4,
-                    video);
-        } else {
-            CLog.e("Failed to get screen recording.");
-        }
+        mDeviceUtils.runWithScreenRecording(
+                job,
+                video -> {
+                    if (video != null) {
+                        mTestArtifactReceiver.addTestArtifact(
+                                prefix
+                                        + "_screenrecord_"
+                                        + mTestInformation.getDevice().getSerialNumber(),
+                                LogDataType.MP4,
+                                video);
+                    } else {
+                        CLog.e("Failed to get screen recording.");
+                    }
+                });
     }
 
     /**
@@ -224,21 +229,6 @@ public class TestUtils {
     }
 
     /**
-     * Checks whether the process of the given package is running on the device.
-     *
-     * @param packageName The package name of an app.
-     * @return True if the package is running; False otherwise.
-     * @throws DeviceNotAvailableException
-     */
-    public boolean isPackageProcessRunning(String packageName) throws DeviceNotAvailableException {
-        return mTestInformation
-                        .getDevice()
-                        .executeShellV2Command("pidof " + packageName)
-                        .getExitCode()
-                == 0;
-    }
-
-    /**
      * Generates a list of APK paths where the base.apk of split apk files are always on the first
      * index if exists.
      *
@@ -317,7 +307,7 @@ public class TestUtils {
         return mDeviceUtils;
     }
 
-    /** An exception class representing crawler test failures. */
+    /** An exception class representing exceptions thrown from the test utils. */
     public static final class TestUtilsException extends Exception {
         /**
          * Constructs a new {@link TestUtilsException} with a meaningful error message.
