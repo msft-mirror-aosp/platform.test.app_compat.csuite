@@ -22,31 +22,18 @@ import android.support.test.uiautomator.Until;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
-public class AppLaunchRotateTest extends PixelAppCompatTestBase {
-    private static final String ROTATE_LANDSCAPE =
-            "content insert --uri content://settings/system"
-                    + " --bind name:s:user_rotation --bind value:i:1";
-    private static final String ROTATE_PORTRAIT =
-            "content insert --uri content://settings/system"
-                    + " --bind name:s:user_rotation --bind value:i:0";
+public class AppLaunchLockTest extends PixelAppCompatTestBase {
     private static final int LAUNCH_TIME_MS = 30000; // 30 seconds
     private static final long WAIT_ONE_SECOND_IN_MS = 1000;
-
-    @Override
-    @After
-    public void tearDown() throws Exception {
-        super.tearDown();
-        getUiDevice().unfreezeRotation();
-    }
+    private static final String DISMISS_KEYGUARD = "wm dismiss-keyguard";
 
     @Test
-    public void testRotateDevice() throws Exception {
+    public void testLockDevice() throws Exception {
         // Launch the 3P app
         getDeviceUtils().launchApp(getPackage());
 
@@ -57,24 +44,27 @@ public class AppLaunchRotateTest extends PixelAppCompatTestBase {
                 "3P app main page should show up",
                 getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
 
-        // Turn off the automatic rotation
-        getUiDevice().freezeRotation();
-        getUiDevice().executeShellCommand(ROTATE_PORTRAIT);
-        SystemClock.sleep(WAIT_ONE_SECOND_IN_MS);
-        getDeviceUtils().takeScreenshot(getPackage(), "set_portrait_mode");
-        Assert.assertTrue(
-                "Screen should be in portrait mode", getUiDevice().isNaturalOrientation());
+        if (getUiDevice().isScreenOn()) {
+            getUiDevice().sleep();
+            SystemClock.sleep(WAIT_ONE_SECOND_IN_MS);
+        }
+        getDeviceUtils().takeScreenshot(getPackage(), "sleep_device");
+        Assert.assertFalse("The screen should be off", getUiDevice().isScreenOn());
 
-        getUiDevice().executeShellCommand(ROTATE_LANDSCAPE);
+        getUiDevice().wakeUp();
         SystemClock.sleep(WAIT_ONE_SECOND_IN_MS);
-        getDeviceUtils().takeScreenshot(getPackage(), "rotate_landscape");
+        getDeviceUtils().takeScreenshot(getPackage(), "wake_up_device");
+        Assert.assertTrue("The screen should be off", getUiDevice().isScreenOn());
+        Assert.assertTrue("The keyguard should show up", getKeyguardManager().isKeyguardLocked());
+
+        getUiDevice().executeShellCommand(DISMISS_KEYGUARD);
+        SystemClock.sleep(WAIT_ONE_SECOND_IN_MS);
+        getDeviceUtils().takeScreenshot(getPackage(), "dismiss_keyguard");
+        getUiDevice().wait(Until.hasObject(By.pkg(getPackage()).depth(0)), LAUNCH_TIME_MS);
         Assert.assertFalse(
-                "Screen should be in landscape mode", getUiDevice().isNaturalOrientation());
-
-        getUiDevice().executeShellCommand(ROTATE_PORTRAIT);
-        SystemClock.sleep(WAIT_ONE_SECOND_IN_MS);
-        getDeviceUtils().takeScreenshot(getPackage(), "rotate_portrait");
+                "The keyguard should be dismissed", getKeyguardManager().isKeyguardLocked());
         Assert.assertTrue(
-                "Screen should be in portrait mode", getUiDevice().isNaturalOrientation());
+                "3P app main page should show up after unlocking the screen",
+                getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
     }
 }
