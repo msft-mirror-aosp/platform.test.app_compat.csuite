@@ -45,6 +45,7 @@ import java.util.ArrayList;
 
 @RunWith(JUnit4.class)
 public final class CheckGmsPreparerTest {
+
     private CheckGmsPreparer mPreparer;
     private LogCaptor mLogCaptor;
 
@@ -261,7 +262,7 @@ public final class CheckGmsPreparerTest {
             return mMessage;
         }
 
-        LogItem(LogLevel logLevel, @SuppressWarnings("unused") String tag, String message) {
+        LogItem(LogLevel logLevel, String tag, String message) {
             mLogLevel = logLevel;
             mMessage = message;
         }
