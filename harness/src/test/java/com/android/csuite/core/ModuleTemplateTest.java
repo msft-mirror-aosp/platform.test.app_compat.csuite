@@ -239,11 +239,6 @@ public final class ModuleTemplateTest {
             return this;
         }
 
-        ConfigurationBuilder setTemplateRoot(String path) {
-            mTemplateRoot = path;
-            return this;
-        }
-
         ConfigurationBuilder addExtraTemplatePath(String path) {
             mExtraTemplatePaths.add(path);
             return this;
