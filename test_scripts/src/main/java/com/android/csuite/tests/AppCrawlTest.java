@@ -23,6 +23,8 @@ import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
+import com.google.common.base.Preconditions;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -59,7 +61,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
 
     @Option(
             name = "apk",
-            mandatory = true,
+            mandatory = false,
             description =
                     "Path to an apk file or a directory containing apk files of a single package.")
     private File mApk;
@@ -67,14 +69,27 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     @Option(name = "package-name", mandatory = true, description = "Package name of testing app.")
     private String mPackageName;
 
+    @Option(
+            name = "ui-automator-mode",
+            mandatory = false,
+            description =
+                    "Run the crawler with UIAutomator mode. Apk option is not required in this"
+                            + " mode.")
+    private boolean mUiAutomatorMode = false;
+
     @Before
     public void setUp() {
-        mCrawler =
-                AppCrawlTester.newInstance(
-                        mApk.toPath(), mPackageName, getTestInformation(), mLogData);
+        if (!mUiAutomatorMode) {
+            Preconditions.checkNotNull(
+                    mApk, "Apk file path is required when not running in UIAutomator mode");
+        }
+
+        mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         mCrawler.setRecordScreen(mRecordScreen);
         mCrawler.setCollectGmsVersion(mCollectGmsVersion);
         mCrawler.setCollectAppVersion(mCollectAppVersion);
+        mCrawler.setUiAutomatorMode(mUiAutomatorMode);
+        mCrawler.setApkPath(mApk.toPath());
     }
 
     @Test
