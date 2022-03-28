@@ -29,6 +29,7 @@ import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.io.MoreFiles;
 
 import org.junit.Assert;
@@ -51,28 +52,26 @@ public final class AppCrawlTester {
     private final RunUtilProvider mRunUtilProvider;
     private final TestUtils mTestUtils;
     private final String mPackageName;
-    private final Path mApkRoot;
     private static final long COMMAND_TIMEOUT_MILLIS = 4 * 60 * 1000;
     private boolean mRecordScreen = false;
     private boolean mCollectGmsVersion = false;
     private boolean mCollectAppVersion = false;
+    private boolean mUiAutomatorMode = false;
+    private Path mApkRoot;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
      *
-     * @param apkRoot The root path for an apk or a directory that contains apk files for a package.
      * @param packageName The package name of the apk files.
      * @param testInformation The TradeFed test information.
      * @param testLogData The TradeFed test output receiver.
      * @return an {@link AppCrawlTester} instance.
      */
     public static AppCrawlTester newInstance(
-            Path apkRoot,
             String packageName,
             TestInformation testInformation,
             TestLogData testLogData) {
         return new AppCrawlTester(
-                apkRoot,
                 packageName,
                 TestUtils.getInstance(testInformation, testLogData),
                 () -> new RunUtil());
@@ -80,12 +79,10 @@ public final class AppCrawlTester {
 
     @VisibleForTesting
     AppCrawlTester(
-            Path apkRoot,
             String packageName,
             TestUtils testUtils,
             RunUtilProvider runUtilProvider) {
         mRunUtilProvider = runUtilProvider;
-        mApkRoot = apkRoot;
         mPackageName = packageName;
         mTestUtils = testUtils;
     }
@@ -190,8 +187,7 @@ public final class AppCrawlTester {
             throw new CrawlerException("Failed to create temp directory for output.", e);
         }
 
-        List<Path> apks = getApks(mApkRoot);
-        String[] command = createCrawlerRunCommand(mTestUtils.getTestInformation(), apks);
+        String[] command = createCrawlerRunCommand(mTestUtils.getTestInformation());
 
         CLog.d("Launching package: %s.", mPackageName);
 
@@ -348,7 +344,8 @@ public final class AppCrawlTester {
     }
 
     @VisibleForTesting
-    String[] createCrawlerRunCommand(TestInformation testInfo, List<Path> apks) {
+    String[] createCrawlerRunCommand(TestInformation testInfo) throws CrawlerException {
+
         ArrayList<String> cmd = new ArrayList<>();
         cmd.addAll(
                 Arrays.asList(
@@ -370,13 +367,23 @@ public final class AppCrawlTester {
                                 .toString(),
                         "--key-store-password",
                         // Using the publicly known default password of the debug keystore.
-                        "android",
-                        "--apk-file",
-                        apks.get(0).toString()));
+                        "android"));
 
-        for (int i = 1; i < apks.size(); i++) {
-            cmd.add("--split-apk-files");
-            cmd.add(apks.get(i).toString());
+        if (mUiAutomatorMode) {
+            cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-package-name", mPackageName));
+        } else {
+            Preconditions.checkNotNull(
+                    mApkRoot, "Apk file path is required when not running in UIAutomator mode");
+
+            List<Path> apks = getApks(mApkRoot);
+
+            cmd.add("--apk-file");
+            cmd.add(apks.get(0).toString());
+
+            for (int i = 1; i < apks.size(); i++) {
+                cmd.add("--split-apk-files");
+                cmd.add(apks.get(i).toString());
+            }
         }
 
         return cmd.toArray(new String[cmd.size()]);
@@ -408,6 +415,20 @@ public final class AppCrawlTester {
     /** Sets the option of whether to collect the app version in test artifacts. */
     public void setCollectAppVersion(boolean collectAppVersion) {
         mCollectAppVersion = collectAppVersion;
+    }
+
+    /** Sets the option of whether to run the crawler with UIAutomator mode. */
+    public void setUiAutomatorMode(boolean uiAutomatorMode) {
+        mUiAutomatorMode = uiAutomatorMode;
+    }
+
+    /**
+     * Sets the apk file path. Required when not running in UIAutomator mode.
+     *
+     * @param apkRoot The root path for an apk or a directory that contains apk files for a package.
+     */
+    public void setApkPath(Path apkRoot) {
+        mApkRoot = apkRoot;
     }
 
     @VisibleForTesting
