@@ -77,7 +77,7 @@ public class DeviceUtils {
             mDevice.pressBack();
             mDevice.waitForIdle();
             if (mDevice.hasObject(By.pkg(launcherPkg))) {
-                return;
+                break;
             }
         }
         mDevice.pressHome();
