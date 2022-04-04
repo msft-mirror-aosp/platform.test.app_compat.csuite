@@ -12,7 +12,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Launches an app and lock/unlock the device">
+<configuration description="Launches an app by tapping recent app key">
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -27,7 +27,7 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="package" value="com.android.pixel.tests" />
-        <option name="include-filter" value="com.android.pixel.tests.AppLaunchLockTest" />
+        <option name="include-filter" value="com.android.pixel.tests.AppLaunchRecentAppTest" />
         <option name="instrumentation-arg" key="package" value="{package}" />
         <option name="isolated-storage" value="false" />
     </test>
