@@ -209,7 +209,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         getDevice()
                 .executeShellCommand(
                         "cmd webviewupdate set-webview-implementation com.google.android.webview");
-        getDevice().executeAdbCommand("uninstall com.android.webview");
+        getDevice().executeAdbCommand("uninstall", "com.android.webview");
     }
 
     private WebviewPackage getCurrentWebviewPackage() throws DeviceNotAvailableException {
