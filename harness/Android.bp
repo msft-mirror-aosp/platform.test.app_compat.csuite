@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package {
-    default_applicable_licenses: ["Android-Apache-2.0"],
-}
-
 java_library_host {
     name: "csuite-harness",
     srcs: [
@@ -27,9 +23,6 @@ java_library_host {
     libs: [
         "tradefed",
     ],
-    static_libs: [
-        "compatibility-tradefed",
-    ]
 }
 
 java_test_host {
@@ -37,17 +30,14 @@ java_test_host {
     srcs: [
         "src/test/java/**/*.java",
     ],
-    static_libs: [
-        "tradefed",
+    libs: [
         "csuite-harness",
-        "compatibility-tradefed",
-        "guava-testlib",
-        "jimfs",
+        "tradefed",
+    ],
+    static_libs: [
         "mockito-host",
         "objenesis",
         "testng",
     ],
-    test_options: {
-        unit_test: true,
-    },
+    test_suites: ["general-tests"],
 }

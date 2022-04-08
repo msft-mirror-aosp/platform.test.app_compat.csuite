@@ -59,12 +59,6 @@ import java.util.Set;
 /** A test that verifies that a single app can be successfully launched. */
 public class AppLaunchTest
         implements IDeviceTest, IRemoteTest, IConfigurationReceiver, ITestFilterReceiver {
-    @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
-
-    @Option(
-            name = SCREENSHOT_AFTER_LAUNCH,
-            description = "Whether to take a screenshost after a package is launched.")
-    private boolean mScreenshotAfterLaunch;
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -85,9 +79,6 @@ public class AppLaunchTest
     @Option(name = "exclude-filter", description = "The exclude filter of the test type.")
     protected Set<String> mExcludeFilters = new HashSet<>();
 
-    @Option(name = "dismiss-dialog", description = "Attempt to dismiss dialog from apps.")
-    protected boolean mDismissDialog = false;
-
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
@@ -97,22 +88,18 @@ public class AppLaunchTest
             "com.android.compatibilitytest.AppCompatibilityRunner";
     private static final String LAUNCH_TEST_PACKAGE = "com.android.compatibilitytest";
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
-    private static final String ARG_DISMISS_DIALOG = "ARG_DISMISS_DIALOG";
     private static final String APP_LAUNCH_TIMEOUT_LABEL = "app_launch_timeout_ms";
     private static final int LOGCAT_SIZE_BYTES = 20 * 1024 * 1024;
-    private static final int BASE_INSTRUMENTATION_TEST_TIMEOUT_MS = 10 * 1000;
 
     private ITestDevice mDevice;
     private LogcatReceiver mLogcat;
     private IConfiguration mConfiguration;
 
-    public AppLaunchTest() {
-        this(null);
-    }
+    public AppLaunchTest() {}
 
     @VisibleForTesting
     public AppLaunchTest(String packageName) {
-        this(packageName, 0);
+        mPackageName = packageName;
     }
 
     @VisibleForTesting
@@ -126,23 +113,17 @@ public class AppLaunchTest
      * the package being tested (provided as a parameter).
      */
     protected InstrumentationTest createInstrumentationTest(String packageBeingTested) {
-        InstrumentationTest instrumentationTest = new InstrumentationTest();
+        InstrumentationTest instrTest = new InstrumentationTest();
 
-        instrumentationTest.setPackageName(LAUNCH_TEST_PACKAGE);
-        instrumentationTest.setConfiguration(mConfiguration);
-        instrumentationTest.addInstrumentationArg(PACKAGE_TO_LAUNCH, packageBeingTested);
-        instrumentationTest.setRunnerName(LAUNCH_TEST_RUNNER);
-        instrumentationTest.setDevice(mDevice);
-        instrumentationTest.addInstrumentationArg(
+        instrTest.setPackageName(LAUNCH_TEST_PACKAGE);
+        instrTest.setConfiguration(mConfiguration);
+        instrTest.addInstrumentationArg(PACKAGE_TO_LAUNCH, packageBeingTested);
+        instrTest.setRunnerName(LAUNCH_TEST_RUNNER);
+        instrTest.setDevice(mDevice);
+        instrTest.addInstrumentationArg(
                 APP_LAUNCH_TIMEOUT_LABEL, Integer.toString(mAppLaunchTimeoutMs));
-        instrumentationTest.addInstrumentationArg(
-                ARG_DISMISS_DIALOG, Boolean.toString(mDismissDialog));
 
-        int testTimeoutMs = BASE_INSTRUMENTATION_TEST_TIMEOUT_MS + mAppLaunchTimeoutMs * 2;
-        instrumentationTest.setShellTimeout(testTimeoutMs);
-        instrumentationTest.setTestTimeout(testTimeoutMs);
-
-        return instrumentationTest;
+        return instrTest;
     }
 
     /*
@@ -207,21 +188,7 @@ public class AppLaunchTest
                 // Clear test result between retries.
                 launchPackage(testInfo, result);
                 if (result.status == CompatibilityTestResult.STATUS_SUCCESS) {
-                    break;
-                }
-            }
-
-            if (mScreenshotAfterLaunch) {
-                try (InputStreamSource screenSource = mDevice.getScreenshot()) {
-                    listener.testLog(
-                            mPackageName + "_screenshot_" + mDevice.getSerialNumber(),
-                            LogDataType.PNG,
-                            screenSource);
-                } catch (DeviceNotAvailableException e) {
-                    CLog.e(
-                            "Device %s became unavailable while capturing screenshot, %s",
-                            mDevice.getSerialNumber(), e.toString());
-                    throw e;
+                    return;
                 }
             }
         } finally {
