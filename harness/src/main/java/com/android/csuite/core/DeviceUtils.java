@@ -136,15 +136,15 @@ public class DeviceUtils {
      * device is unresponsive.
      *
      * @param action A runnable job that throws DeviceNotAvailableException.
-     * @return The screen recording file on the host, or null if failed to get the recording file
-     *     from the device.
+     * @param handler A file handler that process the output screen record mp4 file located on the
+     *     host.
      * @throws DeviceNotAvailableException When the device is unresponsive.
      */
-    public File runWithScreenRecording(RunnableThrowingDeviceNotAvailable action)
+    public void runWithScreenRecording(
+            RunnableThrowingDeviceNotAvailable action, ScreenrecordFileHandler handler)
             throws DeviceNotAvailableException {
         String videoPath = String.format(VIDEO_PATH_ON_DEVICE_TEMPLATE, new Random().nextInt());
         mDevice.deleteFile(videoPath);
-        File video = null;
 
         // Start screen recording
         Process recordingProcess = null;
@@ -195,12 +195,21 @@ public class DeviceUtils {
             if (recordingProcess != null) {
                 recordingProcess.destroy();
             }
-            // Try to pull and delete the video file from the device anyway.
-            video = mDevice.pullFile(videoPath);
+            // Try to pull, handle, and delete the video file from the device anyway.
+            handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
             mDevice.deleteFile(videoPath);
         }
+    }
 
-        return video;
+    /** A file handler for screen record results. */
+    public interface ScreenrecordFileHandler {
+        /**
+         * Handles the screen record mp4 file located on the host.
+         *
+         * @param screenRecord The mp4 file located on the host. If screen record failed then the
+         *     input could be null.
+         */
+        void handleScreenRecordFile(File screenRecord);
     }
 
     /**

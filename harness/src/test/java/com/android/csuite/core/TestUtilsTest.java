@@ -26,8 +26,6 @@ import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
-import com.android.tradefed.util.CommandResult;
-import com.android.tradefed.util.CommandStatus;
 
 import com.google.common.jimfs.Jimfs;
 
@@ -188,28 +186,6 @@ public final class TestUtilsTest {
     }
 
     @Test
-    public void isPackageProcessRunning_processIsRunning_returnsTrue() throws Exception {
-        TestUtils sut = createSubjectUnderTest();
-        when(mMockDevice.executeShellV2Command(Mockito.startsWith("pidof")))
-                .thenReturn(createSuccessfulCommandResult());
-
-        boolean result = sut.isPackageProcessRunning(TEST_PACKAGE_NAME);
-
-        assertThat(result).isTrue();
-    }
-
-    @Test
-    public void isPackageProcessRunning_processNotRunning_returnsFalse() throws Exception {
-        TestUtils sut = createSubjectUnderTest();
-        when(mMockDevice.executeShellV2Command(Mockito.startsWith("pidof")))
-                .thenReturn(createFailedCommandResult());
-
-        boolean result = sut.isPackageProcessRunning(TEST_PACKAGE_NAME);
-
-        assertThat(result).isFalse();
-    }
-
-    @Test
     public void collectScreenshot_savesToTestLog() throws Exception {
         TestUtils sut = createSubjectUnderTest();
         InputStreamSource screenshotData = new FileInputStreamSource(mTempFolder.newFile());
@@ -338,26 +314,6 @@ public final class TestUtilsTest {
 
     private TestUtils createSubjectUnderTest() {
         return new TestUtils(createTestInfo(), mMockTestArtifactReceiver, mMockDeviceUtils);
-    }
-
-    private static CommandResult createSuccessfulCommandResult() {
-        return createSuccessfulCommandResultWithStdout("");
-    }
-
-    private static CommandResult createSuccessfulCommandResultWithStdout(String stdout) {
-        CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
-        commandResult.setExitCode(0);
-        commandResult.setStdout(stdout);
-        commandResult.setStderr("");
-        return commandResult;
-    }
-
-    private static CommandResult createFailedCommandResult() {
-        CommandResult commandResult = new CommandResult(CommandStatus.FAILED);
-        commandResult.setExitCode(1);
-        commandResult.setStdout("");
-        commandResult.setStderr("error");
-        return commandResult;
     }
 
     private TestInformation createTestInfo() {
