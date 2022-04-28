@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2020 The Android Open Source Project
+<!-- Copyright (C) 2022 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Installs a test package with -t arg and check for launch crashes">
+<configuration description="Launches an app and check for crashes">
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
@@ -23,7 +23,6 @@
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="set-option" value="package-name:{package}"/>
         <option name="set-option" value="install-apk:app\://{package}"/>
-        <option name="set-option" value="install-arg:-t"/>
-        <option name="class" value="com.android.csuite.tests.AppLaunchTest" />
+        <option name="class" value="com.android.webview.tests.WebviewAppLaunchTest" />
     </test>
 </configuration>
