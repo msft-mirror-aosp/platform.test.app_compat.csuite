@@ -96,8 +96,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         for (File apkPath : mApkPaths) {
             CLog.d("Installing " + apkPath);
-            mApkInstaller.install(
-                    apkPath.toPath(), mInstallArgs.toArray(new String[mInstallArgs.size()]));
+            mApkInstaller.install(apkPath.toPath(), mInstallArgs);
         }
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
