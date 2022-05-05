@@ -110,13 +110,14 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     public void testAppLaunch()
             throws DeviceNotAvailableException, ApkInstallerException, IOException {
         AssertionError lastError = null;
-
         // Try the latest webview version
-        installWebview(mOrderedWebviewApks.get(0));
+        WebviewPackage lastWebviewInstalled = installWebview(mOrderedWebviewApks.get(0));
         try {
             assertAppLaunchNoCrash();
         } catch (AssertionError e) {
             lastError = e;
+        } finally {
+            uninstallWebview();
         }
 
         // If the app doesn't crash, complete the test.
@@ -126,7 +127,6 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
 
         // If the app crashes, try the app with the original webview version that comes with the
         // device.
-        uninstallWebview();
         try {
             assertAppLaunchNoCrash();
         } catch (AssertionError newError) {
@@ -138,13 +138,14 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         }
 
         for (int idx = 1; idx < mOrderedWebviewApks.size(); idx++) {
-            uninstallWebview();
-            installWebview(mOrderedWebviewApks.get(idx));
+            lastWebviewInstalled = installWebview(mOrderedWebviewApks.get(idx));
             try {
                 assertAppLaunchNoCrash();
             } catch (AssertionError e) {
                 lastError = e;
                 continue;
+            } finally {
+                uninstallWebview();
             }
             break;
         }
@@ -152,7 +153,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         throw new AssertionError(
                 String.format(
                         "Package %s crashed since webview version %s",
-                        mPackageName, getCurrentWebviewPackage().getVersion()),
+                        mPackageName, lastWebviewInstalled.getVersion()),
                 lastError);
     }
 
@@ -166,8 +167,6 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         deviceUtils.unfreezeRotation();
 
         mApkInstaller.uninstallAllInstalledPackages();
-
-        uninstallWebview();
         printWebviewVersion();
     }
 
@@ -187,13 +186,18 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
                 });
     }
 
-    private void printWebviewVersion() throws DeviceNotAvailableException {
-        WebviewPackage impl = getCurrentWebviewPackage();
-        CLog.i("Current webview implementation: %s", impl.getPackageName());
-        CLog.i("Current webview version: %s", impl.getVersion());
+    private void printWebviewVersion(WebviewPackage currentWebview)
+            throws DeviceNotAvailableException {
+        CLog.i("Current webview implementation: %s", currentWebview.getPackageName());
+        CLog.i("Current webview version: %s", currentWebview.getVersion());
     }
 
-    private void installWebview(File apk)
+    private void printWebviewVersion() throws DeviceNotAvailableException {
+        WebviewPackage currentWebview = getCurrentWebviewPackage();
+        printWebviewVersion(currentWebview);
+    }
+
+    private WebviewPackage installWebview(File apk)
             throws ApkInstallerException, IOException, DeviceNotAvailableException {
         ApkInstaller.getInstance(getDevice()).install(apk.toPath());
         CommandResult res =
@@ -202,7 +206,9 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
                                 "cmd webviewupdate set-webview-implementation com.android.webview");
         Assert.assertEquals(
                 "Failed to set webview update: " + res, res.getStatus(), CommandStatus.SUCCESS);
-        printWebviewVersion();
+        WebviewPackage currentWebview = getCurrentWebviewPackage();
+        printWebviewVersion(currentWebview);
+        return currentWebview;
     }
 
     private void uninstallWebview() throws DeviceNotAvailableException {
