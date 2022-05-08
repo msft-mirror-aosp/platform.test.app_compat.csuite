@@ -16,6 +16,10 @@
 
 package com.android.pixel.utils;
 
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
+import android.content.Context;
+import android.content.Intent;
 import android.os.SystemClock;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
@@ -31,7 +35,9 @@ public class DeviceUtils {
     private static final String TAG = DeviceUtils.class.getSimpleName();
     private static final String LOG_DATA_DIR = "/sdcard/logData";
     private static final int MAX_RECORDING_PARTS = 5;
+    private static final long WAIT_ONE_SECOND_IN_MS = 1000;
     private static final long VIDEO_TAIL_BUFFER = 500;
+    private static final String DISMISS_KEYGUARD = "wm dismiss-keyguard";
 
     private RecordingThread mCurrentThread;
     private File mLogDataDir;
@@ -54,6 +60,14 @@ public class DeviceUtils {
         }
     }
 
+    /** Wake up the device and dismiss the keyguard. */
+    public void wakeAndUnlockScreen() throws Exception {
+        mDevice.wakeUp();
+        SystemClock.sleep(WAIT_ONE_SECOND_IN_MS);
+        mDevice.executeShellCommand(DISMISS_KEYGUARD);
+        SystemClock.sleep(WAIT_ONE_SECOND_IN_MS);
+    }
+
     /**
      * Go back to home screen by pressing back key five times and home key to avoid the infinite
      * loop since some apps' activities cannot be exited to home screen by back key event.
@@ -63,10 +77,22 @@ public class DeviceUtils {
             mDevice.pressBack();
             mDevice.waitForIdle();
             if (mDevice.hasObject(By.pkg(launcherPkg))) {
-                return;
+                break;
             }
         }
         mDevice.pressHome();
+    }
+
+    /**
+     * Launch an app with the given package name
+     *
+     * @param packageName Name of package to be launched
+     */
+    public void launchApp(String packageName) {
+        Context context = getInstrumentation().getContext();
+        Intent intent = context.getPackageManager().getLaunchIntentForPackage(packageName);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
     }
 
     /**
