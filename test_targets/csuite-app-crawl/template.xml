@@ -14,14 +14,14 @@
      limitations under the License.
 -->
 <configuration description="C-Suite Crawler test configuration">
-    <option name="package-name" value="{package}"/>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
         <option name="run-command" value="input keyevent KEYCODE_HOME"/>
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
-        <option name="set-option" value="apk:app://{package}"/>
+        <option name="set-option" value="package-name:{package}"/>
+        <option name="set-option" value="apk:app\://{package}"/>
         <option name="class" value="com.android.csuite.tests.AppCrawlTest" />
     </test>
 </configuration>
