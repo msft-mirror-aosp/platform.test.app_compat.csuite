@@ -67,10 +67,8 @@ public class AppLaunchRecentAppTest extends PixelAppCompatTestBase {
         // Launch the 3P app
         getDeviceUtils().launchApp(getPackage());
 
-        // Wait for the 3P app to appear
-        getUiDevice()
-                .wait(Until.hasObject(By.pkg(getPackage()).depth(0)), WAIT_FIFTEEN_SECONDS_IN_MS);
-        getUiDevice().waitForIdle();
+        // Wait 15 seconds to ensure the 3P app completely loads
+        getUiDevice().wait(Until.hasObject(By.text(getPackage())), WAIT_FIFTEEN_SECONDS_IN_MS);
         Assert.assertTrue(
                 "3P app main page should show up",
                 getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
