@@ -28,7 +28,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class AppLaunchLockTest extends PixelAppCompatTestBase {
-    private static final int LAUNCH_TIME_MS = 30000; // 30 seconds
+    private static final int LAUNCH_TIME_MS = 15000; // 15 seconds
     private static final long WAIT_ONE_SECOND_IN_MS = 1000;
     private static final String DISMISS_KEYGUARD = "wm dismiss-keyguard";
 
@@ -37,9 +37,8 @@ public class AppLaunchLockTest extends PixelAppCompatTestBase {
         // Launch the 3P app
         getDeviceUtils().launchApp(getPackage());
 
-        // Wait for the 3P app to appear
-        getUiDevice().wait(Until.hasObject(By.pkg(getPackage()).depth(0)), LAUNCH_TIME_MS);
-        getUiDevice().waitForIdle();
+        // Wait 15 seconds to ensure the 3P app completely loads
+        getUiDevice().wait(Until.hasObject(By.text(getPackage())), LAUNCH_TIME_MS);
         Assert.assertTrue(
                 "3P app main page should show up",
                 getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
