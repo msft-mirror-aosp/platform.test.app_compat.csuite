@@ -35,7 +35,7 @@ public class AppLaunchRotateTest extends PixelAppCompatTestBase {
     private static final String ROTATE_PORTRAIT =
             "content insert --uri content://settings/system"
                     + " --bind name:s:user_rotation --bind value:i:0";
-    private static final int LAUNCH_TIME_MS = 30000; // 30 seconds
+    private static final int LAUNCH_TIME_MS = 15000; // 15 seconds
     private static final long WAIT_ONE_SECOND_IN_MS = 1000;
 
     @Override
@@ -50,9 +50,8 @@ public class AppLaunchRotateTest extends PixelAppCompatTestBase {
         // Launch the 3P app
         getDeviceUtils().launchApp(getPackage());
 
-        // Wait for the 3P app to appear
-        getUiDevice().wait(Until.hasObject(By.pkg(getPackage()).depth(0)), LAUNCH_TIME_MS);
-        getUiDevice().waitForIdle();
+        // Wait 15 seconds to ensure the 3P app completely loads
+        getUiDevice().wait(Until.hasObject(By.text(getPackage())), LAUNCH_TIME_MS);
         Assert.assertTrue(
                 "3P app main page should show up",
                 getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
