@@ -20,11 +20,14 @@ import static androidx.test.platform.app.InstrumentationRegistry.getArguments;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import android.app.KeyguardManager;
+import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.Until;
 
 import com.android.pixel.utils.DeviceUtils;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 
 /** Base class for Pixel app compatibility tests. */
@@ -77,5 +80,16 @@ public abstract class PixelAppCompatTestBase {
             mPackage = getArguments().getString(KEY_PACKAGE_NAME);
         }
         return mPackage;
+    }
+
+    protected void launchAndWaitAppOpen(long timeout) {
+        // Launch the 3P app
+        getDeviceUtils().launchApp(getPackage());
+
+        // Wait given timeout to ensure the 3P app completely loads
+        getUiDevice().wait(Until.hasObject(By.text(getPackage())), timeout);
+        Assert.assertTrue(
+                "3P app main page should show up",
+                getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
     }
 }

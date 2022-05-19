@@ -17,8 +17,6 @@
 package com.android.pixel.tests;
 
 import android.os.SystemClock;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.Until;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
@@ -47,14 +45,7 @@ public class AppLaunchRotateTest extends PixelAppCompatTestBase {
 
     @Test
     public void testRotateDevice() throws Exception {
-        // Launch the 3P app
-        getDeviceUtils().launchApp(getPackage());
-
-        // Wait 15 seconds to ensure the 3P app completely loads
-        getUiDevice().wait(Until.hasObject(By.text(getPackage())), LAUNCH_TIME_MS);
-        Assert.assertTrue(
-                "3P app main page should show up",
-                getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
+        launchAndWaitAppOpen(LAUNCH_TIME_MS);
 
         // Turn off the automatic rotation
         getUiDevice().freezeRotation();
