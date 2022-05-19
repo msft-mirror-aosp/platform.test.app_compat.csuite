@@ -34,14 +34,7 @@ public class AppLaunchLockTest extends PixelAppCompatTestBase {
 
     @Test
     public void testLockDevice() throws Exception {
-        // Launch the 3P app
-        getDeviceUtils().launchApp(getPackage());
-
-        // Wait 15 seconds to ensure the 3P app completely loads
-        getUiDevice().wait(Until.hasObject(By.text(getPackage())), LAUNCH_TIME_MS);
-        Assert.assertTrue(
-                "3P app main page should show up",
-                getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
+        launchAndWaitAppOpen(LAUNCH_TIME_MS);
 
         if (getUiDevice().isScreenOn()) {
             getUiDevice().sleep();
