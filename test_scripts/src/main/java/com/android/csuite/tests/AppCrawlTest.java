@@ -16,6 +16,7 @@
 
 package com.android.csuite.tests;
 
+import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.AppCrawlTester;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -32,6 +33,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -39,8 +44,11 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private static final String COLLECT_APP_VERSION = "collect-app-version";
     private static final String COLLECT_GMS_VERSION = "collect-gms-version";
     private static final String RECORD_SCREEN = "record-screen";
+
     @Rule public TestLogData mLogData = new TestLogData();
-    AppCrawlTester mCrawler;
+
+    private ApkInstaller mApkInstaller;
+    private AppCrawlTester mCrawler;
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -63,8 +71,25 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
             name = "apk",
             mandatory = false,
             description =
-                    "Path to an apk file or a directory containing apk files of a single package.")
-    private File mApk;
+                    "Path to an apk file or a directory containing apk files of a single package "
+                            + "to install in Espresso mode")
+    private File mTargetApk;
+
+    @Option(
+            name = "install-apk",
+            mandatory = false,
+            description =
+                    "The path to an apk file or a directory of apk files to be installed on the"
+                        + " device as additional libraries in Espresso mode or as dependencies in"
+                        + " UI-automator mode.")
+    private final List<File> mExtraApkPaths = new ArrayList<>();
+
+    @Option(
+            name = "install-arg",
+            description =
+                    "Arguments for the 'adb install-multiple' package installation command for"
+                            + " UI-automator mode.")
+    private final List<String> mInstallArgs = new ArrayList<>();
 
     @Option(name = "package-name", mandatory = true, description = "Package name of testing app.")
     private String mPackageName;
@@ -78,10 +103,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private boolean mUiAutomatorMode = false;
 
     @Before
-    public void setUp() {
+    public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
         if (!mUiAutomatorMode) {
-            Preconditions.checkNotNull(
-                    mApk, "Apk file path is required when not running in UIAutomator mode");
+            setApkForEspressoMode();
         }
 
         mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
@@ -89,7 +113,21 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         mCrawler.setCollectGmsVersion(mCollectGmsVersion);
         mCrawler.setCollectAppVersion(mCollectAppVersion);
         mCrawler.setUiAutomatorMode(mUiAutomatorMode);
-        mCrawler.setApkPath(mApk.toPath());
+
+        mApkInstaller = ApkInstaller.getInstance(getDevice());
+        mApkInstaller.install(
+                mExtraApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
+                mInstallArgs);
+    }
+
+    /**
+     * For Espresso mode, checks that a path with the location of the apk to repackage was provided
+     */
+    private void setApkForEspressoMode() {
+        Preconditions.checkNotNull(
+                mTargetApk, "Apk file path is required when not running in UIAutomator mode");
+        // set the root path of the target apk for Espresso mode
+        mCrawler.setApkPath(mTargetApk.toPath());
     }
 
     @Test
@@ -98,8 +136,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     }
 
     @After
-    public void tearDown() throws DeviceNotAvailableException {
-        getDevice().uninstallPackage(mPackageName);
+    public void tearDown() throws DeviceNotAvailableException, ApkInstaller.ApkInstallerException {
+        mApkInstaller.uninstallAllInstalledPackages();
+
         mCrawler.cleanUp();
     }
 }
