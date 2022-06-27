@@ -21,7 +21,7 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="set-option" value="package-name:{package}"/>
-        <option name="set-option" value="apk:app\://{package}"/>
+        <option name="set-option" value="repack-apk:app\://{package}"/>
         <option name="class" value="com.android.csuite.tests.AppCrawlTest" />
     </test>
 </configuration>
