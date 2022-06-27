@@ -29,7 +29,6 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
-import com.android.tradefed.util.AaptParser;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.RunUtil;
@@ -45,18 +44,16 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     @Rule public TestLogData mLogData = new TestLogData();
+
     private ApkInstaller mApkInstaller;
-    private List<File> mOrderedWebviewApks = new ArrayList<>();
+    private final List<WebviewPackage> mOrderedWebviews = new ArrayList<>();
 
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -90,18 +87,15 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
-
         readWebviewApkDirectory();
-
         mApkInstaller = ApkInstaller.getInstance(getDevice());
+
         for (File apkPath : mApkPaths) {
             CLog.d("Installing " + apkPath);
-            mApkInstaller.install(
-                    apkPath.toPath(), mInstallArgs.toArray(new String[mInstallArgs.size()]));
+            mApkInstaller.install(apkPath.toPath(), mInstallArgs);
         }
 
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        deviceUtils.freezeRotation();
+        DeviceUtils.getInstance(getDevice()).freezeRotation();
 
         printWebviewVersion();
     }
@@ -111,7 +105,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
             throws DeviceNotAvailableException, ApkInstallerException, IOException {
         AssertionError lastError = null;
         // Try the latest webview version
-        WebviewPackage lastWebviewInstalled = installWebview(mOrderedWebviewApks.get(0));
+        WebviewPackage lastWebviewInstalled = installWebview(mOrderedWebviews.get(0));
         try {
             assertAppLaunchNoCrash();
         } catch (AssertionError e) {
@@ -137,8 +131,8 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
             return;
         }
 
-        for (int idx = 1; idx < mOrderedWebviewApks.size(); idx++) {
-            lastWebviewInstalled = installWebview(mOrderedWebviewApks.get(idx));
+        for (int idx = 1; idx < mOrderedWebviews.size(); idx++) {
+            lastWebviewInstalled = installWebview(mOrderedWebviews.get(idx));
             try {
                 assertAppLaunchNoCrash();
             } catch (AssertionError e) {
@@ -168,22 +162,15 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
 
         mApkInstaller.uninstallAllInstalledPackages();
         printWebviewVersion();
+        mOrderedWebviews.clear();
     }
 
     private void readWebviewApkDirectory() {
-        mOrderedWebviewApks = Arrays.asList(mWebviewApkDir.listFiles());
-        Collections.sort(
-                mOrderedWebviewApks,
-                new Comparator<File>() {
-                    @Override
-                    public int compare(File apk1, File apk2) {
-                        return getVersionCode(apk2).compareTo(getVersionCode(apk1));
-                    }
-
-                    private Long getVersionCode(File apk) {
-                        return Long.parseLong(AaptParser.parse(apk).getVersionCode());
-                    }
-                });
+        mOrderedWebviews.addAll(
+                Arrays.asList(mWebviewApkDir.listFiles()).stream()
+                        .map(apk -> WebviewPackage.buildFromApk(apk.toPath()))
+                        .sorted()
+                        .collect(Collectors.toList()));
     }
 
     private void printWebviewVersion(WebviewPackage currentWebview)
@@ -197,62 +184,39 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         printWebviewVersion(currentWebview);
     }
 
-    private WebviewPackage installWebview(File apk)
+    private WebviewPackage installWebview(WebviewPackage webview)
             throws ApkInstallerException, IOException, DeviceNotAvailableException {
-        ApkInstaller.getInstance(getDevice()).install(apk.toPath());
-        CommandResult res =
-                getDevice()
-                        .executeShellV2Command(
-                                "cmd webviewupdate set-webview-implementation com.android.webview");
-        Assert.assertEquals(
-                "Failed to set webview update: " + res, res.getStatus(), CommandStatus.SUCCESS);
+        ApkInstaller.getInstance(getDevice()).install(webview.getPath());
+        updateWebviewImplementation("com.android.webview");
         WebviewPackage currentWebview = getCurrentWebviewPackage();
         printWebviewVersion(currentWebview);
         return currentWebview;
     }
 
     private void uninstallWebview() throws DeviceNotAvailableException {
-        getDevice()
-                .executeShellCommand(
-                        "cmd webviewupdate set-webview-implementation com.google.android.webview");
+        updateWebviewImplementation("com.google.android.webview");
         getDevice().executeAdbCommand("uninstall", "com.android.webview");
+    }
+
+    private void updateWebviewImplementation(String webviewPackageName)
+            throws DeviceNotAvailableException {
+        CommandResult res =
+                getDevice()
+                        .executeShellV2Command(
+                                String.format(
+                                        "cmd webviewupdate set-webview-implementation %s",
+                                        webviewPackageName));
+        Assert.assertEquals(
+                "Failed to set webview update: " + res, res.getStatus(), CommandStatus.SUCCESS);
     }
 
     private WebviewPackage getCurrentWebviewPackage() throws DeviceNotAvailableException {
         String dumpsys = getDevice().executeShellCommand("dumpsys webviewupdate");
-        return WebviewPackage.parseFrom(dumpsys);
-    }
-
-    private static class WebviewPackage {
-        private final String mPackageName;
-        private final String mVersion;
-
-        private WebviewPackage(String packageName, String version) {
-            mPackageName = packageName;
-            mVersion = version;
-        }
-
-        static WebviewPackage parseFrom(String dumpsys) {
-            Pattern pattern =
-                    Pattern.compile("Current WebView package \\(name, version\\): \\((.*?)\\)");
-            Matcher matcher = pattern.matcher(dumpsys);
-            Assert.assertTrue("Cannot parse webview package info from: " + dumpsys, matcher.find());
-            String[] packageInfo = matcher.group(1).split(",");
-            return new WebviewPackage(packageInfo[0].strip(), packageInfo[1].strip());
-        }
-
-        String getPackageName() {
-            return mPackageName;
-        }
-
-        String getVersion() {
-            return mVersion;
-        }
+        return WebviewPackage.buildFromDumpsys(dumpsys);
     }
 
     private void assertAppLaunchNoCrash() throws DeviceNotAvailableException {
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        deviceUtils.resetPackage(mPackageName);
+        DeviceUtils.getInstance(getDevice()).resetPackage(mPackageName);
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (mRecordScreen) {
@@ -269,9 +233,8 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     private void launchPackageAndCheckForCrash() throws DeviceNotAvailableException {
         CLog.d("Launching package: %s.", mPackageName);
 
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
-
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         DeviceTimestamp startTime = deviceUtils.currentTimeMillis();
         try {
             deviceUtils.launchPackage(mPackageName);
