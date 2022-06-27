@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -66,7 +67,7 @@ public final class ApkInstaller {
      * @throws ApkInstallerException If the installation failed.
      * @throws IOException If an IO exception occurred.
      */
-    public void install(Path apkPath, String... args) throws ApkInstallerException, IOException {
+    public void install(Path apkPath, List<String> args) throws ApkInstallerException, IOException {
         List<Path> apkFilePaths;
         try {
             apkFilePaths = TestUtils.listApks(apkPath);
@@ -92,6 +93,33 @@ public final class ApkInstaller {
     }
 
     /**
+     * Overload for install method to use when install args are empty
+     *
+     * @param apkPath
+     * @throws ApkInstallerException
+     * @throws IOException
+     */
+    public void install(Path apkPath) throws ApkInstallerException, IOException {
+        install(apkPath, Collections.emptyList());
+    }
+
+    /**
+     * Installs apks from a list of paths. Can be used to install additional library apks or 3rd
+     * party apks.
+     *
+     * @param apkPaths List of paths to the apk files.
+     * @param args Install args for the 'adb install-multiple' command.
+     * @throws ApkInstallerException If the installation failed.
+     * @throws IOException If an IO exception occurred.
+     */
+    public void install(List<Path> apkPaths, List<String> args)
+            throws ApkInstallerException, IOException {
+        for (Path apkPath : apkPaths) {
+            install(apkPath, args);
+        }
+    }
+
+    /**
      * Attempts to uninstall all the installed packages.
      *
      * <p>When failed to uninstall one of the installed packages, this method will still attempt to
@@ -100,6 +128,8 @@ public final class ApkInstaller {
      * @throws ApkInstallerException when failed to uninstall a package.
      */
     public void uninstallAllInstalledPackages() throws ApkInstallerException {
+        CLog.d("Uninstalling all installed packages.");
+
         StringBuilder errorMessage = new StringBuilder();
         mInstalledBaseApks.forEach(
                 baseApk -> {
@@ -132,11 +162,11 @@ public final class ApkInstaller {
     }
 
     private String[] createInstallCommand(
-            List<Path> apkFilePaths, String deviceSerial, String[] args) {
+            List<Path> apkFilePaths, String deviceSerial, List<String> args) {
         ArrayList<String> cmd = new ArrayList<>();
         cmd.addAll(Arrays.asList("adb", "-s", deviceSerial, "install-multiple"));
 
-        cmd.addAll(Arrays.asList(args));
+        cmd.addAll(args);
 
         apkFilePaths.stream().map(Path::toString).forEach(cmd::add);
 
