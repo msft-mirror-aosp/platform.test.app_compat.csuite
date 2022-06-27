@@ -68,11 +68,11 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private boolean mCollectGmsVersion;
 
     @Option(
-            name = "apk",
+            name = "repack-apk",
             mandatory = false,
             description =
                     "Path to an apk file or a directory containing apk files of a single package "
-                            + "to install in Espresso mode")
+                            + "to repack and install in Espresso mode")
     private File mTargetApk;
 
     @Option(
@@ -80,8 +80,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
             mandatory = false,
             description =
                     "The path to an apk file or a directory of apk files to be installed on the"
-                        + " device as additional libraries in Espresso mode or as dependencies in"
-                        + " UI-automator mode.")
+                            + " device. In Ui-automator mode, this includes both the target apk to"
+                            + " install and any dependencies. In Espresso mode this can include"
+                            + " additional libraries or dependencies.")
     private final List<File> mExtraApkPaths = new ArrayList<>();
 
     @Option(
