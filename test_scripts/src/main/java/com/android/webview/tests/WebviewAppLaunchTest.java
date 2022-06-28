@@ -54,6 +54,8 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
 
     private ApkInstaller mApkInstaller;
     private final List<WebviewPackage> mOrderedWebviews = new ArrayList<>();
+    private WebviewPackage mPreInstalledWebview;
+    private WebviewPackage mCurrentWebview;
 
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -87,6 +89,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
+        mCurrentWebview = mPreInstalledWebview = getCurrentWebviewPackage();
         readWebviewApkDirectory();
         mApkInstaller = ApkInstaller.getInstance(getDevice());
 
@@ -97,7 +100,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
 
         DeviceUtils.getInstance(getDevice()).freezeRotation();
 
-        printWebviewVersion();
+        printWebviewVersion(mPreInstalledWebview);
     }
 
     @Test
@@ -187,15 +190,21 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     private WebviewPackage installWebview(WebviewPackage webview)
             throws ApkInstallerException, IOException, DeviceNotAvailableException {
         ApkInstaller.getInstance(getDevice()).install(webview.getPath());
-        updateWebviewImplementation("com.android.webview");
-        WebviewPackage currentWebview = getCurrentWebviewPackage();
-        printWebviewVersion(currentWebview);
-        return currentWebview;
+        updateWebviewImplementation(webview.getPackageName());
+        mCurrentWebview = webview;
+        printWebviewVersion(mCurrentWebview);
+        return mCurrentWebview;
     }
 
     private void uninstallWebview() throws DeviceNotAvailableException {
-        updateWebviewImplementation("com.google.android.webview");
-        getDevice().executeAdbCommand("uninstall", "com.android.webview");
+        Assert.assertNotEquals(
+                "Test is attempting to uninstall the preinstalled WebView provider",
+                mCurrentWebview,
+                mPreInstalledWebview);
+        updateWebviewImplementation(mPreInstalledWebview.getPackageName());
+        getDevice().executeAdbCommand("uninstall", mCurrentWebview.getPackageName());
+        mCurrentWebview = mPreInstalledWebview;
+        printWebviewVersion(mCurrentWebview);
     }
 
     private void updateWebviewImplementation(String webviewPackageName)
