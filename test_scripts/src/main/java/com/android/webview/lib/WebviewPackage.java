@@ -98,4 +98,9 @@ public class WebviewPackage {
     public long getVersionCode() {
         return mVersionCode;
     }
+
+    boolean equals(WebviewPackage other) {
+        return this.getPackageName() == other.getPackageName()
+                && this.getVersion() == other.getVersion();
+    }
 }
