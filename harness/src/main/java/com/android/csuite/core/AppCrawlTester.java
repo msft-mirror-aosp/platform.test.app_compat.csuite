@@ -46,6 +46,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import javax.annotation.Nullable;
+
 /** A tester that interact with an app crawler during testing. */
 public final class AppCrawlTester {
     @VisibleForTesting Path mOutput;
@@ -58,6 +60,7 @@ public final class AppCrawlTester {
     private boolean mCollectAppVersion = false;
     private boolean mUiAutomatorMode = false;
     private Path mApkRoot;
+    private Path mRoboscriptFile;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -68,9 +71,7 @@ public final class AppCrawlTester {
      * @return an {@link AppCrawlTester} instance.
      */
     public static AppCrawlTester newInstance(
-            String packageName,
-            TestInformation testInformation,
-            TestLogData testLogData) {
+            String packageName, TestInformation testInformation, TestLogData testLogData) {
         return new AppCrawlTester(
                 packageName,
                 TestUtils.getInstance(testInformation, testLogData),
@@ -78,10 +79,7 @@ public final class AppCrawlTester {
     }
 
     @VisibleForTesting
-    AppCrawlTester(
-            String packageName,
-            TestUtils testUtils,
-            RunUtilProvider runUtilProvider) {
+    AppCrawlTester(String packageName, TestUtils testUtils, RunUtilProvider runUtilProvider) {
         mRunUtilProvider = runUtilProvider;
         mPackageName = packageName;
         mTestUtils = testUtils;
@@ -386,6 +384,12 @@ public final class AppCrawlTester {
             }
         }
 
+        if (mRoboscriptFile != null) {
+            Assert.assertFalse(
+                    "Please provide a valid roboscript file.", Files.isDirectory(mRoboscriptFile));
+            cmd.addAll(Arrays.asList("--robo-script-file", mRoboscriptFile.toString()));
+        }
+
         return cmd.toArray(new String[cmd.size()]);
     }
 
@@ -429,6 +433,14 @@ public final class AppCrawlTester {
      */
     public void setApkPath(Path apkRoot) {
         mApkRoot = apkRoot;
+    }
+
+    /**
+     * Sets the option of the Roboscript file to be used by the crawler. Null can be passed to
+     * remove the reference to the file.
+     */
+    public void setRoboscriptFile(@Nullable Path roboscriptFile) {
+        mRoboscriptFile = roboscriptFile;
     }
 
     @VisibleForTesting
