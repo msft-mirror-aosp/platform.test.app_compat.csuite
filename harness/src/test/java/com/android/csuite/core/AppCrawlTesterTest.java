@@ -78,6 +78,18 @@ public final class AppCrawlTesterTest {
     }
 
     @Test
+    public void start_roboscriptDirectoryProvided_throws() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject();
+        suj.setUiAutomatorMode(true);
+        Path roboDir = mFileSystem.getPath("robo");
+        Files.createDirectories(roboDir);
+
+        suj.setRoboscriptFile(roboDir);
+
+        assertThrows(AssertionError.class, () -> suj.start());
+    }
+
+    @Test
     public void startAndAssertAppNoCrash_noCrashDetected_doesNotThrow() throws Exception {
         AppCrawlTester suj = createPreparedTestSubject();
         suj.setApkPath(createApkPathWithSplitApks());
@@ -348,6 +360,21 @@ public final class AppCrawlTesterTest {
         assertThat(result).asList().contains("--key-store-password");
         assertThat(result).asList().contains("--device-serial-code");
         assertThat(result).asList().contains("--apk-file");
+    }
+
+    @Test
+    public void createCrawlerRunCommand_containsRoboscriptFileWhenProvided() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject();
+        Path roboDir = mFileSystem.getPath("/robo");
+        Files.createDirectory(roboDir);
+        Path roboFile = Files.createFile(roboDir.resolve("app.roboscript"));
+
+        suj.setUiAutomatorMode(true);
+        suj.setRoboscriptFile(roboFile);
+        suj.start();
+        String[] result = suj.createCrawlerRunCommand(mTestInfo);
+
+        assertThat(result).asList().contains("--robo-script-file");
     }
 
     @Test
