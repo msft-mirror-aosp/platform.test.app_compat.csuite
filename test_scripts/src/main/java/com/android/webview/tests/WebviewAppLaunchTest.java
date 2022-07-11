@@ -44,6 +44,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -172,7 +173,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         mOrderedWebviews.addAll(
                 Arrays.asList(mWebviewApkDir.listFiles()).stream()
                         .map(apk -> WebviewPackage.buildFromApk(apk.toPath()))
-                        .sorted()
+                        .sorted(Comparator.reverseOrder())
                         .collect(Collectors.toList()));
     }
 
