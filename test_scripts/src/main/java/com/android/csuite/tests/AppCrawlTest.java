@@ -112,11 +112,10 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
 
     @Before
     public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
+        mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         if (!mUiAutomatorMode) {
             setApkForEspressoMode();
         }
-
-        mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         mCrawler.setRecordScreen(mRecordScreen);
         mCrawler.setCollectGmsVersion(mCollectGmsVersion);
         mCrawler.setCollectAppVersion(mCollectAppVersion);
