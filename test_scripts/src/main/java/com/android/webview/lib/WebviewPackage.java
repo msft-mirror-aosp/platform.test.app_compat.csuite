@@ -24,7 +24,7 @@ import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class WebviewPackage {
+public class WebviewPackage implements Comparable<WebviewPackage> {
     private final String mPackageName;
     private final String mVersion;
     private final long mVersionCode;
@@ -83,10 +83,6 @@ public class WebviewPackage {
         return mApkPath;
     }
 
-    public int compare(WebviewPackage otherWebview) {
-        return Long.compare(this.getVersionCode(), otherWebview.getVersionCode());
-    }
-
     public String getPackageName() {
         return mPackageName;
     }
@@ -97,5 +93,17 @@ public class WebviewPackage {
 
     public long getVersionCode() {
         return mVersionCode;
+    }
+
+    @Override
+    public int compareTo(WebviewPackage otherWebviewPkg) {
+        return Long.compare(this.getVersionCode(), otherWebviewPkg.getVersionCode());
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        final WebviewPackage otherWebviewPkg = (WebviewPackage) obj;
+        return this.getPackageName().equals(otherWebviewPkg.getPackageName())
+                && this.getVersion().equals(otherWebviewPkg.getVersion());
     }
 }

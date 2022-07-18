@@ -68,21 +68,22 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private boolean mCollectGmsVersion;
 
     @Option(
-            name = "apk",
+            name = "repack-apk",
             mandatory = false,
             description =
                     "Path to an apk file or a directory containing apk files of a single package "
-                            + "to install in Espresso mode")
-    private File mTargetApk;
+                            + "to repack and install in Espresso mode")
+    private File mRepackApk;
 
     @Option(
             name = "install-apk",
             mandatory = false,
             description =
                     "The path to an apk file or a directory of apk files to be installed on the"
-                        + " device as additional libraries in Espresso mode or as dependencies in"
-                        + " UI-automator mode.")
-    private final List<File> mExtraApkPaths = new ArrayList<>();
+                            + " device. In Ui-automator mode, this includes both the target apk to"
+                            + " install and any dependencies. In Espresso mode this can include"
+                            + " additional libraries or dependencies.")
+    private final List<File> mInstallApkPaths = new ArrayList<>();
 
     @Option(
             name = "install-arg",
@@ -102,21 +103,30 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
                             + " mode.")
     private boolean mUiAutomatorMode = false;
 
+    @Option(
+            name = "robo-script-file",
+            description = "A Roboscript file to be executed by the crawler.")
+    private File mRoboscriptFile;
+
+    // TODO(b/234512223): add support for contextual roboscript files
+
     @Before
     public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
+        mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         if (!mUiAutomatorMode) {
             setApkForEspressoMode();
         }
-
-        mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         mCrawler.setRecordScreen(mRecordScreen);
         mCrawler.setCollectGmsVersion(mCollectGmsVersion);
         mCrawler.setCollectAppVersion(mCollectAppVersion);
         mCrawler.setUiAutomatorMode(mUiAutomatorMode);
+        if (mRoboscriptFile != null) {
+            mCrawler.setRoboscriptFile(mRoboscriptFile.toPath());
+        }
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mApkInstaller.install(
-                mExtraApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
+                mInstallApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
                 mInstallArgs);
     }
 
@@ -125,9 +135,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
      */
     private void setApkForEspressoMode() {
         Preconditions.checkNotNull(
-                mTargetApk, "Apk file path is required when not running in UIAutomator mode");
+                mRepackApk, "Apk file path is required when not running in UIAutomator mode");
         // set the root path of the target apk for Espresso mode
-        mCrawler.setApkPath(mTargetApk.toPath());
+        mCrawler.setApkPath(mRepackApk.toPath());
     }
 
     @Test
@@ -138,7 +148,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     @After
     public void tearDown() throws DeviceNotAvailableException, ApkInstaller.ApkInstallerException {
         mApkInstaller.uninstallAllInstalledPackages();
-
+        getDevice().uninstallPackage(mPackageName);
         mCrawler.cleanUp();
     }
 }
