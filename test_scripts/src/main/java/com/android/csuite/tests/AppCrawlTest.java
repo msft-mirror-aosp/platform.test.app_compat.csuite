@@ -34,9 +34,12 @@ import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nullable;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -110,6 +113,11 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
 
     // TODO(b/234512223): add support for contextual roboscript files
 
+    @Option(
+            name = "crawl-guidance-proto-file",
+            description = "A CrawlGuidance file to be executed by the crawler.")
+    private File mCrawlGuidanceProtoFile;
+
     @Before
     public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
         mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
@@ -120,14 +128,18 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         mCrawler.setCollectGmsVersion(mCollectGmsVersion);
         mCrawler.setCollectAppVersion(mCollectAppVersion);
         mCrawler.setUiAutomatorMode(mUiAutomatorMode);
-        if (mRoboscriptFile != null) {
-            mCrawler.setRoboscriptFile(mRoboscriptFile.toPath());
-        }
+        mCrawler.setRoboscriptFile(toPathOrNull(mRoboscriptFile));
+        mCrawler.setCrawlGuidanceProtoFile(toPathOrNull(mCrawlGuidanceProtoFile));
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mApkInstaller.install(
                 mInstallApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
                 mInstallArgs);
+    }
+
+    /** Helper method to fetch the path of optional File variables. */
+    private static Path toPathOrNull(@Nullable File f) {
+        return f == null ? null : f.toPath();
     }
 
     /**
