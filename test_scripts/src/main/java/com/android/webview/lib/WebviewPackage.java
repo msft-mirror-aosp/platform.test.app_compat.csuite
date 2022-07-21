@@ -30,12 +30,12 @@ public class WebviewPackage implements Comparable<WebviewPackage> {
     private final long mVersionCode;
     private Path mApkPath;
 
-    private WebviewPackage(String packageName, String version, long versionCode, Path apkPath) {
+    public WebviewPackage(String packageName, String version, long versionCode, Path apkPath) {
         this(packageName, version, versionCode);
         mApkPath = apkPath;
     }
 
-    private WebviewPackage(String packageName, String version, long versionCode) {
+    public WebviewPackage(String packageName, String version, long versionCode) {
         mPackageName = packageName;
         mVersion = version;
         mVersionCode = versionCode;
