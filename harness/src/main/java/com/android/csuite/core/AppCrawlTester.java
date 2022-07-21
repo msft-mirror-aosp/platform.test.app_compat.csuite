@@ -61,6 +61,7 @@ public final class AppCrawlTester {
     private boolean mUiAutomatorMode = false;
     private Path mApkRoot;
     private Path mRoboscriptFile;
+    private Path mCrawlGuidanceProtoFile;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -385,9 +386,17 @@ public final class AppCrawlTester {
         }
 
         if (mRoboscriptFile != null) {
-            Assert.assertFalse(
-                    "Please provide a valid roboscript file.", Files.isDirectory(mRoboscriptFile));
+            Assert.assertTrue(
+                    "Please provide a valid roboscript file.",
+                    Files.isRegularFile(mRoboscriptFile));
             cmd.addAll(Arrays.asList("--robo-script-file", mRoboscriptFile.toString()));
+        }
+
+        if (mCrawlGuidanceProtoFile != null) {
+            Assert.assertTrue(
+                    "Please provide a valid CrawlGuidance file.",
+                    Files.isRegularFile(mCrawlGuidanceProtoFile));
+            cmd.addAll(Arrays.asList("--text-guide-file", mCrawlGuidanceProtoFile.toString()));
         }
 
         return cmd.toArray(new String[cmd.size()]);
@@ -441,6 +450,14 @@ public final class AppCrawlTester {
      */
     public void setRoboscriptFile(@Nullable Path roboscriptFile) {
         mRoboscriptFile = roboscriptFile;
+    }
+
+    /**
+     * Sets the option of the CrawlGuidance file to be used by the crawler. Null can be passed to
+     * remove the reference to the file.
+     */
+    public void setCrawlGuidanceProtoFile(@Nullable Path crawlGuidanceProtoFile) {
+        mCrawlGuidanceProtoFile = crawlGuidanceProtoFile;
     }
 
     @VisibleForTesting
