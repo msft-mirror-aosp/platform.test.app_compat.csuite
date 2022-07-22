@@ -43,6 +43,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -104,10 +105,8 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
-        for (File apkPath : mApkPaths) {
-            CLog.d("Installing " + apkPath);
-            mApkInstaller.install(apkPath.toPath(), mInstallArgs);
-        }
+        mApkInstaller.install(
+                mApkPaths.stream().map(File::toPath).collect(Collectors.toList()), mInstallArgs);
 
         if (mCollectGmsVersion) {
             testUtils.collectGmsVersion(mPackageName);
