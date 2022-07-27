@@ -40,12 +40,16 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
@@ -57,9 +61,23 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     private final List<WebviewPackage> mOrderedWebviews = new ArrayList<>();
     private WebviewPackage mPreInstalledWebview;
     private WebviewPackage mCurrentWebview;
+    private List<String> mWebviewInstallerCommandLineArgs = new ArrayList<>();
 
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
+
+    @Option(
+            name = "webview-installer-tool",
+            description = "Path to the webview installer executable.")
+    private File mWebviewInstallerTool;
+
+    @Option(name = "webview-version-to-test", description = "Version of Webview to test.")
+    private List<String> mWebviewVersionToTest = new ArrayList<>();
+
+    @Option(
+            name = "webview-channel",
+            description = "Release channel to fetch Webview from, i.e. stable.")
+    private String mWebviewChannel;
 
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
@@ -91,7 +109,57 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
         mCurrentWebview = mPreInstalledWebview = getCurrentWebviewPackage();
-        readWebviewApkDirectory();
+        Assert.assertTrue(
+                "Either --webview-version-to-test or --webview-apk-dir must be used.",
+                mWebviewApkDir != null || !mWebviewVersionToTest.isEmpty());
+
+        if (mWebviewApkDir != null) {
+            Assert.assertTrue(
+                    "Argument --webview-version-to-test cannot be used with --webview-apk-dir",
+                    mWebviewVersionToTest.isEmpty());
+            Assert.assertEquals(
+                    "Argument --webview-channel cannot be used with --webview-apk-dir",
+                    mWebviewChannel,
+                    null);
+            Assert.assertEquals(
+                    "Argument --webview-installer-tool cannot be used with --webview-apk-dir",
+                    mWebviewInstallerTool,
+                    null);
+            readWebviewApkDirectory();
+        }
+
+        if (!mWebviewVersionToTest.isEmpty()) {
+            Assert.assertEquals(
+                    "Argument --webview-version-to-test cannot be used with --webview-apk-dir",
+                    mWebviewApkDir,
+                    null);
+            Assert.assertNotEquals(
+                    "Argument --webview-installer-tool must be used when "
+                            + "using the --webview-version-to-test argument.",
+                    mWebviewInstallerTool,
+                    null);
+            mWebviewVersionToTest.sort(
+                    (version1, version2) -> {
+                        String[] versionParts1 = version1.split("\\.");
+                        String[] versionParts2 = version2.split("\\.");
+                        for (int i = 0; i < 4; i++) {
+                            int comparison =
+                                    Integer.compare(
+                                            Integer.parseInt(versionParts1[i]),
+                                            Integer.parseInt(versionParts2[i]));
+                            if (comparison != 0) return -comparison;
+                        }
+                        return 0;
+                    });
+            mWebviewInstallerCommandLineArgs.add(mWebviewInstallerTool.getAbsolutePath());
+            if (mWebviewChannel != null) {
+                mWebviewInstallerCommandLineArgs.addAll(Arrays.asList("-c", mWebviewChannel));
+            }
+            // TODO(rmhasan): Remove the --non-next command line argument after
+            // crbug.com/1002673 is resolved.
+            mWebviewInstallerCommandLineArgs.addAll(Arrays.asList("--non-next", "--verbose"));
+        }
+
         mApkInstaller = ApkInstaller.getInstance(getDevice());
 
         for (File apkPath : mApkPaths) {
@@ -106,10 +174,18 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
 
     @Test
     public void testAppLaunch()
-            throws DeviceNotAvailableException, ApkInstallerException, IOException {
+            throws DeviceNotAvailableException, InterruptedException, ApkInstallerException,
+                    IOException {
         AssertionError lastError = null;
         // Try the latest webview version
-        WebviewPackage lastWebviewInstalled = installWebview(mOrderedWebviews.get(0));
+        WebviewPackage lastWebviewInstalled;
+        Iterator<?> webviewsToTestIterator =
+                (!mWebviewVersionToTest.isEmpty() ? mWebviewVersionToTest : mOrderedWebviews)
+                        .iterator();
+
+        Assert.assertTrue("There are no Webview's to test", webviewsToTestIterator.hasNext());
+        lastWebviewInstalled = installWebview(webviewsToTestIterator.next());
+
         try {
             assertAppLaunchNoCrash();
         } catch (AssertionError e) {
@@ -135,8 +211,8 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
             return;
         }
 
-        for (int idx = 1; idx < mOrderedWebviews.size(); idx++) {
-            lastWebviewInstalled = installWebview(mOrderedWebviews.get(idx));
+        while (webviewsToTestIterator.hasNext()) {
+            lastWebviewInstalled = installWebview(webviewsToTestIterator.next());
             try {
                 assertAppLaunchNoCrash();
             } catch (AssertionError e) {
@@ -188,11 +264,49 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         printWebviewVersion(currentWebview);
     }
 
-    private WebviewPackage installWebview(WebviewPackage webview)
+    private WebviewPackage installWebview(Object webviewToInstall)
+            throws ApkInstallerException, InterruptedException, IOException,
+                    DeviceNotAvailableException {
+        if (webviewToInstall instanceof String) return installWebview((String) webviewToInstall);
+        else return installWebview((WebviewPackage) webviewToInstall);
+    }
+
+    private WebviewPackage installWebview(String webviewVersion)
+            throws IOException, InterruptedException, DeviceNotAvailableException {
+        ProcessBuilder installWebviewProcessBuilder;
+        Process installWebviewProcess;
+        List<String> fullCommandLineArgs = new ArrayList<>(mWebviewInstallerCommandLineArgs);
+        BufferedReader processOutput;
+        String processOutputLine;
+
+        fullCommandLineArgs.addAll(Arrays.asList("--chrome-version", webviewVersion));
+        installWebviewProcessBuilder = new ProcessBuilder(fullCommandLineArgs);
+        installWebviewProcessBuilder.redirectErrorStream(true);
+        installWebviewProcess = installWebviewProcessBuilder.start();
+        processOutput =
+                new BufferedReader(new InputStreamReader(installWebviewProcess.getInputStream()));
+
+        while ((processOutputLine = processOutput.readLine()) != null) {
+            CLog.i("%s: %s", mWebviewInstallerTool.getName(), processOutputLine);
+        }
+        installWebviewProcess.waitFor(5, TimeUnit.MINUTES);
+
+        int exitCode = installWebviewProcess.exitValue();
+        Assert.assertEquals(
+                String.format("The install WebView process exited with the %d exit code", exitCode),
+                exitCode,
+                0);
+
+        mCurrentWebview = getCurrentWebviewPackage();
+        printWebviewVersion(mCurrentWebview);
+        return mCurrentWebview;
+    }
+
+    private WebviewPackage installWebview(WebviewPackage webviewPkg)
             throws ApkInstallerException, IOException, DeviceNotAvailableException {
-        ApkInstaller.getInstance(getDevice()).install(webview.getPath());
-        updateWebviewImplementation(webview.getPackageName());
-        mCurrentWebview = webview;
+        ApkInstaller.getInstance(getDevice()).install(webviewPkg.getPath());
+        updateWebviewImplementation(webviewPkg.getPackageName());
+        mCurrentWebview = webviewPkg;
         printWebviewVersion(mCurrentWebview);
         return mCurrentWebview;
     }
