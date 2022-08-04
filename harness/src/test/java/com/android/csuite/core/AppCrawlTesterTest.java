@@ -380,13 +380,27 @@ public final class AppCrawlTesterTest {
         Path roboDir = mFileSystem.getPath("/robo");
         Files.createDirectory(roboDir);
         Path roboFile = Files.createFile(roboDir.resolve("app.roboscript"));
-
         suj.setUiAutomatorMode(true);
         suj.setRoboscriptFile(roboFile);
         suj.start();
+
         String[] result = suj.createCrawlerRunCommand(mTestInfo);
 
         assertThat(result).asList().contains("--robo-script-file");
+    }
+
+    @Test
+    public void createCrawlerRunCommand_containsEndpointWhenProvided() throws Exception {
+        AppCrawlTester suj = createPreparedTestSubject();
+        suj.setUiAutomatorMode(true);
+        String endpoint = "abc@efg";
+        suj.setCrawlControllerEndpoint(endpoint);
+        suj.start();
+
+        String[] result = suj.createCrawlerRunCommand(mTestInfo);
+
+        assertThat(result).asList().contains("--endpoint");
+        assertThat(result).asList().contains(endpoint);
     }
 
     @Test
