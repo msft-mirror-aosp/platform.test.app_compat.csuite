@@ -59,6 +59,7 @@ public final class AppCrawlTester {
     private boolean mCollectGmsVersion = false;
     private boolean mCollectAppVersion = false;
     private boolean mUiAutomatorMode = false;
+    private String mCrawlControllerEndpoint;
     private Path mApkRoot;
     private Path mRoboscriptFile;
     private Path mCrawlGuidanceProtoFile;
@@ -368,6 +369,10 @@ public final class AppCrawlTester {
                         // Using the publicly known default password of the debug keystore.
                         "android"));
 
+        if (mCrawlControllerEndpoint != null && mCrawlControllerEndpoint.length() > 0) {
+            cmd.addAll(Arrays.asList("--endpoint", mCrawlControllerEndpoint));
+        }
+
         if (mUiAutomatorMode) {
             cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-package-name", mPackageName));
         } else {
@@ -433,6 +438,11 @@ public final class AppCrawlTester {
     /** Sets the option of whether to run the crawler with UIAutomator mode. */
     public void setUiAutomatorMode(boolean uiAutomatorMode) {
         mUiAutomatorMode = uiAutomatorMode;
+    }
+
+    /** Sets the robo crawler controller endpoint (optional). */
+    public void setCrawlControllerEndpoint(String crawlControllerEndpoint) {
+        mCrawlControllerEndpoint = crawlControllerEndpoint;
     }
 
     /**
