@@ -99,6 +99,12 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private String mPackageName;
 
     @Option(
+            name = "crawl-controller-endpoint",
+            mandatory = false,
+            description = "The crawl controller endpoint to target.")
+    private String mCrawlControllerEndpoint;
+
+    @Option(
             name = "ui-automator-mode",
             mandatory = false,
             description =
@@ -124,6 +130,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         if (!mUiAutomatorMode) {
             setApkForEspressoMode();
         }
+        mCrawler.setCrawlControllerEndpoint(mCrawlControllerEndpoint);
         mCrawler.setRecordScreen(mRecordScreen);
         mCrawler.setCollectGmsVersion(mCollectGmsVersion);
         mCrawler.setCollectAppVersion(mCollectAppVersion);
