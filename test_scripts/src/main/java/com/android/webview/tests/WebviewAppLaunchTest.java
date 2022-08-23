@@ -165,6 +165,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
             mApkInstaller.install(apkPath.toPath(), mInstallArgs);
         }
 
+        Runtime.getRuntime().exec(new String[] {"chmod", "u+x", mWebviewInstallerTool.getPath()});
         DeviceUtils.getInstance(getDevice()).freezeRotation();
 
         printWebviewVersion(mPreInstalledWebview);
