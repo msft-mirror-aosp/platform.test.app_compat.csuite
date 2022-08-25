@@ -40,10 +40,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -167,6 +165,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
             mApkInstaller.install(apkPath.toPath(), mInstallArgs);
         }
 
+        Runtime.getRuntime().exec(new String[] {"chmod", "u+x", mWebviewInstallerTool.getPath()});
         DeviceUtils.getInstance(getDevice()).freezeRotation();
 
         printWebviewVersion(mPreInstalledWebview);
@@ -276,19 +275,10 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         ProcessBuilder installWebviewProcessBuilder;
         Process installWebviewProcess;
         List<String> fullCommandLineArgs = new ArrayList<>(mWebviewInstallerCommandLineArgs);
-        BufferedReader processOutput;
-        String processOutputLine;
 
         fullCommandLineArgs.addAll(Arrays.asList("--chrome-version", webviewVersion));
         installWebviewProcessBuilder = new ProcessBuilder(fullCommandLineArgs);
-        installWebviewProcessBuilder.redirectErrorStream(true);
-        installWebviewProcess = installWebviewProcessBuilder.start();
-        processOutput =
-                new BufferedReader(new InputStreamReader(installWebviewProcess.getInputStream()));
-
-        while ((processOutputLine = processOutput.readLine()) != null) {
-            CLog.i("%s: %s", mWebviewInstallerTool.getName(), processOutputLine);
-        }
+        installWebviewProcess = installWebviewProcessBuilder.inheritIO().start();
         installWebviewProcess.waitFor(5, TimeUnit.MINUTES);
 
         int exitCode = installWebviewProcess.exitValue();
