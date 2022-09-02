@@ -347,7 +347,7 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_installIncrementalOptionSet_forwardsToInstaller() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-
+        
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
