@@ -47,7 +47,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
@@ -55,11 +54,13 @@ import java.util.stream.Collectors;
 public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     @Rule public TestLogData mLogData = new TestLogData();
 
+    private static final long COMMAND_TIMEOUT_MILLIS = 5 * 60 * 1000;
+
     private ApkInstaller mApkInstaller;
     private final List<WebviewPackage> mOrderedWebviews = new ArrayList<>();
     private WebviewPackage mPreInstalledWebview;
     private WebviewPackage mCurrentWebview;
-    private List<String> mWebviewInstallerCommandLineArgs = new ArrayList<>();
+    private GcloudCli mGcloudCli;
 
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -103,6 +104,12 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
             importance = Importance.ALWAYS)
     private File mWebviewApkDir;
 
+    @Option(
+            name = "gcloud-cli-zip-archive",
+            description = "Path to the google cli zip archive.",
+            importance = Importance.ALWAYS)
+    private File mGcloudCliZipArchive;
+
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
@@ -136,6 +143,13 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
                             + "using the --webview-version-to-test argument.",
                     mWebviewInstallerTool,
                     null);
+            Assert.assertNotEquals(
+                    "Argument --gcloud-cli-zip must be used when "
+                            + "using the --webview-version-to-test argument.",
+                    mGcloudCliZipArchive,
+                    null);
+
+            mGcloudCli = GcloudCli.buildFromZipArchive(mGcloudCliZipArchive);
             mWebviewVersionToTest.sort(
                     (version1, version2) -> {
                         String[] versionParts1 = version1.split("\\.");
@@ -149,13 +163,15 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
                         }
                         return 0;
                     });
-            mWebviewInstallerCommandLineArgs.add(mWebviewInstallerTool.getAbsolutePath());
-            if (mWebviewChannel != null) {
-                mWebviewInstallerCommandLineArgs.addAll(Arrays.asList("-c", mWebviewChannel));
-            }
-            // TODO(rmhasan): Remove the --non-next command line argument after
-            // crbug.com/1002673 is resolved.
-            mWebviewInstallerCommandLineArgs.addAll(Arrays.asList("--non-next", "--verbose"));
+            RunUtil.getDefault()
+                    .runTimedCmd(
+                            COMMAND_TIMEOUT_MILLIS,
+                            System.out,
+                            System.out,
+                            "chmod",
+                            "755",
+                            "-v",
+                            mWebviewInstallerTool.getAbsolutePath());
         }
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
@@ -165,7 +181,6 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
             mApkInstaller.install(apkPath.toPath(), mInstallArgs);
         }
 
-        Runtime.getRuntime().exec(new String[] {"chmod", "u+x", mWebviewInstallerTool.getPath()});
         DeviceUtils.getInstance(getDevice()).freezeRotation();
 
         printWebviewVersion(mPreInstalledWebview);
@@ -242,6 +257,8 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
         mApkInstaller.uninstallAllInstalledPackages();
         printWebviewVersion();
         mOrderedWebviews.clear();
+
+        mGcloudCli.tearDown();
     }
 
     private void readWebviewApkDirectory() {
@@ -272,20 +289,38 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
 
     private WebviewPackage installWebview(String webviewVersion)
             throws IOException, InterruptedException, DeviceNotAvailableException {
-        ProcessBuilder installWebviewProcessBuilder;
-        Process installWebviewProcess;
-        List<String> fullCommandLineArgs = new ArrayList<>(mWebviewInstallerCommandLineArgs);
+        // TODO(rmhasan): Remove the --non-next command line argument after
+        // crbug.com/1002673 is resolved.
+        List<String> fullCommandLineArgs =
+                new ArrayList<>(
+                        Arrays.asList(
+                                mWebviewInstallerTool.getAbsolutePath(),
+                                "--chrome-version",
+                                webviewVersion,
+                                "--non-next",
+                                "--serial",
+                                getDevice().getSerialNumber(),
+                                "-vvv",
+                                "--gsutil",
+                                mGcloudCli.getGsutilBin().getAbsolutePath()));
 
-        fullCommandLineArgs.addAll(Arrays.asList("--chrome-version", webviewVersion));
-        installWebviewProcessBuilder = new ProcessBuilder(fullCommandLineArgs);
-        installWebviewProcess = installWebviewProcessBuilder.inheritIO().start();
-        installWebviewProcess.waitFor(5, TimeUnit.MINUTES);
+        if (mWebviewChannel != null) {
+            fullCommandLineArgs.addAll(Arrays.asList("-c", mWebviewChannel));
+        }
 
-        int exitCode = installWebviewProcess.exitValue();
+        CommandResult installWebViewRes =
+                mGcloudCli
+                        .getRunUtil()
+                        .runTimedCmd(
+                                COMMAND_TIMEOUT_MILLIS,
+                                System.out,
+                                System.out,
+                                fullCommandLineArgs.toArray(new String[0]));
         Assert.assertEquals(
-                String.format("The install WebView process exited with the %d exit code", exitCode),
-                exitCode,
-                0);
+                "The WebView installer tool failed to install WebView:\n"
+                        + installWebViewRes.toString(),
+                installWebViewRes.getStatus(),
+                CommandStatus.SUCCESS);
 
         mCurrentWebview = getCurrentWebviewPackage();
         printWebviewVersion(mCurrentWebview);
