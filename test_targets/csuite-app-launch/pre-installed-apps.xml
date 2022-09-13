@@ -15,6 +15,7 @@
 -->
 <configuration description="Launches an app that exists on the device and check for crashes">
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
