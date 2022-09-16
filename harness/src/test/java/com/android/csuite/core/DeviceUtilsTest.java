@@ -45,6 +45,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -235,7 +236,7 @@ public final class DeviceUtilsTest {
                         Mockito.anyLong(),
                         Mockito.eq("sh"),
                         Mockito.eq("-c"),
-                        Mockito.contains("dumpsys dropbox")))
+                        Mockito.contains("dumpsys dropbox --proto")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
 
         List<DropboxEntry> result = sut.getDropboxEntries(Set.of(""));
@@ -245,7 +246,7 @@ public final class DeviceUtilsTest {
 
     @Test
     public void getDropboxEntries_entryExists_returnsEntry() throws Exception {
-        Path dumpFile = Files.createTempFile(mFileSystem.getPath("/"), "test", ".tmp");
+        Path dumpFile = Files.createTempFile(mFileSystem.getPath("/"), "dropbox", ".proto");
         long time = 123;
         String data = "abc";
         String tag = "tag";
@@ -259,7 +260,10 @@ public final class DeviceUtilsTest {
         Files.write(dumpFile, proto.toByteArray());
         DeviceUtils sut = createSubjectUnderTestWithTempFile(dumpFile);
         when(mRunUtil.runTimedCmd(
-                        Mockito.anyLong(), Mockito.eq("sh"), Mockito.eq("-c"), Mockito.anyString()))
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("dumpsys dropbox --proto")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
 
         List<DropboxEntry> result = sut.getDropboxEntries(Set.of(tag));
@@ -269,11 +273,106 @@ public final class DeviceUtilsTest {
         assertThat(result.get(0).getTag()).isEqualTo(tag);
     }
 
-    private DeviceUtils createSubjectUnderTestWithTempFile(Path tempFile) {
+    @Test
+    public void getDropboxEntriesFromStdout_entryExists_returnsEntry() throws Exception {
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("dumpsys dropbox --file")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("dumpsys dropbox --print")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        Path fileDumpFile = Files.createTempFile(mFileSystem.getPath("/"), "file", ".dump");
+        Path printDumpFile = Files.createTempFile(mFileSystem.getPath("/"), "print", ".dump");
+        String fileResult =
+                "Drop box contents: 351 entries\n"
+                        + "Max entries: 1000\n"
+                        + "Low priority rate limit period: 2000 ms\n"
+                        + "Low priority tags: {data_app_wtf, keymaster, system_server_wtf,"
+                        + " system_app_strictmode, system_app_wtf, system_server_strictmode,"
+                        + " data_app_strictmode, netstats}\n"
+                        + "\n"
+                        + "2022-09-05 04:17:21 system_server_wtf (text, 1730 bytes)\n"
+                        + "    /data/system/dropbox/system_server_wtf@1662351441269.txt\n"
+                        + "2022-09-05 04:31:06 event_data (text, 39 bytes)\n"
+                        + "    /data/system/dropbox/event_data@1662352266197.txt\n";
+        String printResult =
+                "Drop box contents: 351 entries\n"
+                    + "Max entries: 1000\n"
+                    + "Low priority rate limit period: 2000 ms\n"
+                    + "Low priority tags: {data_app_wtf, keymaster, system_server_wtf,"
+                    + " system_app_strictmode, system_app_wtf, system_server_strictmode,"
+                    + " data_app_strictmode, netstats}\n"
+                    + "\n"
+                    + "========================================\n"
+                    + "2022-09-05 04:17:21 system_server_wtf (text, 1730 bytes)\n"
+                    + "Process: system_server\n"
+                    + "Subject: ActivityManager\n"
+                    + "Build:"
+                    + " generic/cf_x86_64_phone/vsoc_x86_64:UpsideDownCake/MASTER/8990215:userdebug/dev-keys\n"
+                    + "Dropped-Count: 0\n"
+                    + "\n"
+                    + "android.util.Log$TerribleFailure: Sending non-protected broadcast"
+                    + " com.android.bluetooth.btservice.BLUETOOTH_COUNTER_METRICS_ACTION from"
+                    + " system uid 1002 pkg com.android.bluetooth\n"
+                    + "    at android.util.Log.wtf(Log.java:332)\n"
+                    + "    at android.util.Log.wtf(Log.java:326)\n"
+                    + "    at"
+                    + " com.android.server.am.ActivityManagerService.checkBroadcastFromSystem(ActivityManagerService.java:13609)\n"
+                    + "    at"
+                    + " com.android.server.am.ActivityManagerService.broadcastIntentLocked(ActivityManagerService.java:14330)\n"
+                    + "    at"
+                    + " com.android.server.am.ActivityManagerService.broadcastIntentInPackage(ActivityManagerService.java:14530)\n"
+                    + "    at"
+                    + " com.android.server.am.ActivityManagerService$LocalService.broadcastIntentInPackage(ActivityManagerService.java:17065)\n"
+                    + "    at"
+                    + " com.android.server.am.PendingIntentRecord.sendInner(PendingIntentRecord.java:526)\n"
+                    + "    at"
+                    + " com.android.server.am.PendingIntentRecord.sendWithResult(PendingIntentRecord.java:311)\n"
+                    + "    at"
+                    + " com.android.server.am.ActivityManagerService.sendIntentSender(ActivityManagerService.java:5379)\n"
+                    + "    at"
+                    + " android.app.PendingIntent.sendAndReturnResult(PendingIntent.java:1012)\n"
+                    + "    at android.app.PendingIntent.send(PendingIntent.java:983)\n"
+                    + "    at"
+                    + " com.android.server.alarm.AlarmManagerService$DeliveryTracker.deliverLocked(AlarmManagerService.java:5500)\n"
+                    + "    at"
+                    + " com.android.server.alarm.AlarmManagerService.deliverAlarmsLocked(AlarmManagerService.java:4400)\n"
+                    + "    at"
+                    + " com.android.server.alarm.AlarmManagerService$AlarmThread.run(AlarmManagerService.java:4711)\n"
+                    + "Caused by: java.lang.Throwable\n"
+                    + "    at"
+                    + " com.android.server.am.ActivityManagerService.checkBroadcastFromSystem(ActivityManagerService.java:13610)\n"
+                    + "    ... 11 more\n"
+                    + "\n"
+                    + "========================================\n"
+                    + "2022-09-05 04:31:06 event_data (text, 39 bytes)\n"
+                    + "start=1662350731248\n"
+                    + "end=1662352266140\n"
+                    + "\n";
+        Files.write(fileDumpFile, fileResult.getBytes());
+        Files.write(printDumpFile, printResult.getBytes());
+        DeviceUtils sut = createSubjectUnderTestWithTempFile(fileDumpFile, printDumpFile);
+
+        List<DropboxEntry> result = sut.getDropboxEntriesFromStdout(Set.of("system_server_wtf"));
+
+        assertThat(result.get(0).getTime()).isEqualTo(1662351441269L);
+        assertThat(result.get(0).getData()).contains("Sending non-protected broadcast");
+        assertThat(result.get(0).getTag()).isEqualTo("system_server_wtf");
+        assertThat(result.size()).isEqualTo(1);
+    }
+
+    private DeviceUtils createSubjectUnderTestWithTempFile(Path... tempFiles) {
         when(mDevice.getSerialNumber()).thenReturn("SERIAL");
         FakeClock fakeClock = new FakeClock();
+        Iterator<Path> iter = Arrays.asList(tempFiles).iterator();
         return new DeviceUtils(
-                mDevice, fakeClock.getSleeper(), fakeClock, () -> mRunUtil, () -> tempFile);
+                mDevice, fakeClock.getSleeper(), fakeClock, () -> mRunUtil, () -> iter.next());
     }
 
     private DeviceUtils createSubjectUnderTest() {
