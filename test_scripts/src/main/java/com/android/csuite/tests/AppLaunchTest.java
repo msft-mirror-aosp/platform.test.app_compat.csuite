@@ -54,6 +54,8 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     @VisibleForTesting static final String RECORD_SCREEN = "record-screen";
     @Rule public TestLogData mLogData = new TestLogData();
     private ApkInstaller mApkInstaller;
+    private boolean mIsLastTestPass;
+    private boolean mIsApkSaved = false;
 
     @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -89,6 +91,11 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             description = "Arguments for the 'adb install-multiple' package installation command.")
     private final List<String> mInstallArgs = new ArrayList<>();
 
+    @Option(
+            name = "save-apk-when",
+            description = "When to save apk files to the test result artifacts.")
+    private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
+
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
@@ -100,6 +107,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
+        mIsLastTestPass = false;
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
@@ -133,12 +141,18 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         } else {
             launchPackageAndCheckForCrash();
         }
+        mIsLastTestPass = true;
     }
 
     @After
     public void tearDown() throws DeviceNotAvailableException, ApkInstallerException {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+
+        if (!mIsApkSaved) {
+            mIsApkSaved =
+                    testUtils.saveApks(mSaveApkWhen, mIsLastTestPass, mPackageName, mApkPaths);
+        }
 
         if (mScreenshotAfterLaunch) {
             testUtils.collectScreenshot(mPackageName);

@@ -34,4 +34,5 @@
   <object type="TEMPLATE_MAPPING_PROVIDER" class="com.android.csuite.core.FileBasedTemplateMappingProvider" />
 
   <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
+  <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer" />
 </configuration>

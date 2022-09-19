@@ -26,6 +26,7 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
+import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -47,6 +48,13 @@ public class TestUtils {
     private final TestArtifactReceiver mTestArtifactReceiver;
     private final DeviceUtils mDeviceUtils;
     private static final int MAX_CRASH_SNIPPET_LINES = 60;
+
+    public enum TakeEffectWhen {
+        NEVER,
+        ON_FAIL,
+        ON_PASS,
+        ALWAYS,
+    }
 
     public static TestUtils getInstance(TestInformation testInformation, TestLogData testLogData) {
         return new TestUtils(
@@ -113,6 +121,37 @@ public class TestUtils {
                         CLog.e("Failed to get screen recording.");
                     }
                 });
+    }
+
+    /**
+     * Saves test APK files when conditions on the test result is met.
+     *
+     * @param when Conditions to save the apks based on the test result.
+     * @param testPassed The test result.
+     * @param prefix Output file name prefix
+     * @param apks A list of files that can be files, directories, or a mix of both.
+     * @return true if apk files are saved as artifacts. False otherwise.
+     */
+    public boolean saveApks(
+            TakeEffectWhen when, boolean testPassed, String prefix, List<File> apks) {
+        if (apks.isEmpty() || when == TakeEffectWhen.NEVER) {
+            return false;
+        }
+
+        if ((when == TakeEffectWhen.ON_FAIL && testPassed)
+                || (when == TakeEffectWhen.ON_PASS && !testPassed)) {
+            return false;
+        }
+
+        try {
+            File outputZip = ZipUtil.createZip(apks);
+            getTestArtifactReceiver().addTestArtifact(prefix + "-apks", LogDataType.ZIP, outputZip);
+            return true;
+        } catch (IOException e) {
+            CLog.e("Failed to zip the apks: " + e);
+        }
+
+        return false;
     }
 
     /**
