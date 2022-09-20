@@ -30,15 +30,19 @@ import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
-
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** A utility class that contains common methods to interact with the test device. */
 public class DeviceUtils {
@@ -356,15 +360,23 @@ public class DeviceUtils {
                                     String.format(
                                             "adb -s %s shell dumpsys dropbox --proto %s > %s",
                                             mDevice.getSerialNumber(), tag, dumpFile));
+
             if (res.getStatus() != CommandStatus.SUCCESS) {
                 throw new IOException("Dropbox dump command failed: " + res);
             }
 
-            DropBoxManagerServiceDumpProto p =
-                    DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
+            DropBoxManagerServiceDumpProto proto;
+            try {
+                proto = DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
+            } catch (InvalidProtocolBufferException e) {
+                // If dumping proto format is not supported such as in Android 10, the command will
+                // still succeed with exit code 0 and output strings instead of protobuf bytes,
+                // causing parse error. In this case we fallback to dumping dropbox --print option.
+                return getDropboxEntriesFromStdout(tags);
+            }
             Files.delete(dumpFile);
 
-            for (Entry entry : p.getEntriesList()) {
+            for (Entry entry : proto.getEntriesList()) {
                 entries.add(
                         new DropboxEntry(entry.getTimeMs(), tag, entry.getData().toStringUtf8()));
             }
@@ -373,15 +385,98 @@ public class DeviceUtils {
         return entries;
     }
 
+    @VisibleForTesting
+    List<DropboxEntry> getDropboxEntriesFromStdout(Set<String> tags) throws IOException {
+        HashMap<String, DropboxEntry> entries = new HashMap<>();
+
+        // The first step is to read the entry names and timestamps from the --file dump option
+        // output because the --print dump option does not contain timestamps.
+        CommandResult res;
+        Path fileDumpFile = mTempFileSupplier.get();
+        res =
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                6000,
+                                "sh",
+                                "-c",
+                                String.format(
+                                        "adb -s %s shell dumpsys dropbox --file  > %s",
+                                        mDevice.getSerialNumber(), fileDumpFile));
+        if (res.getStatus() != CommandStatus.SUCCESS) {
+            throw new IOException("Dropbox dump command failed: " + res);
+        }
+
+        String lastEntryName = null;
+        for (String line : Files.readAllLines(fileDumpFile)) {
+            if (DropboxEntry.isDropboxEntryName(line)) {
+                lastEntryName = line.trim();
+                entries.put(lastEntryName, DropboxEntry.fromEntryName(line));
+            } else if (DropboxEntry.isDropboxFilePath(line) && lastEntryName != null) {
+                entries.get(lastEntryName).parseTimeFromFilePath(line);
+            }
+        }
+        Files.delete(fileDumpFile);
+
+        // Then we get the entry data from the --print dump output. Entry names parsed from the
+        // --print dump output are verified against the entry names from the --file dump output to
+        // ensure correctness.
+        Path printDumpFile = mTempFileSupplier.get();
+        res =
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                6000,
+                                "sh",
+                                "-c",
+                                String.format(
+                                        "adb -s %s shell dumpsys dropbox --print > %s",
+                                        mDevice.getSerialNumber(), printDumpFile));
+        if (res.getStatus() != CommandStatus.SUCCESS) {
+            throw new IOException("Dropbox dump command failed: " + res);
+        }
+
+        lastEntryName = null;
+        for (String line : Files.readAllLines(printDumpFile)) {
+            if (DropboxEntry.isDropboxEntryName(line)) {
+                lastEntryName = line.trim();
+            }
+
+            if (lastEntryName != null && entries.containsKey(lastEntryName)) {
+                entries.get(lastEntryName).addData(line);
+                entries.get(lastEntryName).addData("\n");
+            }
+        }
+        Files.delete(printDumpFile);
+
+        return entries.values().stream()
+                .filter(entry -> tags.contains(entry.getTag()))
+                .collect(Collectors.toList());
+    }
+
     /** A class that stores the information of a dropbox entry. */
     public static final class DropboxEntry {
-        private final long mTime;
-        private final String mTag;
-        private final String mData;
+        private long mTime;
+        private String mTag;
+        private final StringBuilder mData = new StringBuilder();
+        private static final Pattern ENTRY_NAME_PATTERN =
+                Pattern.compile(
+                        "\\d{4}\\-\\d{2}\\-\\d{2} \\d{2}:\\d{2}:\\d{2} .+ \\(.+, [0-9]+ .+\\)");
+        private static final Pattern DATE_PATTERN =
+                Pattern.compile("\\d{4}\\-\\d{2}\\-\\d{2} \\d{2}:\\d{2}:\\d{2}");
+        private static final Pattern FILE_NAME_PATTERN = Pattern.compile(" +/.+@[0-9]+\\..+");
 
         /** Returns the entrt's time stamp on device. */
         public long getTime() {
             return mTime;
+        }
+
+        private void addData(String data) {
+            mData.append(data);
+        }
+
+        private void parseTimeFromFilePath(String input) {
+            mTime = Long.parseLong(input.substring(input.indexOf('@') + 1, input.indexOf('.')));
         }
 
         /** Returns the entrt's tag. */
@@ -391,14 +486,36 @@ public class DeviceUtils {
 
         /** Returns the entrt's data. */
         public String getData() {
-            return mData;
+            return mData.toString();
         }
 
         @VisibleForTesting
         DropboxEntry(long time, String tag, String data) {
             mTime = time;
             mTag = tag;
-            mData = data;
+            addData(data);
+        }
+
+        private DropboxEntry() {
+            // Intentionally left blank;
+        }
+
+        private static DropboxEntry fromEntryName(String name) {
+            DropboxEntry entry = new DropboxEntry();
+            Matcher matcher = DATE_PATTERN.matcher(name);
+            if (!matcher.find()) {
+                throw new RuntimeException("Unexpected entry name: " + name);
+            }
+            entry.mTag = name.trim().substring(matcher.group().length()).trim().split(" ")[0];
+            return entry;
+        }
+
+        private static boolean isDropboxEntryName(String input) {
+            return ENTRY_NAME_PATTERN.matcher(input).find();
+        }
+
+        private static boolean isDropboxFilePath(String input) {
+            return FILE_NAME_PATTERN.matcher(input).find();
         }
     }
 
