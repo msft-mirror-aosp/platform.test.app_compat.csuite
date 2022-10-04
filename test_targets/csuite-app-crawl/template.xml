@@ -22,7 +22,9 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="set-option" value="package-name:{package}"/>
-        <option name="set-option" value="repack-apk:app\://{package}"/>
+        <option name="set-option" value="install-apk:app\://{package}"/>
+        <option name="set-option" value="install-arg:-g"/>
+        <option name="set-option" value="ui-automator-mode:true"/>
         <option name="class" value="com.android.csuite.tests.AppCrawlTest" />
     </test>
 </configuration>
