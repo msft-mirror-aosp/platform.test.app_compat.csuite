@@ -191,7 +191,10 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         }
 
         mApkInstaller.uninstallAllInstalledPackages();
-        getDevice().uninstallPackage(mPackageName);
+        if (!mUiAutomatorMode) {
+            getDevice().uninstallPackage(mPackageName);
+        }
+
         mCrawler.cleanUp();
     }
 }
