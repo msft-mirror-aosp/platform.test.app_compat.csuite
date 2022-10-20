@@ -98,7 +98,7 @@ public class GcloudCli {
         }
     }
 
-    public File getGsutilBin() {
+    public File getGsutilExecutable() {
         return mGcloudCliDir
                 .toPath()
                 .resolve(Paths.get("google-cloud-sdk", "bin", "gsutil"))
