@@ -254,7 +254,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
                                 getDevice().getSerialNumber(),
                                 "-vvv",
                                 "--gsutil",
-                                mGcloudCli.getGsutilBin().getAbsolutePath()));
+                                mGcloudCli.getGsutilExecutable().getAbsolutePath()));
 
         if (mWebviewChannel != null) {
             fullCommandLineArgs.addAll(Arrays.asList("-c", mWebviewChannel));
