@@ -30,6 +30,7 @@ import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,6 +75,25 @@ public final class ApkInstallerTest {
         ApkInstaller sut = new ApkInstaller("serial", runUtil, apk -> "package.name");
 
         sut.install(root);
+    }
+
+    @Test
+    public void install_parsePackageNameFailed_throwsException() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("base.apk"));
+        IRunUtil runUtil = Mockito.mock(IRunUtil.class);
+        Mockito.when(runUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        ApkInstaller sut =
+                new ApkInstaller(
+                        "serial",
+                        runUtil,
+                        apk -> {
+                            throw new IOException();
+                        });
+
+        assertThrows(ApkInstallerException.class, () -> sut.install(root));
     }
 
     private static CommandResult createSuccessfulCommandResultWithStdout(String stdout) {
