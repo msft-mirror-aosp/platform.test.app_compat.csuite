@@ -112,10 +112,6 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
-        // Attempt to uninstall the test package before installing in case it was not cleaned
-        // properly between retires.
-        getDevice().uninstallPackage(mPackageName);
-
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mApkInstaller.install(
                 mApkPaths.stream().map(File::toPath).collect(Collectors.toList()), mInstallArgs);
