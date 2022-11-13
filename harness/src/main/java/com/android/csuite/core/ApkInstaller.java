@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 public final class ApkInstaller {
     private static long sCommandTimeOut = TimeUnit.MINUTES.toMillis(4);
     private final String mDeviceSerial;
-    private final List<Path> mInstalledBaseApks = new ArrayList<>();
+    private final List<String> mInstalledPackages = new ArrayList<>();
     private final IRunUtil mRunUtil;
     private final PackageNameParser mPackageNameParser;
 
@@ -76,11 +76,25 @@ public final class ApkInstaller {
             throw new ApkInstallerException("Failed to list APK files from the path " + apkPath, e);
         }
 
-        CLog.d("Installing a package from " + apkPath);
+        String packageName;
+        try {
+            packageName = mPackageNameParser.parsePackageName(apkFilePaths.get(0));
+        } catch (IOException e) {
+            throw new ApkInstallerException(
+                    String.format("Failed to parse the package name from %s", apkPath), e);
+        }
+        CLog.d("Attempting to uninstall package %s before installation", packageName);
+        String[] uninstallCmd = createUninstallCommand(packageName, mDeviceSerial);
+        // TODO(yuexima): Add command result checks after we start to check whether.
+        // the package is installed on device before uninstalling it.
+        // At this point, command failure is expected if the package wasn't installed.
+        mRunUtil.runTimedCmd(sCommandTimeOut, uninstallCmd);
 
-        String[] cmd = createInstallCommand(apkFilePaths, mDeviceSerial, args);
+        CLog.d("Installing package %s from %s", packageName, apkPath);
 
-        CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, cmd);
+        String[] installCmd = createInstallCommand(apkFilePaths, mDeviceSerial, args);
+
+        CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, installCmd);
         if (res.getStatus() != CommandStatus.SUCCESS) {
             throw new ApkInstallerException(
                     String.format(
@@ -88,7 +102,7 @@ public final class ApkInstaller {
                             apkPath, res.toString()));
         }
 
-        mInstalledBaseApks.add(apkFilePaths.get(0));
+        mInstalledPackages.add(packageName);
 
         CLog.i("Successfully installed " + apkPath);
     }
@@ -132,28 +146,15 @@ public final class ApkInstaller {
         CLog.d("Uninstalling all installed packages.");
 
         StringBuilder errorMessage = new StringBuilder();
-        mInstalledBaseApks.forEach(
-                baseApk -> {
-                    String packageName;
-                    try {
-                        packageName = mPackageNameParser.parsePackageName(baseApk);
-                    } catch (IOException e) {
-                        errorMessage.append(
-                                String.format(
-                                        "Failed to parse the package name from %s. Reason: %s.\n",
-                                        baseApk, e.getMessage()));
-                        return;
-                    }
-
-                    String[] cmd =
-                            new String[] {"adb", "-s", mDeviceSerial, "uninstall", packageName};
-
+        mInstalledPackages.forEach(
+                installedPackage -> {
+                    String[] cmd = createUninstallCommand(installedPackage, mDeviceSerial);
                     CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, cmd);
                     if (res.getStatus() != CommandStatus.SUCCESS) {
                         errorMessage.append(
                                 String.format(
-                                        "Failed to uninstall package %s from %s. Reason: %s.\n",
-                                        packageName, baseApk, res.toString()));
+                                        "Failed to uninstall package %s. Reason: %s.\n",
+                                        installedPackage, res.toString()));
                     }
                 });
 
@@ -166,11 +167,15 @@ public final class ApkInstaller {
             List<Path> apkFilePaths, String deviceSerial, List<String> args) {
         ArrayList<String> cmd = new ArrayList<>();
         cmd.addAll(Arrays.asList("adb", "-s", deviceSerial, "install-multiple"));
-
         cmd.addAll(args);
 
         apkFilePaths.stream().map(Path::toString).forEach(cmd::add);
 
+        return cmd.toArray(new String[cmd.size()]);
+    }
+
+    private String[] createUninstallCommand(String packageName, String deviceSerial) {
+        List<String> cmd = Arrays.asList("adb", "-s", deviceSerial, "uninstall", packageName);
         return cmd.toArray(new String[cmd.size()]);
     }
 
