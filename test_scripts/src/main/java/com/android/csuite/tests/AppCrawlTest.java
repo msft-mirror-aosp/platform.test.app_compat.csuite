@@ -18,6 +18,7 @@ package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.AppCrawlTester;
+import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -36,6 +37,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -49,6 +51,8 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private static final String RECORD_SCREEN = "record-screen";
 
     @Rule public TestLogData mLogData = new TestLogData();
+    private boolean mIsLastTestPass;
+    private boolean mIsApkSaved = false;
 
     private ApkInstaller mApkInstaller;
     private AppCrawlTester mCrawler;
@@ -124,8 +128,14 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
             description = "A CrawlGuidance file to be executed by the crawler.")
     private File mCrawlGuidanceProtoFile;
 
+    @Option(
+            name = "save-apk-when",
+            description = "When to save apk files to the test result artifacts.")
+    private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
+
     @Before
     public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
+        mIsLastTestPass = false;
         mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         if (!mUiAutomatorMode) {
             setApkForEspressoMode();
@@ -162,12 +172,29 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     @Test
     public void testAppCrash() throws DeviceNotAvailableException {
         mCrawler.startAndAssertAppNoCrash();
+        mIsLastTestPass = true;
     }
 
     @After
     public void tearDown() throws DeviceNotAvailableException, ApkInstaller.ApkInstallerException {
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+
+        if (!mIsApkSaved) {
+            mIsApkSaved =
+                    testUtils.saveApks(
+                                    mSaveApkWhen, mIsLastTestPass, mPackageName, mInstallApkPaths)
+                            && testUtils.saveApks(
+                                    mSaveApkWhen,
+                                    mIsLastTestPass,
+                                    mPackageName,
+                                    Arrays.asList(mRepackApk));
+        }
+
         mApkInstaller.uninstallAllInstalledPackages();
-        getDevice().uninstallPackage(mPackageName);
+        if (!mUiAutomatorMode) {
+            getDevice().uninstallPackage(mPackageName);
+        }
+
         mCrawler.cleanUp();
     }
 }
