@@ -129,6 +129,15 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private File mCrawlGuidanceProtoFile;
 
     @Option(
+            name = "login-config-dir",
+            description =
+                    "A directory containing Roboscript and CrawlGuidance files with login"
+                        + " credentials that are passed to the crawler. There should be one config"
+                        + " file per package name. If both Roboscript and CrawlGuidance files are"
+                        + " present, only the Roboscript file will be used.")
+    private File mLoginConfigDir;
+
+    @Option(
             name = "save-apk-when",
             description = "When to save apk files to the test result artifacts.")
     private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
@@ -147,6 +156,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         mCrawler.setUiAutomatorMode(mUiAutomatorMode);
         mCrawler.setRoboscriptFile(toPathOrNull(mRoboscriptFile));
         mCrawler.setCrawlGuidanceProtoFile(toPathOrNull(mCrawlGuidanceProtoFile));
+        mCrawler.setLoginConfigDir(toPathOrNull(mLoginConfigDir));
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mApkInstaller.install(
