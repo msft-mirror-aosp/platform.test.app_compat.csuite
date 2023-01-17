@@ -63,6 +63,7 @@ public final class AppCrawlTester {
     private Path mApkRoot;
     private Path mRoboscriptFile;
     private Path mCrawlGuidanceProtoFile;
+    private Path mLoginConfigDir;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -404,6 +405,12 @@ public final class AppCrawlTester {
             cmd.addAll(Arrays.asList("--text-guide-file", mCrawlGuidanceProtoFile.toString()));
         }
 
+        if (mLoginConfigDir != null) {
+            RoboLoginConfigProvider configProvider = new RoboLoginConfigProvider(mLoginConfigDir);
+            RoboLoginConfig loginConfig = configProvider.findConfigFor(mPackageName);
+            cmd.addAll(loginConfig.getLoginArgs());
+        }
+
         return cmd.toArray(new String[cmd.size()]);
     }
 
@@ -468,6 +475,11 @@ public final class AppCrawlTester {
      */
     public void setCrawlGuidanceProtoFile(@Nullable Path crawlGuidanceProtoFile) {
         mCrawlGuidanceProtoFile = crawlGuidanceProtoFile;
+    }
+
+    /** Sets the option of the directory that contains configuration for login. */
+    public void setLoginConfigDir(@Nullable Path loginFilesDir) {
+        mLoginConfigDir = loginFilesDir;
     }
 
     @VisibleForTesting
