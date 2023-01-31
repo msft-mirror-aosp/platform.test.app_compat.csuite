@@ -141,6 +141,24 @@ public final class TestUtilsTest {
     }
 
     @Test
+    public void listApks_withApkDirectoryContainingObbFiles_returnsApksWithObb() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("single.apk"));
+        Files.createFile(root.resolve("single.not_apk"));
+        Files.createFile(root.resolve("main.123.package.obb"));
+
+        List<Path> res = TestUtils.listApks(root);
+
+        List<String> fileNames =
+                res.stream()
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toList());
+        assertThat(fileNames).containsExactly("single.apk", "main.123.package.obb");
+    }
+
+    @Test
     public void listApks_withApkDirectoryContainingOtherFileTypes_returnsApksOnly()
             throws Exception {
         Path root = mFileSystem.getPath("apk");
@@ -163,6 +181,15 @@ public final class TestUtilsTest {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("single.not_apk"));
+
+        assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
+    }
+
+    @Test
+    public void listApks_withApkDirectoryContainingOnlyObbFiles_throwException() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("main.123.package.obb"));
 
         assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
     }
