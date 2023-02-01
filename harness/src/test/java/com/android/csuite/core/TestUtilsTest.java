@@ -41,9 +41,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
+import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -139,6 +141,24 @@ public final class TestUtilsTest {
     }
 
     @Test
+    public void listApks_withApkDirectoryContainingObbFiles_returnsApksWithObb() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("single.apk"));
+        Files.createFile(root.resolve("single.not_apk"));
+        Files.createFile(root.resolve("main.123.package.obb"));
+
+        List<Path> res = TestUtils.listApks(root);
+
+        List<String> fileNames =
+                res.stream()
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toList());
+        assertThat(fileNames).containsExactly("single.apk", "main.123.package.obb");
+    }
+
+    @Test
     public void listApks_withApkDirectoryContainingOtherFileTypes_returnsApksOnly()
             throws Exception {
         Path root = mFileSystem.getPath("apk");
@@ -161,6 +181,15 @@ public final class TestUtilsTest {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("single.not_apk"));
+
+        assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
+    }
+
+    @Test
+    public void listApks_withApkDirectoryContainingOnlyObbFiles_throwException() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("main.123.package.obb"));
 
         assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
     }
@@ -199,6 +228,102 @@ public final class TestUtilsTest {
                         Mockito.contains("screenshot"),
                         Mockito.any(),
                         Mockito.any(InputStreamSource.class));
+    }
+
+    @Test
+    public void saveApks_always_savesOnTestPass() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        boolean testPassed = true;
+
+        sut.saveApks(
+                TestUtils.TakeEffectWhen.ALWAYS, testPassed, "apk", Arrays.asList(new File("")));
+
+        Mockito.verify(mMockTestArtifactReceiver, times(1))
+                .addTestArtifact(Mockito.contains("apk"), Mockito.any(), Mockito.any(File.class));
+    }
+
+    @Test
+    public void saveApks_always_savesOnTestFail() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        boolean testPassed = false;
+
+        sut.saveApks(
+                TestUtils.TakeEffectWhen.ALWAYS, testPassed, "apk", Arrays.asList(new File("")));
+
+        Mockito.verify(mMockTestArtifactReceiver, times(1))
+                .addTestArtifact(Mockito.contains("apk"), Mockito.any(), Mockito.any(File.class));
+    }
+
+    @Test
+    public void saveApks_never_doesNotSaveOnTestPass() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        boolean testPassed = true;
+
+        sut.saveApks(
+                TestUtils.TakeEffectWhen.NEVER, testPassed, "apk", Arrays.asList(new File("")));
+
+        Mockito.verify(mMockTestArtifactReceiver, times(0))
+                .addTestArtifact(Mockito.contains("apk"), Mockito.any(), Mockito.any(File.class));
+    }
+
+    @Test
+    public void saveApks_never_doesNotSaveOnTestFail() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        boolean testPassed = false;
+
+        sut.saveApks(
+                TestUtils.TakeEffectWhen.NEVER, testPassed, "apk", Arrays.asList(new File("")));
+
+        Mockito.verify(mMockTestArtifactReceiver, times(0))
+                .addTestArtifact(Mockito.contains("apk"), Mockito.any(), Mockito.any(File.class));
+    }
+
+    @Test
+    public void saveApks_onPass_doesNotSaveOnTestFail() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        boolean testPassed = false;
+
+        sut.saveApks(
+                TestUtils.TakeEffectWhen.ON_PASS, testPassed, "apk", Arrays.asList(new File("")));
+
+        Mockito.verify(mMockTestArtifactReceiver, times(0))
+                .addTestArtifact(Mockito.contains("apk"), Mockito.any(), Mockito.any(File.class));
+    }
+
+    @Test
+    public void saveApks_onPass_savesOnTestPass() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        boolean testPassed = true;
+
+        sut.saveApks(
+                TestUtils.TakeEffectWhen.ON_PASS, testPassed, "apk", Arrays.asList(new File("")));
+
+        Mockito.verify(mMockTestArtifactReceiver, times(1))
+                .addTestArtifact(Mockito.contains("apk"), Mockito.any(), Mockito.any(File.class));
+    }
+
+    @Test
+    public void saveApks_onFail_doesNotSaveOnTestPass() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        boolean testPassed = true;
+
+        sut.saveApks(
+                TestUtils.TakeEffectWhen.ON_FAIL, testPassed, "apk", Arrays.asList(new File("")));
+
+        Mockito.verify(mMockTestArtifactReceiver, times(0))
+                .addTestArtifact(Mockito.contains("apk"), Mockito.any(), Mockito.any(File.class));
+    }
+
+    @Test
+    public void saveApks_onFail_savesOnTestFail() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        boolean testPassed = false;
+
+        sut.saveApks(
+                TestUtils.TakeEffectWhen.ON_FAIL, testPassed, "apk", Arrays.asList(new File("")));
+
+        Mockito.verify(mMockTestArtifactReceiver, times(1))
+                .addTestArtifact(Mockito.contains("apk"), Mockito.any(), Mockito.any(File.class));
     }
 
     @Test
