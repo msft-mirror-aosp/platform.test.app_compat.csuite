@@ -347,7 +347,7 @@ public final class AppSetupPreparerTest {
     @Test
     public void setUp_installIncrementalOptionSet_forwardsToInstaller() throws Exception {
         TestAppInstallSetup installer = mock(TestAppInstallSetup.class);
-
+        
         AppSetupPreparer preparer =
                 new PreparerBuilder()
                         .setInstaller(installer)
@@ -489,7 +489,7 @@ public final class AppSetupPreparerTest {
         ITestDevice device = mock(ITestDevice.class);
         when(device.getProperty(any())).thenReturn("");
         when(device.waitForDeviceShell(anyLong())).thenReturn(true);
-        doNothing().when(device).waitForDeviceAvailable(anyLong());
+        when(device.waitForDeviceAvailable(anyLong())).thenReturn(true);
 
         return device;
     }
