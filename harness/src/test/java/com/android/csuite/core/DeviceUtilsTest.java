@@ -17,7 +17,9 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import android.service.dropbox.DropBoxManagerServiceDumpProto;
@@ -56,6 +58,40 @@ public final class DeviceUtilsTest {
     private IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
     private final FileSystem mFileSystem =
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+
+    @Test
+    public void isPackageInstalled_packageIsInstalled_returnsTrue() throws Exception {
+        String packageName = "package.name";
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout("\npackage:" + packageName + "\n"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isPackageInstalled(packageName);
+
+        assertTrue(res);
+    }
+
+    @Test
+    public void isPackageInstalled_packageIsNotInstalled_returnsFalse() throws Exception {
+        String packageName = "package.name";
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isPackageInstalled(packageName);
+
+        assertFalse(res);
+    }
+
+    @Test
+    public void isPackageInstalled_commandFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.isPackageInstalled("package.name"));
+    }
 
     @Test
     public void launchPackage_packageDoesNotExist_returnsFalse() throws Exception {
