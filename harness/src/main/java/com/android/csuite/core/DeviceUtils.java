@@ -31,11 +31,13 @@ import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
@@ -335,6 +337,43 @@ public class DeviceUtils {
     public boolean resetPackage(String packageName) throws DeviceNotAvailableException {
         return mDevice.executeShellV2Command(RESET_PACKAGE_COMMAND_PREFIX + packageName).getStatus()
                 == CommandStatus.SUCCESS;
+    }
+
+    /**
+     * Checks whether a package is installed on the device.
+     *
+     * @param packageName The name of the package to check
+     * @return True if the package is installed on the device; false otherwise.
+     * @throws DeviceUtilsException If the adb shell command failed.
+     * @throws DeviceNotAvailableException If the device was lost.
+     */
+    public boolean isPackageInstalled(String packageName)
+            throws DeviceUtilsException, DeviceNotAvailableException {
+        CommandResult commandResult =
+                executeShellCommandOrThrow(
+                        String.format("pm list packages %s", packageName),
+                        "Failed to execute pm command");
+
+        if (commandResult.getStdout() == null) {
+            throw new DeviceUtilsException(
+                    String.format(
+                            "Failed to get pm command output: %s", commandResult.getStdout()));
+        }
+
+        return Arrays.asList(commandResult.getStdout().split("\\r?\\n"))
+                .contains(String.format("package:%s", packageName));
+    }
+
+    private CommandResult executeShellCommandOrThrow(String command, String failureMessage)
+            throws DeviceUtilsException, DeviceNotAvailableException {
+        CommandResult commandResult = mDevice.executeShellV2Command(command);
+
+        if (commandResult.getStatus() != CommandStatus.SUCCESS) {
+            throw new DeviceUtilsException(
+                    String.format("%s; Command result: %s", failureMessage, commandResult));
+        }
+
+        return commandResult;
     }
 
     /**

@@ -293,10 +293,10 @@ public class TestUtils {
             return List.of(root);
         }
 
-        List<Path> apks;
+        List<Path> apksAndObbs;
         CLog.d("APK path = " + root);
         try (Stream<Path> fileTree = Files.walk(root)) {
-            apks =
+            apksAndObbs =
                     fileTree.filter(Files::isRegularFile)
                             .filter(
                                     path ->
@@ -313,28 +313,34 @@ public class TestUtils {
             throw new TestUtilsException("Failed to list apk files.", e);
         }
 
-        if (!apks.stream()
-                .anyMatch(path -> path.getFileName().toString().toLowerCase().endsWith(".apk"))) {
+        List<Path> apkFiles =
+                apksAndObbs.stream()
+                        .filter(path -> path.getFileName().toString().endsWith(".apk"))
+                        .collect(Collectors.toList());
+
+        if (apkFiles.isEmpty()) {
             throw new TestUtilsException("The apk directory does not contain any apk files");
         }
 
-        if (apks.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
+        if (apkFiles.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
             throw new TestUtilsException(
                     "Apk files are not all in the same folder: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
-        if (apks.stream().filter(path -> path.getFileName().toString().endsWith(".apk")).count() > 1
-                && apks.stream()
+        if (apkFiles.size() > 1
+                && apkFiles.stream()
                                 .filter(path -> path.getFileName().toString().equals("base.apk"))
                                 .count()
                         == 0) {
             throw new TestUtilsException(
                     "Base apk is not found: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
-        if (apks.stream()
+        if (apksAndObbs.stream()
                         .filter(
                                 path ->
                                         path.getFileName().toString().endsWith(".obb")
@@ -343,11 +349,12 @@ public class TestUtils {
                 > 1) {
             throw new TestUtilsException(
                     "Multiple main obb files are found: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
         Collections.sort(
-                apks,
+                apksAndObbs,
                 (first, second) -> {
                     if (first.getFileName().toString().equals("base.apk")) {
                         return -1;
@@ -358,7 +365,7 @@ public class TestUtils {
                     }
                 });
 
-        return apks;
+        return apksAndObbs;
     }
 
     /** Returns the test information. */
