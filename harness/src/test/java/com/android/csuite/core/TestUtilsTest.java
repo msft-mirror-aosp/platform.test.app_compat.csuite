@@ -203,15 +203,39 @@ public final class TestUtilsTest {
     }
 
     @Test
+    public void listApks_withMultipleSingleApks_throwException() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("single1.apk"));
+        Files.createFile(root.resolve("single2.apk"));
+
+        assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
+    }
+
+    @Test
     public void listApks_withApksInMultipleDirectories_throwException() throws Exception {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createDirectories(root.resolve("1"));
         Files.createDirectories(root.resolve("2"));
-        Files.createFile(root.resolve("1").resolve("single.apk"));
-        Files.createFile(root.resolve("2").resolve("single.apk"));
+        Files.createFile(root.resolve("1").resolve("base.apk"));
+        Files.createFile(root.resolve("2").resolve("config.apk"));
 
         assertThrows(TestUtils.TestUtilsException.class, () -> TestUtils.listApks(root));
+    }
+
+    @Test
+    public void listApks_apksInTheSameDirectoryAndObbsInADifferentDirectory_doesNotThrow()
+            throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createDirectories(root.resolve("1"));
+        Files.createDirectories(root.resolve("2"));
+        Files.createFile(root.resolve("1").resolve("base.apk"));
+        Files.createFile(root.resolve("1").resolve("config.apk"));
+        Files.createFile(root.resolve("2").resolve("main.123.com.package.obb"));
+
+        TestUtils.listApks(root);
     }
 
     @Test
