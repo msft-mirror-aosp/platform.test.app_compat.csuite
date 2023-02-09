@@ -40,8 +40,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -217,7 +221,40 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
 
     private WebviewPackage installReleaseChannelVersionOfWebview(String releaseChannel)
             throws IOException, InterruptedException, DeviceNotAvailableException {
-        return installWebviewWithInstallerTool(Arrays.asList("--channel", releaseChannel));
+        List<String> commandLineArgs = new ArrayList<>(Arrays.asList("--channel", releaseChannel));
+        if (Arrays.asList("beta", "stable").contains(releaseChannel.toLowerCase())) {
+            // Get current version of WebView in the stable or beta release channels.
+            CLog.i(
+                    "Getting the latest nightly official release version of the %s branch",
+                    releaseChannel);
+            String webviewVersion = getNightlyBranchBuildVersion(releaseChannel);
+            Assert.assertNotNull(
+                    String.format(
+                            "Could not retrieve the latest "
+                                    + "nightly release version of the %s channel",
+                            releaseChannel),
+                    webviewVersion);
+            // Install the latest official build compiled for the beta or stable branches.
+            commandLineArgs.addAll(Arrays.asList("--milestone", webviewVersion.split("\\.", 2)[0]));
+        }
+        return installWebviewWithInstallerTool(commandLineArgs);
+    }
+
+    private String getNightlyBranchBuildVersion(String releaseChannel)
+            throws IOException, MalformedURLException {
+        final URL omahaProxyUrl = new URL("https://omahaproxy.appspot.com/all?os=webview");
+        try (BufferedReader bufferedReader =
+                new BufferedReader(
+                        new InputStreamReader(omahaProxyUrl.openConnection().getInputStream()))) {
+            String csvLine = null;
+            while ((csvLine = bufferedReader.readLine()) != null) {
+                String[] csvLineValues = csvLine.split(",");
+                if (csvLineValues[1].toLowerCase().equals(releaseChannel.toLowerCase())) {
+                    return csvLineValues[2];
+                }
+            }
+        }
+        return null;
     }
 
     private WebviewPackage installVersionOfWebview(
