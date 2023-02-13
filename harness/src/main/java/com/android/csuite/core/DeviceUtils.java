@@ -38,8 +38,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Random;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -61,10 +64,6 @@ public class DeviceUtils {
                     "data_app_anr",
                     "data_app_native_crash",
                     "data_app_crash");
-
-    @VisibleForTesting
-    static final String LAUNCH_PACKAGE_COMMAND_TEMPLATE =
-            "monkey -p %s -c android.intent.category.LAUNCHER 1";
 
     private static final String VIDEO_PATH_ON_DEVICE_TEMPLATE = "/sdcard/screenrecord_%s.mp4";
     @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS = 10 * 1000;
@@ -265,14 +264,154 @@ public class DeviceUtils {
      */
     public void launchPackage(String packageName)
             throws DeviceUtilsException, DeviceNotAvailableException {
-        CommandResult result =
-                mDevice.executeShellV2Command(
-                        String.format(LAUNCH_PACKAGE_COMMAND_TEMPLATE, packageName));
-        if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
+        CommandResult pmResult =
+                mDevice.executeShellV2Command(String.format("pm dump %s", packageName));
+        if (pmResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
+            if (isPackageInstalled(packageName)) {
+                throw new DeviceUtilsException(
+                        String.format(
+                                "The command to dump package info for %s failed: %s",
+                                packageName, pmResult));
+            } else {
+                throw new DeviceUtilsException(
+                        String.format("Package %s is not installed on the device.", packageName));
+            }
+        }
+
+        String activity = getLaunchActivity(pmResult.getStdout());
+
+        CommandResult amResult =
+                mDevice.executeShellV2Command(String.format("am start -n %s", activity));
+        if (amResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
             throw new DeviceUtilsException(
                     String.format(
-                            "The command to launch package %s failed: %s", packageName, result));
+                            "The command to start the package %s with activity %s failed: %s",
+                            packageName, activity, amResult));
         }
+    }
+
+    /**
+     * Extracts the launch activity from a pm dump output.
+     *
+     * <p>This method parses the package manager dump, extracts the activities and filters them
+     * based on the categories and actions defined in the Android framework. The activities are
+     * sorted based on these attributes, and the first activity that is either the main action or a
+     * launcher category is returned.
+     *
+     * @param pmDump the pm dump output to parse.
+     * @return a activity that can be used to launch the package.
+     * @throws DeviceUtilsException if the launch activity cannot be found in the
+     *     dump. @VisibleForTesting
+     */
+    @VisibleForTesting
+    String getLaunchActivity(String pmDump) throws DeviceUtilsException {
+        class Activity {
+            String mName;
+            int mIndex;
+            List<String> mActions = new ArrayList<>();
+            List<String> mCategories = new ArrayList<>();
+        }
+
+        Pattern activityNamePattern =
+                Pattern.compile(
+                        "([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+"
+                                + "\\/([a-zA-Z][a-zA-Z0-9_]*)*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
+        Pattern actionPattern =
+                Pattern.compile(
+                        "Action:([^a-zA-Z0-9_\\.]*)([a-zA-Z][a-zA-Z0-9_]*"
+                                + "(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
+        Pattern categoryPattern =
+                Pattern.compile(
+                        "Category:([^a-zA-Z0-9_\\.]*)([a-zA-Z][a-zA-Z0-9_]*"
+                                + "(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
+
+        Matcher activityNameMatcher = activityNamePattern.matcher(pmDump);
+
+        List<Activity> activities = new ArrayList<>();
+        while (activityNameMatcher.find()) {
+            Activity activity = new Activity();
+            activity.mName = activityNameMatcher.group(0);
+            activity.mIndex = activityNameMatcher.start();
+            activities.add(activity);
+        }
+
+        int endIdx = pmDump.length();
+        ListIterator<Activity> iterator = activities.listIterator(activities.size());
+        while (iterator.hasPrevious()) {
+            Activity activity = iterator.previous();
+            Matcher actionMatcher =
+                    actionPattern.matcher(pmDump.substring(activity.mIndex, endIdx));
+            while (actionMatcher.find()) {
+                activity.mActions.add(actionMatcher.group(2));
+            }
+            Matcher categoryMatcher =
+                    categoryPattern.matcher(pmDump.substring(activity.mIndex, endIdx));
+            while (categoryMatcher.find()) {
+                activity.mCategories.add(categoryMatcher.group(2));
+            }
+            endIdx = activity.mIndex;
+        }
+
+        String categoryDefault = "android.intent.category.DEFAULT";
+        String categoryLauncher = "android.intent.category.LAUNCHER";
+        String actionMain = "android.intent.action.MAIN";
+
+        class AndroidActivityComparator implements Comparator<Activity> {
+            @Override
+            public int compare(Activity a1, Activity a2) {
+                if (a1.mCategories.contains(categoryLauncher)
+                        && !a2.mCategories.contains(categoryLauncher)) {
+                    return -1;
+                }
+                if (!a1.mCategories.contains(categoryLauncher)
+                        && a2.mCategories.contains(categoryLauncher)) {
+                    return 1;
+                }
+                if (a1.mActions.contains(actionMain) && !a2.mActions.contains(actionMain)) {
+                    return -1;
+                }
+                if (!a1.mActions.contains(actionMain) && a2.mActions.contains(actionMain)) {
+                    return 1;
+                }
+                if (a1.mCategories.contains(categoryDefault)
+                        && !a2.mCategories.contains(categoryDefault)) {
+                    return -1;
+                }
+                if (!a1.mCategories.contains(categoryDefault)
+                        && a2.mCategories.contains(categoryDefault)) {
+                    return 1;
+                }
+                return Integer.compare(a2.mCategories.size(), a1.mCategories.size());
+            }
+        }
+
+        Collections.sort(activities, new AndroidActivityComparator());
+        List<Activity> filteredActivities =
+                activities.stream()
+                        .filter(
+                                activity ->
+                                        activity.mActions.contains(actionMain)
+                                                || activity.mCategories.contains(categoryLauncher))
+                        .collect(Collectors.toList());
+        if (filteredActivities.isEmpty()) {
+            throw new DeviceUtilsException(
+                    String.format(
+                            "Cannot find an activity to launch the package. Number of activities"
+                                    + " parsed: %s",
+                            activities.size()));
+        }
+
+        Activity res = filteredActivities.get(0);
+
+        if (res.mCategories.contains(categoryLauncher)) {
+            CLog.d("Activity %s is not specified with a LAUNCHER category.", res);
+        }
+
+        if (res.mActions.contains(actionMain)) {
+            CLog.d("Activity %s is not specified with a MAIN action.", res);
+        }
+
+        return res.mName;
     }
 
     /**
