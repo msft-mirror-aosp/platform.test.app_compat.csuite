@@ -264,6 +264,18 @@ public class DeviceUtils {
      */
     public void launchPackage(String packageName)
             throws DeviceUtilsException, DeviceNotAvailableException {
+        CommandResult monkeyResult =
+                mDevice.executeShellV2Command(
+                        String.format(
+                                "monkey -p %s -c android.intent.category.LAUNCHER 1", packageName));
+        if (monkeyResult.getStatus() == CommandStatus.SUCCESS) {
+            return;
+        }
+        CLog.w(
+                "Continuing to attempt using am command to launch the package %s after the monkey"
+                        + " command failed: %s",
+                packageName, monkeyResult);
+
         CommandResult pmResult =
                 mDevice.executeShellV2Command(String.format("pm dump %s", packageName));
         if (pmResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
