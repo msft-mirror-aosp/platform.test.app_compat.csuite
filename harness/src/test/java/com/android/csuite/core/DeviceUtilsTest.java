@@ -94,21 +94,207 @@ public final class DeviceUtilsTest {
     }
 
     @Test
-    public void launchPackage_packageDoesNotExist_returnsFalse() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey -p")))
+    public void launchPackage_pmDumpFailedAndPackageDoesNotExist_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
                 .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("no packages"));
         DeviceUtils sut = createSubjectUnderTest();
 
         assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("package.name"));
     }
 
     @Test
-    public void launchPackage_successfullyLaunchedThePackage_returnsTrue() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey -p")))
+    public void launchPackage_pmDumpFailedAndPackageExists_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("package:package.name"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("package.name"));
+    }
+
+    @Test
+    public void launchPackage_failedToLaunchThePackage_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("com.google.android.gms"));
+    }
+
+    @Test
+    public void launchPackage_successfullyLaunchedThePackage_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
         DeviceUtils sut = createSubjectUnderTest();
 
-        sut.launchPackage("package.name");
+        sut.launchPackage("com.google.android.gms");
+    }
+
+    @Test
+    public void getLaunchActivity_oneActivityIsLauncherAndMainAndDefault_returnsIt()
+            throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.app.settings.GoogleSettingsActivity");
+    }
+
+    @Test
+    public void getLaunchActivity_oneActivityIsLauncherAndMain_returnsIt() throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.app.settings.GoogleSettingsActivity");
+    }
+
+    @Test
+    public void
+            getLaunchActivity_oneActivityIsLauncherAndOneActivityIsMain_returnsTheLauncherActivity()
+                    throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.app.settings.GoogleSettingsActivity");
+    }
+
+    @Test
+    public void getLaunchActivity_oneActivityIsMain_returnsIt() throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.bugreport.BugreportActivity");
+    }
+
+    @Test
+    public void getLaunchActivity_oneActivityIsLauncher_returnsIt() throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.bugreport.BugreportActivity");
+    }
+
+    @Test
+    public void getLaunchActivity_noMainOrLauncherActivities_throws() throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.getLaunchActivity(pmDump));
     }
 
     @Test
