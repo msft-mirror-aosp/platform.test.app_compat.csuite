@@ -282,7 +282,9 @@ public class DeviceUtils {
 
         CommandResult amResult =
                 mDevice.executeShellV2Command(String.format("am start -n %s", activity));
-        if (amResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
+        if (amResult.getStatus() != CommandStatus.SUCCESS
+                || amResult.getExitCode() != 0
+                || amResult.getStdout().contains("Error")) {
             throw new DeviceUtilsException(
                     String.format(
                             "The command to start the package %s with activity %s failed: %s",
