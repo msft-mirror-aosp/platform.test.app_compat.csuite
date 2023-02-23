@@ -358,7 +358,8 @@ public class TestUtils {
                         .collect(Collectors.toList());
 
         if (apkFiles.isEmpty()) {
-            throw new TestUtilsException("The apk directory does not contain any apk files");
+            throw new TestUtilsException(
+                    "Empty APK directory. Cannot find any APK files under " + root);
         }
 
         if (apkFiles.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
