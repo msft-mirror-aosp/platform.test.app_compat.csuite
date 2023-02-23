@@ -403,12 +403,11 @@ public class DeviceUtils {
 
         Activity res = filteredActivities.get(0);
 
-        if (res.mCategories.contains(categoryLauncher)) {
-            CLog.d("Activity %s is not specified with a LAUNCHER category.", res);
+        if (!res.mCategories.contains(categoryLauncher)) {
+            CLog.d("Activity %s is not specified with a LAUNCHER category.", res.mName);
         }
-
-        if (res.mActions.contains(actionMain)) {
-            CLog.d("Activity %s is not specified with a MAIN action.", res);
+        if (!res.mActions.contains(actionMain)) {
+            CLog.d("Activity %s is not specified with a MAIN action.", res.mName);
         }
 
         return res.mName;
