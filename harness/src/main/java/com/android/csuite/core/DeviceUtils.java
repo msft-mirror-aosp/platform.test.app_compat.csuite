@@ -264,6 +264,18 @@ public class DeviceUtils {
      */
     public void launchPackage(String packageName)
             throws DeviceUtilsException, DeviceNotAvailableException {
+        CommandResult monkeyResult =
+                mDevice.executeShellV2Command(
+                        String.format(
+                                "monkey -p %s -c android.intent.category.LAUNCHER 1", packageName));
+        if (monkeyResult.getStatus() == CommandStatus.SUCCESS) {
+            return;
+        }
+        CLog.w(
+                "Continuing to attempt using am command to launch the package %s after the monkey"
+                        + " command failed: %s",
+                packageName, monkeyResult);
+
         CommandResult pmResult =
                 mDevice.executeShellV2Command(String.format("pm dump %s", packageName));
         if (pmResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
@@ -282,7 +294,9 @@ public class DeviceUtils {
 
         CommandResult amResult =
                 mDevice.executeShellV2Command(String.format("am start -n %s", activity));
-        if (amResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
+        if (amResult.getStatus() != CommandStatus.SUCCESS
+                || amResult.getExitCode() != 0
+                || amResult.getStdout().contains("Error")) {
             throw new DeviceUtilsException(
                     String.format(
                             "The command to start the package %s with activity %s failed: %s",
@@ -403,12 +417,11 @@ public class DeviceUtils {
 
         Activity res = filteredActivities.get(0);
 
-        if (res.mCategories.contains(categoryLauncher)) {
-            CLog.d("Activity %s is not specified with a LAUNCHER category.", res);
+        if (!res.mCategories.contains(categoryLauncher)) {
+            CLog.d("Activity %s is not specified with a LAUNCHER category.", res.mName);
         }
-
-        if (res.mActions.contains(actionMain)) {
-            CLog.d("Activity %s is not specified with a MAIN action.", res);
+        if (!res.mActions.contains(actionMain)) {
+            CLog.d("Activity %s is not specified with a MAIN action.", res.mName);
         }
 
         return res.mName;
