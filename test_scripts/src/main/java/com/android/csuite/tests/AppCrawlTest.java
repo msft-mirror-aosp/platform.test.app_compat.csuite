@@ -117,6 +117,12 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private boolean mUiAutomatorMode = false;
 
     @Option(
+            name = "timeout-sec",
+            mandatory = false,
+            description = "The timeout for the crawl test.")
+    private int mTimeoutSec = 60;
+
+    @Option(
             name = "robo-script-file",
             description = "A Roboscript file to be executed by the crawler.")
     private File mRoboscriptFile;
@@ -127,6 +133,15 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
             name = "crawl-guidance-proto-file",
             description = "A CrawlGuidance file to be executed by the crawler.")
     private File mCrawlGuidanceProtoFile;
+
+    @Option(
+            name = "login-config-dir",
+            description =
+                    "A directory containing Roboscript and CrawlGuidance files with login"
+                        + " credentials that are passed to the crawler. There should be one config"
+                        + " file per package name. If both Roboscript and CrawlGuidance files are"
+                        + " present, only the Roboscript file will be used.")
+    private File mLoginConfigDir;
 
     @Option(
             name = "save-apk-when",
@@ -147,6 +162,8 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         mCrawler.setUiAutomatorMode(mUiAutomatorMode);
         mCrawler.setRoboscriptFile(toPathOrNull(mRoboscriptFile));
         mCrawler.setCrawlGuidanceProtoFile(toPathOrNull(mCrawlGuidanceProtoFile));
+        mCrawler.setLoginConfigDir(toPathOrNull(mLoginConfigDir));
+        mCrawler.setTimeoutSec(mTimeoutSec);
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mApkInstaller.install(

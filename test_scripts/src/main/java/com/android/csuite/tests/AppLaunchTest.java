@@ -169,11 +169,22 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
+        try {
+            if (!deviceUtils.isPackageInstalled(mPackageName)) {
+                Assert.fail(
+                        "Package "
+                                + mPackageName
+                                + " is not installed on the device. Aborting the test.");
+            }
+        } catch (DeviceUtilsException e) {
+            Assert.fail("Failed to check the installed package list: " + e.getMessage());
+        }
+
         DeviceTimestamp startTime = deviceUtils.currentTimeMillis();
         try {
             deviceUtils.launchPackage(mPackageName);
         } catch (DeviceUtilsException e) {
-            Assert.fail(e.getMessage());
+            Assert.fail("Failed to launch package " + mPackageName + ": " + e.getMessage());
         }
 
         CLog.d("Waiting %s milliseconds for the app to launch fully.", mAppLaunchTimeoutMs);

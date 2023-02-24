@@ -54,15 +54,16 @@ public final class AppCrawlTester {
     private final RunUtilProvider mRunUtilProvider;
     private final TestUtils mTestUtils;
     private final String mPackageName;
-    private static final long COMMAND_TIMEOUT_MILLIS = 4 * 60 * 1000;
     private boolean mRecordScreen = false;
     private boolean mCollectGmsVersion = false;
     private boolean mCollectAppVersion = false;
     private boolean mUiAutomatorMode = false;
+    private int mTimeoutSec;
     private String mCrawlControllerEndpoint;
     private Path mApkRoot;
     private Path mRoboscriptFile;
     private Path mCrawlGuidanceProtoFile;
+    private Path mLoginConfigDir;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -203,14 +204,19 @@ public final class AppCrawlTester {
             mTestUtils.collectGmsVersion(mPackageName);
         }
 
+        // Minimum timeout 3 minutes plus crawl test timeout.
+        long commandTimeout = 3 * 60 * 1000 + mTimeoutSec * 1000;
+
+        // TODO(yuexima): When the obb_file option is supported in espresso mode, the timeout need
+        // to be extended.
         if (mRecordScreen) {
             mTestUtils.collectScreenRecord(
                     () -> {
-                        commandResult.set(runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, command));
+                        commandResult.set(runUtil.runTimedCmd(commandTimeout, command));
                     },
                     mPackageName);
         } else {
-            commandResult.set(runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, command));
+            commandResult.set(runUtil.runTimedCmd(commandTimeout, command));
         }
 
         // Must be done after the crawler run because the app is installed by the crawler.
@@ -390,6 +396,11 @@ public final class AppCrawlTester {
             }
         }
 
+        if (mTimeoutSec > 0) {
+            cmd.add("--timeout-sec");
+            cmd.add(Integer.toString(mTimeoutSec));
+        }
+
         if (mRoboscriptFile != null) {
             Assert.assertTrue(
                     "Please provide a valid roboscript file.",
@@ -402,6 +413,12 @@ public final class AppCrawlTester {
                     "Please provide a valid CrawlGuidance file.",
                     Files.isRegularFile(mCrawlGuidanceProtoFile));
             cmd.addAll(Arrays.asList("--text-guide-file", mCrawlGuidanceProtoFile.toString()));
+        }
+
+        if (mLoginConfigDir != null) {
+            RoboLoginConfigProvider configProvider = new RoboLoginConfigProvider(mLoginConfigDir);
+            RoboLoginConfig loginConfig = configProvider.findConfigFor(mPackageName);
+            cmd.addAll(loginConfig.getLoginArgs());
         }
 
         return cmd.toArray(new String[cmd.size()]);
@@ -440,6 +457,11 @@ public final class AppCrawlTester {
         mUiAutomatorMode = uiAutomatorMode;
     }
 
+    /** Sets the value of the "timeout-sec" param for the crawler launcher. */
+    public void setTimeoutSec(int timeoutSec) {
+        mTimeoutSec = timeoutSec;
+    }
+
     /** Sets the robo crawler controller endpoint (optional). */
     public void setCrawlControllerEndpoint(String crawlControllerEndpoint) {
         mCrawlControllerEndpoint = crawlControllerEndpoint;
@@ -468,6 +490,11 @@ public final class AppCrawlTester {
      */
     public void setCrawlGuidanceProtoFile(@Nullable Path crawlGuidanceProtoFile) {
         mCrawlGuidanceProtoFile = crawlGuidanceProtoFile;
+    }
+
+    /** Sets the option of the directory that contains configuration for login. */
+    public void setLoginConfigDir(@Nullable Path loginFilesDir) {
+        mLoginConfigDir = loginFilesDir;
     }
 
     @VisibleForTesting
