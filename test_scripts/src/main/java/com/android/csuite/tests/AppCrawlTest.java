@@ -117,6 +117,12 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private boolean mUiAutomatorMode = false;
 
     @Option(
+            name = "timeout-sec",
+            mandatory = false,
+            description = "The timeout for the crawl test.")
+    private int mTimeoutSec = 60;
+
+    @Option(
             name = "robo-script-file",
             description = "A Roboscript file to be executed by the crawler.")
     private File mRoboscriptFile;
@@ -157,6 +163,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         mCrawler.setRoboscriptFile(toPathOrNull(mRoboscriptFile));
         mCrawler.setCrawlGuidanceProtoFile(toPathOrNull(mCrawlGuidanceProtoFile));
         mCrawler.setLoginConfigDir(toPathOrNull(mLoginConfigDir));
+        mCrawler.setTimeoutSec(mTimeoutSec);
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mApkInstaller.install(
