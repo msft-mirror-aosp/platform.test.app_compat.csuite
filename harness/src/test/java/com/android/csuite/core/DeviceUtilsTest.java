@@ -95,6 +95,8 @@ public final class DeviceUtilsTest {
 
     @Test
     public void launchPackage_pmDumpFailedAndPackageDoesNotExist_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
         when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
                 .thenReturn(createFailedCommandResult());
         when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
@@ -106,6 +108,8 @@ public final class DeviceUtilsTest {
 
     @Test
     public void launchPackage_pmDumpFailedAndPackageExists_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
         when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
                 .thenReturn(createFailedCommandResult());
         when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
@@ -116,7 +120,9 @@ public final class DeviceUtilsTest {
     }
 
     @Test
-    public void launchPackage_failedToLaunchThePackage_throws() throws Exception {
+    public void launchPackage_amStartCommandFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
         when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
                 .thenReturn(
                         createSuccessfulCommandResultWithStdout(
@@ -136,7 +142,33 @@ public final class DeviceUtilsTest {
     }
 
     @Test
-    public void launchPackage_successfullyLaunchedThePackage_doesNotThrow() throws Exception {
+    public void launchPackage_amFailedToLaunchThePackage_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "Error: Activity not started, unable to resolve Intent"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("com.google.android.gms"));
+    }
+
+    @Test
+    public void launchPackage_monkeyFailedButAmSucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
         when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
                 .thenReturn(
                         createSuccessfulCommandResultWithStdout(
@@ -153,6 +185,19 @@ public final class DeviceUtilsTest {
         DeviceUtils sut = createSubjectUnderTest();
 
         sut.launchPackage("com.google.android.gms");
+    }
+
+    @Test
+    public void launchPackage_monkeySucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        sut.launchPackage("package.name");
     }
 
     @Test
