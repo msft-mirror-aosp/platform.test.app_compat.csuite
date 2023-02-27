@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -66,7 +67,10 @@ public class DeviceUtils {
                     "data_app_crash");
 
     private static final String VIDEO_PATH_ON_DEVICE_TEMPLATE = "/sdcard/screenrecord_%s.mp4";
-    @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS = 10 * 1000;
+
+    @VisibleForTesting
+    static final int WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS = 10 * 1000;
+
     @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_INTERVAL_MILLIS = 500;
 
     private final ITestDevice mDevice;
@@ -187,10 +191,10 @@ public class DeviceUtils {
                 }
 
                 if (mClock.currentTimeMillis() - start
-                        > WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS) {
+                        > WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS) {
                     CLog.e(
                             "Screenrecord did not start within %s milliseconds.",
-                            WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS);
+                            WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS);
                     break;
                 }
             }
@@ -198,7 +202,21 @@ public class DeviceUtils {
             action.run();
         } finally {
             if (recordingProcess != null) {
-                recordingProcess.destroy();
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS,
+                                "kill",
+                                "-SIGINT",
+                                Long.toString(recordingProcess.pid()));
+                try {
+                    recordingProcess.waitFor(
+                            WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS,
+                            TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    recordingProcess.destroyForcibly();
+                }
             }
             // Try to pull, handle, and delete the video file from the device anyway.
             handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
