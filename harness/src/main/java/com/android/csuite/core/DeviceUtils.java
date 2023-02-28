@@ -159,7 +159,8 @@ public class DeviceUtils {
                             .get()
                             .runCmdInBackground(
                                     String.format(
-                                                    "adb -s %s shell screenrecord %s",
+                                                    "adb -s %s shell screenrecord --time-limit 600"
+                                                            + " %s",
                                                     mDevice.getSerialNumber(), videoPath)
                                             .split("\\s+"));
         } catch (IOException ioException) {
