@@ -38,6 +38,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -48,6 +50,12 @@ public class TestUtils {
     private final TestArtifactReceiver mTestArtifactReceiver;
     private final DeviceUtils mDeviceUtils;
     private static final int MAX_CRASH_SNIPPET_LINES = 60;
+    // Pattern for finding a package name following one of the tags such as "Process:" or
+    // "Package:".
+    private static final Pattern DROPBOX_PACKAGE_NAME_PATTERN =
+            Pattern.compile(
+                    "(Process|Cmdline|Package|Cmd line):("
+                            + " *)([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
 
     public enum TakeEffectWhen {
         NEVER,
@@ -234,7 +242,10 @@ public class TestUtils {
         List<DropboxEntry> entries =
                 mDeviceUtils.getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS).stream()
                         .filter(entry -> (entry.getTime() >= startTimeOnDevice.get()))
-                        .filter(entry -> entry.getData().contains(packageName))
+                        .filter(
+                                entry ->
+                                        isDropboxEntryFromPackageProcess(
+                                                entry.getData(), packageName))
                         .collect(Collectors.toList());
 
         if (entries.size() == 0) {
@@ -265,6 +276,34 @@ public class TestUtils {
                 LogDataType.TEXT,
                 fullText.getBytes());
         return truncatedText;
+    }
+
+    @VisibleForTesting
+    boolean isDropboxEntryFromPackageProcess(String entryData, String packageName) {
+        Matcher m = DROPBOX_PACKAGE_NAME_PATTERN.matcher(entryData);
+
+        boolean matched = false;
+        while (m.find()) {
+            matched = true;
+            if (m.group(3).equals(packageName)) {
+                return true;
+            }
+        }
+
+        if (matched) {
+            return false;
+        }
+
+        // If the process name is not identified, fall back to checking if the package name is
+        // present in the entry. This is because the process name detection logic above does not
+        // guarantee to identify the process name.
+        return Pattern.compile(
+                        String.format(
+                                // Pattern for checking whether a given package name exists.
+                                "(.*(?:[^a-zA-Z0-9_\\.]+)|^)%s((?:[^a-zA-Z0-9_\\.]+).*|$)",
+                                packageName.replaceAll("\\.", "\\\\.")))
+                .matcher(entryData)
+                .find();
     }
 
     /**
@@ -319,7 +358,8 @@ public class TestUtils {
                         .collect(Collectors.toList());
 
         if (apkFiles.isEmpty()) {
-            throw new TestUtilsException("The apk directory does not contain any apk files");
+            throw new TestUtilsException(
+                    "Empty APK directory. Cannot find any APK files under " + root);
         }
 
         if (apkFiles.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
