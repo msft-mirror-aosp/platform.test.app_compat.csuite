@@ -38,6 +38,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -48,6 +50,12 @@ public class TestUtils {
     private final TestArtifactReceiver mTestArtifactReceiver;
     private final DeviceUtils mDeviceUtils;
     private static final int MAX_CRASH_SNIPPET_LINES = 60;
+    // Pattern for finding a package name following one of the tags such as "Process:" or
+    // "Package:".
+    private static final Pattern DROPBOX_PACKAGE_NAME_PATTERN =
+            Pattern.compile(
+                    "(Process|Cmdline|Package|Cmd line):("
+                            + " *)([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
 
     public enum TakeEffectWhen {
         NEVER,
@@ -234,7 +242,10 @@ public class TestUtils {
         List<DropboxEntry> entries =
                 mDeviceUtils.getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS).stream()
                         .filter(entry -> (entry.getTime() >= startTimeOnDevice.get()))
-                        .filter(entry -> entry.getData().contains(packageName))
+                        .filter(
+                                entry ->
+                                        isDropboxEntryFromPackageProcess(
+                                                entry.getData(), packageName))
                         .collect(Collectors.toList());
 
         if (entries.size() == 0) {
@@ -267,6 +278,34 @@ public class TestUtils {
         return truncatedText;
     }
 
+    @VisibleForTesting
+    boolean isDropboxEntryFromPackageProcess(String entryData, String packageName) {
+        Matcher m = DROPBOX_PACKAGE_NAME_PATTERN.matcher(entryData);
+
+        boolean matched = false;
+        while (m.find()) {
+            matched = true;
+            if (m.group(3).equals(packageName)) {
+                return true;
+            }
+        }
+
+        if (matched) {
+            return false;
+        }
+
+        // If the process name is not identified, fall back to checking if the package name is
+        // present in the entry. This is because the process name detection logic above does not
+        // guarantee to identify the process name.
+        return Pattern.compile(
+                        String.format(
+                                // Pattern for checking whether a given package name exists.
+                                "(.*(?:[^a-zA-Z0-9_\\.]+)|^)%s((?:[^a-zA-Z0-9_\\.]+).*|$)",
+                                packageName.replaceAll("\\.", "\\\\.")))
+                .matcher(entryData)
+                .find();
+    }
+
     /**
      * Generates a list of APK paths where the base.apk of split apk files are always on the first
      * index if exists.
@@ -293,10 +332,10 @@ public class TestUtils {
             return List.of(root);
         }
 
-        List<Path> apks;
+        List<Path> apksAndObbs;
         CLog.d("APK path = " + root);
         try (Stream<Path> fileTree = Files.walk(root)) {
-            apks =
+            apksAndObbs =
                     fileTree.filter(Files::isRegularFile)
                             .filter(
                                     path ->
@@ -313,28 +352,35 @@ public class TestUtils {
             throw new TestUtilsException("Failed to list apk files.", e);
         }
 
-        if (!apks.stream()
-                .anyMatch(path -> path.getFileName().toString().toLowerCase().endsWith(".apk"))) {
-            throw new TestUtilsException("The apk directory does not contain any apk files");
+        List<Path> apkFiles =
+                apksAndObbs.stream()
+                        .filter(path -> path.getFileName().toString().endsWith(".apk"))
+                        .collect(Collectors.toList());
+
+        if (apkFiles.isEmpty()) {
+            throw new TestUtilsException(
+                    "Empty APK directory. Cannot find any APK files under " + root);
         }
 
-        if (apks.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
+        if (apkFiles.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
             throw new TestUtilsException(
                     "Apk files are not all in the same folder: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
-        if (apks.stream().filter(path -> path.getFileName().toString().endsWith(".apk")).count() > 1
-                && apks.stream()
+        if (apkFiles.size() > 1
+                && apkFiles.stream()
                                 .filter(path -> path.getFileName().toString().equals("base.apk"))
                                 .count()
                         == 0) {
             throw new TestUtilsException(
                     "Base apk is not found: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
-        if (apks.stream()
+        if (apksAndObbs.stream()
                         .filter(
                                 path ->
                                         path.getFileName().toString().endsWith(".obb")
@@ -343,11 +389,12 @@ public class TestUtils {
                 > 1) {
             throw new TestUtilsException(
                     "Multiple main obb files are found: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
         Collections.sort(
-                apks,
+                apksAndObbs,
                 (first, second) -> {
                     if (first.getFileName().toString().equals("base.apk")) {
                         return -1;
@@ -358,7 +405,7 @@ public class TestUtils {
                     }
                 });
 
-        return apks;
+        return apksAndObbs;
     }
 
     /** Returns the test information. */
