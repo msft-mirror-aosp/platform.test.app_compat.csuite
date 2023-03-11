@@ -17,7 +17,6 @@ package {
 }
 
 csuite_test {
-    name: "webview-app-launch",
-    test_plan_include: "plan.xml",
-    test_config_template: "default.xml",
+    name: "pixel-app-launch-lock-recentapp",
+    test_config_template: "template.xml",
 }
