@@ -23,7 +23,6 @@
     <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
     	<!-- repeatable: The key of the DIRECTORY to pull -->
       	<option name = "directory-keys" value = "/sdcard/logData" />
-      	<option name="collect-on-run-ended-only" value="true" />
     </metrics_collector>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
