@@ -93,7 +93,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
                 mWebviewVersionToTest != null || mReleaseChannel != null);
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
-        mWebviewUtils = new WebviewUtils(getDevice(), getTestInformation());
+        mWebviewUtils = new WebviewUtils(getTestInformation());
         mPreInstalledWebview = mWebviewUtils.getCurrentWebviewPackage();
 
         for (File apkPath : mApkPaths) {
