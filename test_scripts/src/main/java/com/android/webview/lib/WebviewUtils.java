@@ -17,7 +17,6 @@
 package com.android.webview.tests;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.CommandResult;
@@ -35,11 +34,9 @@ import java.util.Arrays;
 import java.util.List;
 
 public class WebviewUtils {
-    private ITestDevice mTestDevice;
     private TestInformation mTestInformation;
 
-    public WebviewUtils(ITestDevice device, TestInformation testInformation) {
-        mTestDevice = device;
+    public WebviewUtils(TestInformation testInformation) {
         mTestInformation = testInformation;
     }
 
@@ -65,7 +62,7 @@ public class WebviewUtils {
         }
         CommandResult commandResult =
                 WebviewInstallerToolPreparer.runWebviewInstallerToolCommand(
-                        mTestInformation, mTestDevice, webviewVersion, releaseChannel, extraArgs);
+                        mTestInformation, webviewVersion, releaseChannel, extraArgs);
 
         Assert.assertEquals(
                 "The WebView installer tool failed to install WebView:\n"
@@ -102,23 +99,27 @@ public class WebviewUtils {
                 webviewPackage,
                 preInstalledWebviewPackage);
         updateWebviewImplementation(preInstalledWebviewPackage.getPackageName());
-        mTestDevice.executeAdbCommand("uninstall", webviewPackage.getPackageName());
+        mTestInformation
+                .getDevice()
+                .executeAdbCommand("uninstall", webviewPackage.getPackageName());
         printWebviewVersion();
     }
 
     private void updateWebviewImplementation(String webviewPackageName)
             throws DeviceNotAvailableException {
         CommandResult res =
-                mTestDevice.executeShellV2Command(
-                        String.format(
-                                "cmd webviewupdate set-webview-implementation %s",
-                                webviewPackageName));
+                mTestInformation
+                        .getDevice()
+                        .executeShellV2Command(
+                                String.format(
+                                        "cmd webviewupdate set-webview-implementation %s",
+                                        webviewPackageName));
         Assert.assertEquals(
                 "Failed to set webview update: " + res, res.getStatus(), CommandStatus.SUCCESS);
     }
 
     public WebviewPackage getCurrentWebviewPackage() throws DeviceNotAvailableException {
-        String dumpsys = mTestDevice.executeShellCommand("dumpsys webviewupdate");
+        String dumpsys = mTestInformation.getDevice().executeShellCommand("dumpsys webviewupdate");
         return WebviewPackage.buildFromDumpsys(dumpsys);
     }
 
