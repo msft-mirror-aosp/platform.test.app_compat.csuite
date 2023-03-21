@@ -18,7 +18,6 @@ package com.android.webview.tests;
 
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -67,7 +66,6 @@ public class WebviewInstallerToolPreparer implements ITargetPreparer {
 
     public static CommandResult runWebviewInstallerToolCommand(
             TestInformation testInformation,
-            ITestDevice device,
             @Nullable String webviewVersion,
             @Nullable String releaseChannel,
             List<String> extraArgs) {
@@ -80,7 +78,7 @@ public class WebviewInstallerToolPreparer implements ITargetPreparer {
                                 getWebviewInstallerToolPath(testInformation),
                                 "--non-next",
                                 "--serial",
-                                device.getSerialNumber(),
+                                testInformation.getDevice().getSerialNumber(),
                                 "-vvv",
                                 "--gsutil",
                                 Paths.get(
