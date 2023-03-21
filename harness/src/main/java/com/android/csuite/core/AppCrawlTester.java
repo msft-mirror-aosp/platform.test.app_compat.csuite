@@ -37,6 +37,8 @@ import org.junit.Assert;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -64,6 +66,7 @@ public final class AppCrawlTester {
     private Path mRoboscriptFile;
     private Path mCrawlGuidanceProtoFile;
     private Path mLoginConfigDir;
+    private FileSystem mFileSystem;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -78,14 +81,20 @@ public final class AppCrawlTester {
         return new AppCrawlTester(
                 packageName,
                 TestUtils.getInstance(testInformation, testLogData),
-                () -> new RunUtil());
+                () -> new RunUtil(),
+                FileSystems.getDefault());
     }
 
     @VisibleForTesting
-    AppCrawlTester(String packageName, TestUtils testUtils, RunUtilProvider runUtilProvider) {
+    AppCrawlTester(
+            String packageName,
+            TestUtils testUtils,
+            RunUtilProvider runUtilProvider,
+            FileSystem fileSystem) {
         mRunUtilProvider = runUtilProvider;
         mPackageName = packageName;
         mTestUtils = testUtils;
+        mFileSystem = fileSystem;
     }
 
     /** An exception class representing crawler test failures. */
@@ -188,17 +197,34 @@ public final class AppCrawlTester {
             throw new CrawlerException("Failed to create temp directory for output.", e);
         }
 
-        String[] command = createCrawlerRunCommand(mTestUtils.getTestInformation());
-
-        CLog.d("Launching package: %s.", mPackageName);
-
         IRunUtil runUtil = mRunUtilProvider.get();
-
+        AtomicReference<String[]> command = new AtomicReference<>();
         AtomicReference<CommandResult> commandResult = new AtomicReference<>();
-        runUtil.setEnvVariable(
-                "GOOGLE_APPLICATION_CREDENTIALS",
-                AppCrawlTesterHostPreparer.getCredentialPath(mTestUtils.getTestInformation())
-                        .toString());
+
+        CLog.d("Start to crawl package: %s.", mPackageName);
+
+        Path bin =
+                mFileSystem.getPath(
+                        AppCrawlTesterHostPreparer.getCrawlerBinPath(
+                                mTestUtils.getTestInformation()));
+        boolean isUtpClient = false;
+        if (Files.exists(bin.resolve("utp-cli-android_deploy.jar"))) {
+            command.set(createUtpCrawlerRunCommand(mTestUtils.getTestInformation()));
+            runUtil.setEnvVariable(
+                    "ANDROID_SDK",
+                    AppCrawlTesterHostPreparer.getSdkPath(mTestUtils.getTestInformation())
+                            .toString());
+            isUtpClient = true;
+        } else if (Files.exists(bin.resolve("crawl_launcher_deploy.jar"))) {
+            command.set(createCrawlerRunCommand(mTestUtils.getTestInformation()));
+            runUtil.setEnvVariable(
+                    "GOOGLE_APPLICATION_CREDENTIALS",
+                    AppCrawlTesterHostPreparer.getCredentialPath(mTestUtils.getTestInformation())
+                            .toString());
+        } else {
+            throw new CrawlerException(
+                    "Crawler executable binaries not found in " + bin.toString());
+        }
 
         if (mCollectGmsVersion) {
             mTestUtils.collectGmsVersion(mPackageName);
@@ -212,11 +238,11 @@ public final class AppCrawlTester {
         if (mRecordScreen) {
             mTestUtils.collectScreenRecord(
                     () -> {
-                        commandResult.set(runUtil.runTimedCmd(commandTimeout, command));
+                        commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
                     },
                     mPackageName);
         } else {
-            commandResult.set(runUtil.runTimedCmd(commandTimeout, command));
+            commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
         }
 
         // Must be done after the crawler run because the app is installed by the crawler.
@@ -225,9 +251,10 @@ public final class AppCrawlTester {
         }
 
         collectOutputZip();
-        collectCrawlStepScreenshots();
+        collectCrawlStepScreenshots(isUtpClient);
 
-        if (!commandResult.get().getStatus().equals(CommandStatus.SUCCESS)) {
+        if (!commandResult.get().getStatus().equals(CommandStatus.SUCCESS)
+                || commandResult.get().getStdout().contains("Unknown options:")) {
             throw new CrawlerException("Crawler command failed: " + commandResult.get());
         }
 
@@ -235,13 +262,16 @@ public final class AppCrawlTester {
     }
 
     /** Copys the step screenshots into test outputs for easier access. */
-    private void collectCrawlStepScreenshots() {
+    private void collectCrawlStepScreenshots(boolean isUtpClient) {
         if (mOutput == null) {
             CLog.e("Output directory is not created yet. Skipping collecting step screenshots.");
             return;
         }
 
-        Path subDir = mOutput.resolve("app_firebase_test_lab");
+        Path subDir =
+                isUtpClient
+                        ? mOutput.resolve("output").resolve("artifacts")
+                        : mOutput.resolve("app_firebase_test_lab");
         if (!Files.exists(subDir)) {
             CLog.e(
                     "The crawler output directory is not complete, skipping collecting step"
@@ -286,16 +316,106 @@ public final class AppCrawlTester {
     }
 
     @VisibleForTesting
-    String[] createCrawlerRunCommand(TestInformation testInfo) throws CrawlerException {
+    String[] createUtpCrawlerRunCommand(TestInformation testInfo) throws CrawlerException {
 
+        Path bin =
+                mFileSystem.getPath(
+                        AppCrawlTesterHostPreparer.getCrawlerBinPath(
+                                mTestUtils.getTestInformation()));
         ArrayList<String> cmd = new ArrayList<>();
         cmd.addAll(
                 Arrays.asList(
                         "java",
                         "-jar",
-                        AppCrawlTesterHostPreparer.getCrawlerBinPath(testInfo)
-                                .resolve("crawl_launcher_deploy.jar")
+                        bin.resolve("utp-cli-android_deploy.jar").toString(),
+                        "android",
+                        "robo",
+                        "--device-id",
+                        testInfo.getDevice().getSerialNumber(),
+                        "--app-id",
+                        mPackageName,
+                        "--controller-endpoint",
+                        "PROD",
+                        "--utp-binaries-dir",
+                        bin.toString(),
+                        "--key-file",
+                        AppCrawlTesterHostPreparer.getCredentialPath(
+                                        mTestUtils.getTestInformation())
                                 .toString(),
+                        "--base-crawler-apk",
+                        bin.resolve("crawler_app.apk").toString(),
+                        "--stub-crawler-apk",
+                        bin.resolve("crawler_stubapp_androidx.apk").toString(),
+                        "--tmp-dir",
+                        mOutput.toString()));
+
+        if (mTimeoutSec > 0) {
+            cmd.add("--crawler-flag");
+            cmd.add("crawlDurationSec=" + Integer.toString(mTimeoutSec));
+        }
+
+        if (mUiAutomatorMode) {
+            cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-installed-on-device"));
+        } else {
+            Preconditions.checkNotNull(
+                    mApkRoot, "Apk file path is required when not running in UIAutomator mode");
+
+            List<Path> apks;
+            try {
+                apks =
+                        TestUtils.listApks(mApkRoot).stream()
+                                .filter(
+                                        path ->
+                                                path.getFileName()
+                                                        .toString()
+                                                        .toLowerCase()
+                                                        .endsWith(".apk"))
+                                .collect(Collectors.toList());
+            } catch (TestUtilsException e) {
+                throw new CrawlerException(e);
+            }
+
+            cmd.add("--apks-to-crawl");
+            cmd.add(apks.stream().map(Path::toString).collect(Collectors.joining(",")));
+        }
+
+        if (mRoboscriptFile != null) {
+            Assert.assertTrue(
+                    "Please provide a valid roboscript file.",
+                    Files.isRegularFile(mRoboscriptFile));
+            cmd.add("--crawler-asset");
+            cmd.add("robo.script=" + mRoboscriptFile.toString());
+        }
+
+        if (mCrawlGuidanceProtoFile != null) {
+            Assert.assertTrue(
+                    "Please provide a valid CrawlGuidance file.",
+                    Files.isRegularFile(mCrawlGuidanceProtoFile));
+            cmd.add("--crawl-guidance-proto-path");
+            cmd.add(mCrawlGuidanceProtoFile.toString());
+        }
+
+        if (mLoginConfigDir != null) {
+            RoboLoginConfigProvider configProvider = new RoboLoginConfigProvider(mLoginConfigDir);
+            cmd.addAll(configProvider.findConfigFor(mPackageName, true).getLoginArgs());
+        }
+
+        return cmd.toArray(new String[cmd.size()]);
+    }
+
+    @VisibleForTesting
+    String[] createCrawlerRunCommand(TestInformation testInfo) throws CrawlerException {
+
+        Path bin =
+                mFileSystem.getPath(
+                        AppCrawlTesterHostPreparer.getCrawlerBinPath(
+                                mTestUtils.getTestInformation()));
+        ArrayList<String> cmd = new ArrayList<>();
+        cmd.addAll(
+                Arrays.asList(
+                        "java",
+                        "-jar",
+                        bin.resolve("crawl_launcher_deploy.jar").toString(),
                         "--android-sdk-path",
                         AppCrawlTesterHostPreparer.getSdkPath(testInfo).toString(),
                         "--device-serial-code",
@@ -304,9 +424,7 @@ public final class AppCrawlTester {
                         mOutput.toString(),
                         "--key-store-file",
                         // Using the publicly known default file name of the debug keystore.
-                        AppCrawlTesterHostPreparer.getCrawlerBinPath(testInfo)
-                                .resolve("debug.keystore")
-                                .toString(),
+                        bin.resolve("debug.keystore").toString(),
                         "--key-store-password",
                         // Using the publicly known default password of the debug keystore.
                         "android"));
@@ -366,8 +484,7 @@ public final class AppCrawlTester {
 
         if (mLoginConfigDir != null) {
             RoboLoginConfigProvider configProvider = new RoboLoginConfigProvider(mLoginConfigDir);
-            RoboLoginConfig loginConfig = configProvider.findConfigFor(mPackageName);
-            cmd.addAll(loginConfig.getLoginArgs());
+            cmd.addAll(configProvider.findConfigFor(mPackageName, false).getLoginArgs());
         }
 
         return cmd.toArray(new String[cmd.size()]);
