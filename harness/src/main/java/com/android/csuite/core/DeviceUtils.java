@@ -219,6 +219,11 @@ public class DeviceUtils {
                     recordingProcess.destroyForcibly();
                 }
             }
+
+            CommandResult result = mDevice.executeShellV2Command("ls -sh " + videoPath);
+            if (result != null && result.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d("Completed screenrecord %s, video size: %s", videoPath, result.getStdout());
+            }
             // Try to pull, handle, and delete the video file from the device anyway.
             handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
             mDevice.deleteFile(videoPath);
