@@ -17,6 +17,7 @@
 package com.android.csuite.core;
 
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
+import com.android.csuite.core.TestUtils.TestUtilsException;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -40,7 +41,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -285,70 +285,6 @@ public final class AppCrawlTester {
         }
     }
 
-    /**
-     * Generates a list of APK paths where the base.apk of split apk files are always on the first
-     * index if exists.
-     *
-     * <p>If the apk path is a single apk, then the apk is returned. If the apk path is a directory
-     * containing only one non-split apk file, the apk file is returned. If the apk path is a
-     * directory containing split apk files for one package, then the list of apks are returned and
-     * the base.apk sits on the first index. If the apk path does not contain any apk files, or
-     * multiple apk files without base.apk, then an IOException is thrown.
-     *
-     * @return A list of APK paths.
-     * @throws CrawlerException If failed to read the apk path or unexpected number of apk files are
-     *     found under the path.
-     */
-    private static List<Path> getApks(Path root) throws CrawlerException {
-        // The apk path points to a non-split apk file.
-        if (Files.isRegularFile(root)) {
-            if (!root.toString().endsWith(".apk")) {
-                throw new CrawlerException(
-                        "The file on the given apk path is not an apk file: " + root);
-            }
-            return List.of(root);
-        }
-
-        List<Path> apks;
-        CLog.d("APK path = " + root);
-        try (Stream<Path> fileTree = Files.walk(root)) {
-            apks =
-                    fileTree.filter(Files::isRegularFile)
-                            .filter(path -> path.getFileName().toString().endsWith(".apk"))
-                            .collect(Collectors.toList());
-        } catch (IOException e) {
-            throw new CrawlerException("Failed to list apk files.", e);
-        }
-
-        if (apks.isEmpty()) {
-            throw new CrawlerException("The apk directory does not contain any apk files");
-        }
-
-        // The apk path contains a single non-split apk or the base.apk of a split-apk.
-        if (apks.size() == 1) {
-            return apks;
-        }
-
-        if (apks.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
-            throw new CrawlerException(
-                    "Apk files are not all in the same folder: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
-        }
-
-        if (apks.stream().filter(path -> path.getFileName().toString().equals("base.apk")).count()
-                == 0) {
-            throw new CrawlerException(
-                    "Multiple non-split apk files detected: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
-        }
-
-        Collections.sort(
-                apks,
-                (first, second) -> first.getFileName().toString().equals("base.apk") ? -1 : 0);
-
-        return apks;
-    }
-
     @VisibleForTesting
     String[] createCrawlerRunCommand(TestInformation testInfo) throws CrawlerException {
 
@@ -385,7 +321,20 @@ public final class AppCrawlTester {
             Preconditions.checkNotNull(
                     mApkRoot, "Apk file path is required when not running in UIAutomator mode");
 
-            List<Path> apks = getApks(mApkRoot);
+            List<Path> apks;
+            try {
+                apks =
+                        TestUtils.listApks(mApkRoot).stream()
+                                .filter(
+                                        path ->
+                                                path.getFileName()
+                                                        .toString()
+                                                        .toLowerCase()
+                                                        .endsWith(".apk"))
+                                .collect(Collectors.toList());
+            } catch (TestUtilsException e) {
+                throw new CrawlerException(e);
+            }
 
             cmd.add("--apk-file");
             cmd.add(apks.get(0).toString());
