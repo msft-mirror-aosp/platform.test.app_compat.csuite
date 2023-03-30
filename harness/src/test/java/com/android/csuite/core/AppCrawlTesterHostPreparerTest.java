@@ -56,14 +56,14 @@ public final class AppCrawlTesterHostPreparerTest {
         Path path = Path.of("some");
         AppCrawlTesterHostPreparer.setSdkPath(mTestInfo, path);
 
-        String result = AppCrawlTesterHostPreparer.getSdkPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getSdkPath(mTestInfo);
 
-        assertThat(result).isEqualTo(path.toString());
+        assertThat(result.toString()).isEqualTo(path.toString());
     }
 
     @Test
     public void getSdkPath_wasNotSet_returnsNull() {
-        String result = AppCrawlTesterHostPreparer.getSdkPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getSdkPath(mTestInfo);
 
         assertNull(result);
     }
@@ -73,14 +73,14 @@ public final class AppCrawlTesterHostPreparerTest {
         Path path = Path.of("some");
         AppCrawlTesterHostPreparer.setCrawlerBinPath(mTestInfo, path);
 
-        String result = AppCrawlTesterHostPreparer.getCrawlerBinPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getCrawlerBinPath(mTestInfo);
 
-        assertThat(result).isEqualTo(path.toString());
+        assertThat(result.toString()).isEqualTo(path.toString());
     }
 
     @Test
     public void getCrawlerBinPath_wasNotSet_returnsNull() {
-        String result = AppCrawlTesterHostPreparer.getCrawlerBinPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getCrawlerBinPath(mTestInfo);
 
         assertNull(result);
     }
@@ -90,14 +90,14 @@ public final class AppCrawlTesterHostPreparerTest {
         Path path = Path.of("some");
         AppCrawlTesterHostPreparer.setCredentialPath(mTestInfo, path);
 
-        String result = AppCrawlTesterHostPreparer.getCredentialPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getCredentialPath(mTestInfo);
 
-        assertThat(result).isEqualTo(path.toString());
+        assertThat(result.toString()).isEqualTo(path.toString());
     }
 
     @Test
     public void getCredentialPath_wasNotSet_returnsNull() {
-        String result = AppCrawlTesterHostPreparer.getCredentialPath(mTestInfo);
+        Path result = AppCrawlTesterHostPreparer.getCredentialPath(mTestInfo);
 
         assertNull(result);
     }
@@ -143,8 +143,7 @@ public final class AppCrawlTesterHostPreparerTest {
     }
 
     private AppCrawlTesterHostPreparer createTestSubject() throws Exception {
-        AppCrawlTesterHostPreparer suj =
-                new AppCrawlTesterHostPreparer(() -> mRunUtil, mFileSystem);
+        AppCrawlTesterHostPreparer suj = new AppCrawlTesterHostPreparer(() -> mRunUtil);
         OptionSetter optionSetter = new OptionSetter(suj);
         optionSetter.setOptionValue(
                 AppCrawlTesterHostPreparer.SDK_TAR_OPTION,

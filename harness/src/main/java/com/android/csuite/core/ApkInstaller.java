@@ -198,15 +198,17 @@ public final class ApkInstaller {
                 .filter(path -> path.toString().toLowerCase().endsWith(".obb"))
                 .forEach(
                         path -> {
-                            String dest =
-                                    "/sdcard/Android/obb/" + packageName + "/" + path.getFileName();
                             cmds.add(
                                     new String[] {
-                                        "adb", "-s", deviceSerial, "shell", "rm", "-f", dest
-                                    });
-                            cmds.add(
-                                    new String[] {
-                                        "adb", "-s", deviceSerial, "push", path.toString(), dest
+                                        "adb",
+                                        "-s",
+                                        deviceSerial,
+                                        "push",
+                                        path.toString(),
+                                        "/sdcard/Android/obb/"
+                                                + packageName
+                                                + "/"
+                                                + path.getFileName()
                                     });
                         });
 
@@ -219,7 +221,6 @@ public final class ApkInstaller {
                         deviceSerial,
                         "shell",
                         "mkdir",
-                        "-p",
                         "/sdcard/Android/obb/" + packageName
                     });
         }

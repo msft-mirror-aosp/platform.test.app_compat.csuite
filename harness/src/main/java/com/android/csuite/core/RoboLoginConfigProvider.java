@@ -45,48 +45,20 @@ public final class RoboLoginConfigProvider {
      * directory should contain only one config file per package name. If both Roboscript and
      * CrawlGuidance files are present, only the Roboscript file will be used."
      */
-    public RoboLoginConfig findConfigFor(String packageName, boolean isUtpClient) {
+    public RoboLoginConfig findConfigFor(String packageName) {
         Path crawlGuidanceFile = mLoginFilesDir.resolve(packageName + CRAWL_GUIDANCE_FILE_SUFFIX);
         Path roboScriptFile = mLoginFilesDir.resolve(packageName + ROBOSCRIPT_FILE_SUFFIX);
 
-        if (Files.exists(roboScriptFile) && !isUtpClient) {
+        if (Files.exists(roboScriptFile)) {
             return new RoboLoginConfig(
                     ImmutableList.of(ROBOSCRIPT_CMD_FLAG, roboScriptFile.toString()));
         }
 
-        if (Files.exists(crawlGuidanceFile) && !isUtpClient) {
+        if (Files.exists(crawlGuidanceFile)) {
             return new RoboLoginConfig(
                     ImmutableList.of(CRAWL_GUIDANCE_CMD_FLAG, crawlGuidanceFile.toString()));
         }
 
-        if (Files.exists(roboScriptFile) && isUtpClient) {
-            return new RoboLoginConfig(
-                    ImmutableList.of(
-                            "--crawler-asset", "robo.script=" + roboScriptFile.toString()));
-        }
-
-        if (Files.exists(crawlGuidanceFile) && isUtpClient) {
-            return new RoboLoginConfig(
-                    ImmutableList.of("--crawl-guidance-proto-path", crawlGuidanceFile.toString()));
-        }
-
         return new RoboLoginConfig(ImmutableList.of());
-    }
-
-    /*
-     * A class returned by RoboLoginConfigProvider that contains the login arguments
-     * to be passed to the crawler.
-     */
-    public static final class RoboLoginConfig {
-        private final ImmutableList<String> mLoginArgs;
-
-        public RoboLoginConfig(ImmutableList<String> loginArgs) {
-            this.mLoginArgs = loginArgs;
-        }
-
-        /* Returns the login arguments for this config which can be passed to the crawler. */
-        public ImmutableList<String> getLoginArgs() {
-            return mLoginArgs;
-        }
     }
 }

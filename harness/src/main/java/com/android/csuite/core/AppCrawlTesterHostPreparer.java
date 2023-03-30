@@ -31,8 +31,6 @@ import com.google.common.io.MoreFiles;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -46,7 +44,6 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
     @VisibleForTesting static final String SDK_TAR_OPTION = "sdk-tar";
     @VisibleForTesting static final String CRAWLER_BIN_OPTION = "crawler-bin";
     @VisibleForTesting static final String CREDENTIAL_JSON_OPTION = "credential-json";
-    private final FileSystem mFileSystem;
 
     @Option(
             name = SDK_TAR_OPTION,
@@ -69,13 +66,12 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
     private RunUtilProvider mRunUtilProvider;
 
     public AppCrawlTesterHostPreparer() {
-        this(() -> new RunUtil(), FileSystems.getDefault());
+        this(() -> new RunUtil());
     }
 
     @VisibleForTesting
-    AppCrawlTesterHostPreparer(RunUtilProvider runUtilProvider, FileSystem fileSystem) {
+    AppCrawlTesterHostPreparer(RunUtilProvider runUtilProvider) {
         mRunUtilProvider = runUtilProvider;
-        mFileSystem = fileSystem;
     }
 
     /**
@@ -84,7 +80,7 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
      * @param testInfo The test info where the path is stored in.
      * @return The path to Android SDK; Null if not set.
      */
-    public static String getSdkPath(TestInformation testInfo) {
+    public static Path getSdkPath(TestInformation testInfo) {
         return getPathFromBuildInfo(testInfo, SDK_PATH_KEY);
     }
 
@@ -94,7 +90,7 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
      * @param testInfo The test info where the path is stored in.
      * @return The path to the crawler binaries folder; Null if not set.
      */
-    public static String getCrawlerBinPath(TestInformation testInfo) {
+    public static Path getCrawlerBinPath(TestInformation testInfo) {
         return getPathFromBuildInfo(testInfo, CRAWLER_BIN_PATH_KEY);
     }
 
@@ -104,7 +100,7 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
      * @param testInfo The test info where the path is stored in.
      * @return The path to the crawler credential json file.
      */
-    public static String getCredentialPath(TestInformation testInfo) {
+    public static Path getCredentialPath(TestInformation testInfo) {
         return getPathFromBuildInfo(testInfo, CREDENTIAL_PATH_KEY);
     }
 
@@ -118,8 +114,9 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
         return testInfo.getBuildInfo().getBuildAttributes().get(IS_READY_KEY) != null;
     }
 
-    private static String getPathFromBuildInfo(TestInformation testInfo, String key) {
-        return testInfo.getBuildInfo().getBuildAttributes().get(key);
+    private static Path getPathFromBuildInfo(TestInformation testInfo, String key) {
+        String path = testInfo.getBuildInfo().getBuildAttributes().get(key);
+        return path == null ? null : Path.of(path);
     }
 
     @VisibleForTesting
@@ -157,13 +154,9 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
 
         setSdkPath(testInfo, sdkPath);
 
-        Path jar = mCrawlerBin.toPath().resolve("crawl_launcher_deploy.jar");
-        if (!Files.exists(jar)) {
-            jar = mCrawlerBin.toPath().resolve("utp-cli-android_deploy.jar");
-        }
-
         // Make the crawler binary executable.
-        String chmodCmd = "chmod 555 " + jar.toString();
+        String chmodCmd =
+                "chmod 555 " + mCrawlerBin.toPath().resolve("crawl_launcher_deploy.jar").toString();
         CommandResult chmodRes = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, chmodCmd.split(" "));
         if (!chmodRes.getStatus().equals(CommandStatus.SUCCESS)) {
             throw new TargetSetupError(
@@ -180,7 +173,7 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
     @Override
     public void tearDown(TestInformation testInfo, Throwable e) {
         try {
-            cleanUp(mFileSystem.getPath(getSdkPath(testInfo)));
+            cleanUp(getSdkPath(testInfo));
         } catch (IOException ioException) {
             CLog.e(ioException);
         }
