@@ -18,7 +18,6 @@ package com.android.webview.tests;
 
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -67,7 +66,6 @@ public class WebviewInstallerToolPreparer implements ITargetPreparer {
 
     public static CommandResult runWebviewInstallerToolCommand(
             TestInformation testInformation,
-            ITestDevice device,
             @Nullable String webviewVersion,
             @Nullable String releaseChannel,
             List<String> extraArgs) {
@@ -80,7 +78,7 @@ public class WebviewInstallerToolPreparer implements ITargetPreparer {
                                 getWebviewInstallerToolPath(testInformation),
                                 "--non-next",
                                 "--serial",
-                                device.getSerialNumber(),
+                                testInformation.getDevice().getSerialNumber(),
                                 "-vvv",
                                 "--gsutil",
                                 Paths.get(
@@ -136,16 +134,15 @@ public class WebviewInstallerToolPreparer implements ITargetPreparer {
         Assert.assertNotEquals(
                 "Argument --gcloud-cli-zip must be used.", mGcloudCliZipArchive, null);
         try {
+            RunUtil runUtil = mRunUtilProvider.get();
             mGcloudCliDir = Files.createTempDirectory(null).toFile();
             CommandResult unzipRes =
-                    mRunUtilProvider
-                            .get()
-                            .runTimedCmd(
-                                    COMMAND_TIMEOUT_MILLIS,
-                                    "unzip",
-                                    mGcloudCliZipArchive.getAbsolutePath(),
-                                    "-d",
-                                    mGcloudCliDir.getAbsolutePath());
+                    runUtil.runTimedCmd(
+                            COMMAND_TIMEOUT_MILLIS,
+                            "unzip",
+                            mGcloudCliZipArchive.getAbsolutePath(),
+                            "-d",
+                            mGcloudCliDir.getAbsolutePath());
 
             Assert.assertEquals(
                     "Unable to unzip the gcloud cli zip archive",
@@ -158,7 +155,7 @@ public class WebviewInstallerToolPreparer implements ITargetPreparer {
             // gcloud and gsutil executables tracked by this class by setting the home
             // directory for processes that run those executables to a temporary directory
             // also tracked by this class.
-            mRunUtilProvider.get().setEnvVariable("HOME", mGcloudCliDir.getAbsolutePath());
+            runUtil.setEnvVariable("HOME", mGcloudCliDir.getAbsolutePath());
             File gcloudBin =
                     mGcloudCliDir
                             .toPath()
@@ -169,31 +166,27 @@ public class WebviewInstallerToolPreparer implements ITargetPreparer {
                             "printf \"1\\n1\" | %s init --console-only",
                             gcloudBin.getAbsolutePath());
             CommandResult gcloudInitRes =
-                    mRunUtilProvider
-                            .get()
-                            .runTimedCmd(
-                                    COMMAND_TIMEOUT_MILLIS,
-                                    System.out,
-                                    System.out,
-                                    "sh",
-                                    "-c",
-                                    gcloudInitScript);
+                    runUtil.runTimedCmd(
+                            COMMAND_TIMEOUT_MILLIS,
+                            System.out,
+                            System.out,
+                            "sh",
+                            "-c",
+                            gcloudInitScript);
             Assert.assertEquals(
                     "gcloud cli initialization failed",
                     gcloudInitRes.getStatus(),
                     CommandStatus.SUCCESS);
 
             CommandResult chmodRes =
-                    mRunUtilProvider
-                            .get()
-                            .runTimedCmd(
-                                    COMMAND_TIMEOUT_MILLIS,
-                                    System.out,
-                                    System.out,
-                                    "chmod",
-                                    "755",
-                                    "-v",
-                                    mWebviewInstallerTool.getAbsolutePath());
+                    runUtil.runTimedCmd(
+                            COMMAND_TIMEOUT_MILLIS,
+                            System.out,
+                            System.out,
+                            "chmod",
+                            "755",
+                            "-v",
+                            mWebviewInstallerTool.getAbsolutePath());
 
             Assert.assertEquals(
                     "The 'chmod 755 -v <WebView installer tool>' command failed",
