@@ -17,7 +17,9 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import android.service.dropbox.DropBoxManagerServiceDumpProto;
@@ -58,21 +60,286 @@ public final class DeviceUtilsTest {
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
 
     @Test
-    public void launchPackage_packageDoesNotExist_returnsFalse() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey -p")))
+    public void isPackageInstalled_packageIsInstalled_returnsTrue() throws Exception {
+        String packageName = "package.name";
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout("\npackage:" + packageName + "\n"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isPackageInstalled(packageName);
+
+        assertTrue(res);
+    }
+
+    @Test
+    public void isPackageInstalled_packageIsNotInstalled_returnsFalse() throws Exception {
+        String packageName = "package.name";
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isPackageInstalled(packageName);
+
+        assertFalse(res);
+    }
+
+    @Test
+    public void isPackageInstalled_commandFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
                 .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.isPackageInstalled("package.name"));
+    }
+
+    @Test
+    public void launchPackage_pmDumpFailedAndPackageDoesNotExist_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("no packages"));
         DeviceUtils sut = createSubjectUnderTest();
 
         assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("package.name"));
     }
 
     @Test
-    public void launchPackage_successfullyLaunchedThePackage_returnsTrue() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey -p")))
+    public void launchPackage_pmDumpFailedAndPackageExists_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("package:package.name"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("package.name"));
+    }
+
+    @Test
+    public void launchPackage_amStartCommandFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("com.google.android.gms"));
+    }
+
+    @Test
+    public void launchPackage_amFailedToLaunchThePackage_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "Error: Activity not started, unable to resolve Intent"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.launchPackage("com.google.android.gms"));
+    }
+
+    @Test
+    public void launchPackage_monkeyFailedButAmSucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
         DeviceUtils sut = createSubjectUnderTest();
 
+        sut.launchPackage("com.google.android.gms");
+    }
+
+    @Test
+    public void launchPackage_monkeySucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("monkey")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
         sut.launchPackage("package.name");
+    }
+
+    @Test
+    public void getLaunchActivity_oneActivityIsLauncherAndMainAndDefault_returnsIt()
+            throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.app.settings.GoogleSettingsActivity");
+    }
+
+    @Test
+    public void getLaunchActivity_oneActivityIsLauncherAndMain_returnsIt() throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.app.settings.GoogleSettingsActivity");
+    }
+
+    @Test
+    public void
+            getLaunchActivity_oneActivityIsLauncherAndOneActivityIsMain_returnsTheLauncherActivity()
+                    throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.app.settings.GoogleSettingsActivity");
+    }
+
+    @Test
+    public void getLaunchActivity_oneActivityIsMain_returnsIt() throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.bugreport.BugreportActivity");
+    }
+
+    @Test
+    public void getLaunchActivity_oneActivityIsLauncher_returnsIt() throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Action: \"android.intent.action.MAIN\"\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        String res = sut.getLaunchActivity(pmDump);
+
+        assertThat(res).isEqualTo("com.google.android.gms/.bugreport.BugreportActivity");
+    }
+
+    @Test
+    public void getLaunchActivity_noMainOrLauncherActivities_throws() throws Exception {
+        String pmDump =
+                "        eecc562 com.google.android.gms/.bugreport.BugreportActivity filter"
+                    + " ac016f3\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "        87f1610 com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                    + " filter 7357509\n"
+                    + "          Category: \"android.intent.category.NOTIFICATION_PREFERENCES\"\n"
+                    + "        28957f2 com.google.android.gms/.kids.SyncTailTrapperActivity filter"
+                    + " 83cbcc0\n"
+                    + "          Category: \"android.intent.category.HOME\"\n"
+                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                    + "          mPriority=10, mOrder=0, mHasStaticPartialTypes=false,"
+                    + " mHasDynamicPartialTypes=false";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.getLaunchActivity(pmDump));
     }
 
     @Test

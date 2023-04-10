@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 /** A utility class to install APKs. */
 public final class ApkInstaller {
     private static long sCommandTimeOut = TimeUnit.MINUTES.toMillis(4);
+    private static long sObbPushCommandTimeOut = TimeUnit.MINUTES.toMillis(12);
     private final String mDeviceSerial;
     private final List<String> mInstalledPackages = new ArrayList<>();
     private final IRunUtil mRunUtil;
@@ -92,17 +93,29 @@ public final class ApkInstaller {
 
         CLog.d("Installing package %s from %s", packageName, apkPath);
 
-        String[] installCmd = createInstallCommand(apkFilePaths, mDeviceSerial, args);
+        String[] installApkCmd = createApkInstallCommand(apkFilePaths, mDeviceSerial, args);
 
-        CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, installCmd);
-        if (res.getStatus() != CommandStatus.SUCCESS) {
+        CommandResult apkRes = mRunUtil.runTimedCmd(sCommandTimeOut, installApkCmd);
+        if (apkRes.getStatus() != CommandStatus.SUCCESS) {
             throw new ApkInstallerException(
                     String.format(
                             "Failed to install APKs from the path %s: %s",
-                            apkPath, res.toString()));
+                            apkPath, apkRes.toString()));
         }
 
         mInstalledPackages.add(packageName);
+
+        List<String[]> installObbCmds =
+                createObbInstallCommands(apkFilePaths, mDeviceSerial, packageName);
+        for (String[] cmd : installObbCmds) {
+            CommandResult obbRes = mRunUtil.runTimedCmd(sObbPushCommandTimeOut, cmd);
+            if (obbRes.getStatus() != CommandStatus.SUCCESS) {
+                throw new ApkInstallerException(
+                        String.format(
+                                "Failed to install an OBB file from the path %s: %s",
+                                apkPath, obbRes.toString()));
+            }
+        }
 
         CLog.i("Successfully installed " + apkPath);
     }
@@ -163,15 +176,55 @@ public final class ApkInstaller {
         }
     }
 
-    private String[] createInstallCommand(
+    private String[] createApkInstallCommand(
             List<Path> apkFilePaths, String deviceSerial, List<String> args) {
         ArrayList<String> cmd = new ArrayList<>();
         cmd.addAll(Arrays.asList("adb", "-s", deviceSerial, "install-multiple"));
         cmd.addAll(args);
 
-        apkFilePaths.stream().map(Path::toString).forEach(cmd::add);
+        apkFilePaths.stream()
+                .map(Path::toString)
+                .filter(path -> path.toLowerCase().endsWith(".apk"))
+                .forEach(cmd::add);
 
         return cmd.toArray(new String[cmd.size()]);
+    }
+
+    private List<String[]> createObbInstallCommands(
+            List<Path> apkFilePaths, String deviceSerial, String packageName) {
+        ArrayList<String[]> cmds = new ArrayList<>();
+
+        apkFilePaths.stream()
+                .filter(path -> path.toString().toLowerCase().endsWith(".obb"))
+                .forEach(
+                        path -> {
+                            String dest =
+                                    "/sdcard/Android/obb/" + packageName + "/" + path.getFileName();
+                            cmds.add(
+                                    new String[] {
+                                        "adb", "-s", deviceSerial, "shell", "rm", "-f", dest
+                                    });
+                            cmds.add(
+                                    new String[] {
+                                        "adb", "-s", deviceSerial, "push", path.toString(), dest
+                                    });
+                        });
+
+        if (!cmds.isEmpty()) {
+            cmds.add(
+                    0,
+                    new String[] {
+                        "adb",
+                        "-s",
+                        deviceSerial,
+                        "shell",
+                        "mkdir",
+                        "-p",
+                        "/sdcard/Android/obb/" + packageName
+                    });
+        }
+
+        return cmds;
     }
 
     private String[] createUninstallCommand(String packageName, String deviceSerial) {
