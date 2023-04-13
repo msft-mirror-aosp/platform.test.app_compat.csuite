@@ -37,6 +37,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -62,6 +63,12 @@ public class TestUtils {
         ON_FAIL,
         ON_PASS,
         ALWAYS,
+    }
+
+    public enum RoboscriptSignal {
+        SUCCESS,
+        PARTIAL,
+        FAIL
     }
 
     public static TestUtils getInstance(TestInformation testInformation, TestLogData testLogData) {
@@ -207,6 +214,44 @@ public class TestUtils {
                 String.format("%s_[versionName=%s]", packageName, versionName),
                 LogDataType.TEXT,
                 versionName.getBytes());
+    }
+
+    /**
+     * Generates an artifact text file with a name indicating whether the Roboscript was successful.
+     *
+     * @param roboOutputFile - the file containing the Robo crawler output.
+     * @param packageName - the android package name of the app for which the signal file is being
+     *     generated.
+     */
+    public void generateRoboscriptSignalFile(Path roboOutputFile, String packageName) {
+        try {
+            File signalFile =
+                    Files.createTempFile(
+                                    packageName
+                                            + "_roboscript_"
+                                            + getRoboscriptSignal(Optional.of(roboOutputFile))
+                                                    .toString()
+                                                    .toLowerCase(),
+                                    ".txt")
+                            .toFile();
+            mTestArtifactReceiver.addTestArtifact(
+                    signalFile.getName(), LogDataType.TEXT, signalFile);
+        } catch (IOException e) {
+            CLog.e(e);
+        }
+    }
+
+    /**
+     * Computes whether the Robosript was successful based on the output file, and returns the
+     * success signal.
+     *
+     * @param roboOutput
+     * @return Roboscript success signal
+     */
+    public RoboscriptSignal getRoboscriptSignal(Optional<Path> roboOutput) {
+        // TODO(b/281607453): implement the signal indicating whether a Roboscript was successfully
+        // executed by the crawler.
+        return RoboscriptSignal.SUCCESS;
     }
 
     /**
