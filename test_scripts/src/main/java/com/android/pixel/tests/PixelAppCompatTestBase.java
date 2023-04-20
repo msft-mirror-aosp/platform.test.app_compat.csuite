@@ -33,7 +33,6 @@ import org.junit.Before;
 /** Base class for Pixel app compatibility tests. */
 public abstract class PixelAppCompatTestBase {
     private static final String KEY_PACKAGE_NAME = "package";
-
     private DeviceUtils mDeviceUtils;
     private UiDevice mDevice;
     private KeyguardManager mKeyguardManager;
@@ -41,6 +40,7 @@ public abstract class PixelAppCompatTestBase {
 
     @Before
     public void setUp() throws Exception {
+        getDeviceUtils().setTestName(this.getClass().getSimpleName());
         getDeviceUtils().createLogDataDir();
         getDeviceUtils().wakeAndUnlockScreen();
         // Start from the home screen
