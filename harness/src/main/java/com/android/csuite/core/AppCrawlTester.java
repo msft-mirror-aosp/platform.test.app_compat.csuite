@@ -44,6 +44,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -252,6 +253,7 @@ public final class AppCrawlTester {
 
         collectOutputZip();
         collectCrawlStepScreenshots(isUtpClient);
+        createCrawlerRoboscriptSignal(isUtpClient);
 
         if (!commandResult.get().getStatus().equals(CommandStatus.SUCCESS)
                 || commandResult.get().getStdout().contains("Unknown options:")) {
@@ -268,10 +270,7 @@ public final class AppCrawlTester {
             return;
         }
 
-        Path subDir =
-                isUtpClient
-                        ? mOutput.resolve("output").resolve("artifacts")
-                        : mOutput.resolve("app_firebase_test_lab");
+        Path subDir = getClientCrawlerOutputSubDir(isUtpClient);
         if (!Files.exists(subDir)) {
             CLog.e(
                     "The crawler output directory is not complete, skipping collecting step"
@@ -295,6 +294,48 @@ public final class AppCrawlTester {
         } catch (IOException e) {
             CLog.e(e);
         }
+    }
+
+    /**
+     * Reads the crawler output and creates an artifact with the success signal for a Roboscript
+     * that has been executed by the crawler.
+     */
+    private void createCrawlerRoboscriptSignal(boolean isUtpClient) {
+        if (mOutput == null) {
+            CLog.e("Output directory is not created yet. Skipping collecting crawler signal.");
+            return;
+        }
+
+        Path subDir = getClientCrawlerOutputSubDir(isUtpClient);
+        if (!Files.exists(subDir)) {
+            CLog.e(
+                    "The crawler output directory is not complete, skipping collecting crawler"
+                            + " signal.");
+            return;
+        }
+
+        try (Stream<Path> files = Files.list(subDir)) {
+            Optional<Path> roboOutputFile =
+                    files.filter(
+                                    path ->
+                                            path.getFileName()
+                                                    .toString()
+                                                    .toLowerCase()
+                                                    .endsWith("crawl_outputs.txt"))
+                            .findFirst();
+            if (roboOutputFile.isPresent()) {
+                mTestUtils.generateRoboscriptSignalFile(roboOutputFile.get(), mPackageName);
+            }
+        } catch (IOException e) {
+            CLog.e(e);
+        }
+    }
+
+    /** Based on the type of Robo client, resolves the Path for its output directory. */
+    private Path getClientCrawlerOutputSubDir(boolean isUtpClient) {
+        return isUtpClient
+                ? mOutput.resolve("output").resolve("artifacts")
+                : mOutput.resolve("app_firebase_test_lab");
     }
 
     /** Puts the zipped crawler output files into test output. */
