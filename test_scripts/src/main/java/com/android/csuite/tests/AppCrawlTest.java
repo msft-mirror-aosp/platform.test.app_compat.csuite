@@ -17,10 +17,12 @@
 package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller;
+import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
@@ -193,7 +195,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     }
 
     @After
-    public void tearDown() throws DeviceNotAvailableException, ApkInstaller.ApkInstallerException {
+    public void tearDown() throws DeviceNotAvailableException {
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (!mIsApkSaved) {
@@ -207,7 +209,11 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
                                     Arrays.asList(mRepackApk));
         }
 
-        mApkInstaller.uninstallAllInstalledPackages();
+        try {
+            mApkInstaller.uninstallAllInstalledPackages();
+        } catch (ApkInstallerException e) {
+            CLog.w("Uninstallation of installed apps failed during teardown: %s", e.getMessage());
+        }
         if (!mUiAutomatorMode) {
             getDevice().uninstallPackage(mPackageName);
         }
