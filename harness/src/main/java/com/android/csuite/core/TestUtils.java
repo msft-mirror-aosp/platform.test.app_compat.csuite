@@ -32,6 +32,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -67,7 +68,7 @@ public class TestUtils {
 
     public enum RoboscriptSignal {
         SUCCESS,
-        PARTIAL,
+        UNKNOWN,
         FAIL
     }
 
@@ -249,9 +250,36 @@ public class TestUtils {
      * @return Roboscript success signal
      */
     public RoboscriptSignal getRoboscriptSignal(Optional<Path> roboOutput) {
-        // TODO(b/281607453): implement the signal indicating whether a Roboscript was successfully
-        // executed by the crawler.
-        return RoboscriptSignal.SUCCESS;
+        if (!roboOutput.isPresent()) {
+            return RoboscriptSignal.UNKNOWN;
+        }
+        Pattern totalActionsPattern =
+                Pattern.compile("(?:robo_script_execution(?:.|\\n)*)total_actions.\\s(\\d*)");
+        Pattern successfulActionsPattern =
+                Pattern.compile("(?:robo_script_execution(?:.|\\n)*)successful_actions.\\s(\\d*)");
+        final String outputFile;
+        try {
+            outputFile =
+                    String.join("", Files.readAllLines(roboOutput.get(), Charset.defaultCharset()));
+        } catch (IOException e) {
+            CLog.e(e);
+            return RoboscriptSignal.UNKNOWN;
+        }
+        int totalActions = 0;
+        int successfulActions = 0;
+        Matcher mTotal = totalActionsPattern.matcher(outputFile);
+        Matcher mSuccessful = successfulActionsPattern.matcher(outputFile);
+        if (mTotal.find() && mSuccessful.find()) {
+            totalActions = Integer.parseInt(mTotal.group(1));
+            successfulActions = Integer.parseInt(mSuccessful.group(1));
+            if (totalActions == 0) {
+                return RoboscriptSignal.FAIL;
+            }
+            return successfulActions / totalActions < 1
+                    ? RoboscriptSignal.FAIL
+                    : RoboscriptSignal.SUCCESS;
+        }
+        return RoboscriptSignal.UNKNOWN;
     }
 
     /**
