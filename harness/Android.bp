@@ -31,7 +31,7 @@ java_library_host {
         "compatibility-tradefed",
         "platformprotos",
         "libprotobuf-java-lite",
-    ]
+    ],
 }
 
 java_test_host {

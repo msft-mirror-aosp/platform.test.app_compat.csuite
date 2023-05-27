@@ -17,6 +17,11 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
+
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
@@ -29,11 +34,6 @@ import com.android.tradefed.result.InputStreamSource;
 
 import com.google.common.jimfs.Jimfs;
 
-import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -42,11 +42,15 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RunWith(JUnit4.class)
@@ -657,6 +661,46 @@ public final class TestUtilsTest {
         assertThat(res).isTrue();
     }
 
+    @Test
+    public void getRoboscriptSignal_withSuccessfulRoboscriptActions_successSignal()
+            throws IOException {
+        Path roboOutput = createMockRoboOutputFile(7, 7);
+        TestUtils sut = createSubjectUnderTest();
+
+        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
+
+        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.SUCCESS);
+    }
+
+    @Test
+    public void getRoboscriptSignal_withNoRoboscriptOutput_unknownSignal() throws IOException {
+        Path roboOutput = Files.createFile(mFileSystem.getPath("output.txt"));
+        TestUtils sut = createSubjectUnderTest();
+
+        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
+
+        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.UNKNOWN);
+    }
+
+    @Test
+    public void getRoboscriptSignal_withEmptyOutputFile_unknownSignal() throws IOException {
+        TestUtils sut = createSubjectUnderTest();
+
+        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.empty());
+
+        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.UNKNOWN);
+    }
+
+    @Test
+    public void getRoboscriptSignal_withUnsuccessfulActions_failureSignal() throws IOException {
+        Path roboOutput = createMockRoboOutputFile(0, 7);
+        TestUtils sut = createSubjectUnderTest();
+
+        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
+
+        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.FAIL);
+    }
+
     private TestUtils createSubjectUnderTest() {
         return new TestUtils(createTestInfo(), mMockTestArtifactReceiver, mMockDeviceUtils);
     }
@@ -666,5 +710,18 @@ public final class TestUtilsTest {
         context.addAllocatedDevice("device1", mMockDevice);
         context.addDeviceBuildInfo("device1", new BuildInfo());
         return TestInformation.newBuilder().setInvocationContext(context).build();
+    }
+
+    private Path createMockRoboOutputFile(int totalActions, int successfulActions)
+            throws IOException {
+        Path roboOutput = Files.createFile(mFileSystem.getPath("output.txt"));
+        ArrayList<String> outputContent = new ArrayList<>();
+        outputContent.add("some previous fields");
+        outputContent.add("robo_script_execution {");
+        outputContent.add("  total_actions: " + String.valueOf(totalActions) + "\n");
+        outputContent.add("  successful_actions: " + String.valueOf(successfulActions));
+        outputContent.add("}");
+        Files.write(roboOutput, outputContent, StandardCharsets.UTF_8);
+        return roboOutput;
     }
 }
