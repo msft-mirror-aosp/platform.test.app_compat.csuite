@@ -27,6 +27,7 @@ import android.service.dropbox.DropBoxManagerServiceDumpProto;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceRuntimeException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.CommandResult;
@@ -421,6 +422,18 @@ public final class DeviceUtilsTest {
     }
 
     @Test
+    public void getSdkLevel_returnsSdkLevelInteger() throws DeviceNotAvailableException {
+        DeviceUtils sut = createSubjectUnderTest();
+        int sdkLevel = 30;
+        when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("" + sdkLevel));
+
+        int result = sut.getSdkLevel();
+
+        assertThat(result).isEqualTo(sdkLevel);
+    }
+
+    @Test
     public void getPackageVersionName_deviceCommandFailed_returnsUnknown() throws Exception {
         DeviceUtils sut = createSubjectUnderTest();
         when(mDevice.executeShellV2Command(Mockito.endsWith("grep versionName")))
@@ -642,8 +655,10 @@ public final class DeviceUtilsTest {
                 mDevice, fakeClock.getSleeper(), fakeClock, () -> mRunUtil, () -> iter.next());
     }
 
-    private DeviceUtils createSubjectUnderTest() {
+    private DeviceUtils createSubjectUnderTest() throws DeviceNotAvailableException {
         when(mDevice.getSerialNumber()).thenReturn("SERIAL");
+        when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("34"));
         FakeClock fakeClock = new FakeClock();
         return new DeviceUtils(
                 mDevice,
