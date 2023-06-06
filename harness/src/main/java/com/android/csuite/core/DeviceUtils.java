@@ -139,6 +139,28 @@ public class DeviceUtils {
     }
 
     /**
+     * Get the device's build sdk level.
+     *
+     * @return The Sdk level, or -1 if failed to get it.
+     * @throws DeviceNotAvailableException When the device is lost during test
+     */
+    public int getSdkLevel() throws DeviceNotAvailableException {
+        CommandResult result = mDevice.executeShellV2Command("getprop ro.build.version.sdk");
+        if (result.getStatus() != CommandStatus.SUCCESS) {
+            CLog.e(
+                    "Failed to get device build sdk level: " + result,
+                    DeviceErrorIdentifier.DEVICE_UNEXPECTED_RESPONSE);
+            return -1;
+        }
+        try {
+            return Integer.parseInt(result.getStdout().trim());
+        } catch (NumberFormatException e) {
+            CLog.e("Cannot parse device build sdk level: " + result.getStdout());
+            return -1;
+        }
+    }
+
+    /**
      * Record the device screen while running a task.
      *
      * <p>This method will not throw exception when the screenrecord command failed unless the
@@ -158,14 +180,16 @@ public class DeviceUtils {
         // Start screen recording
         Process recordingProcess = null;
         try {
+            CLog.i("Starting screen recording at %s", videoPath);
             recordingProcess =
                     mRunUtilProvider
                             .get()
                             .runCmdInBackground(
                                     String.format(
-                                                    "adb -s %s shell screenrecord --time-limit 600"
-                                                            + " %s",
-                                                    mDevice.getSerialNumber(), videoPath)
+                                                    "adb -s %s shell screenrecord%s %s",
+                                                    mDevice.getSerialNumber(),
+                                                    getSdkLevel() >= 34 ? " --time-limit 600" : "",
+                                                    videoPath)
                                             .split("\\s+"));
         } catch (IOException ioException) {
             CLog.e("Exception is thrown when starting screen recording process: %s", ioException);
