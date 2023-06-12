@@ -37,6 +37,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -324,6 +325,9 @@ public class TestUtils {
         if (entries.size() == 0) {
             return null;
         }
+
+        // Sort the entries according to tag names for more consistent test failure messages.
+        Collections.sort(entries, Comparator.comparing(DropboxEntry::getTag));
 
         String fullText =
                 entries.stream()
