@@ -244,9 +244,15 @@ public class DeviceUtils {
                 }
             }
 
-            CommandResult result = mDevice.executeShellV2Command("ls -sh " + videoPath);
-            if (result != null && result.getStatus() == CommandStatus.SUCCESS) {
-                CLog.d("Completed screenrecord %s, video size: %s", videoPath, result.getStdout());
+            CommandResult sizeResult = mDevice.executeShellV2Command("ls -sh " + videoPath);
+            if (sizeResult != null && sizeResult.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d(
+                        "Completed screenrecord %s, video size: %s",
+                        videoPath, sizeResult.getStdout());
+            }
+            CommandResult hashResult = mDevice.executeShellV2Command("md5sum " + videoPath);
+            if (hashResult != null && hashResult.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d("Video file md5 sum: %s", hashResult.getStdout());
             }
             // Try to pull, handle, and delete the video file from the device anyway.
             handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
