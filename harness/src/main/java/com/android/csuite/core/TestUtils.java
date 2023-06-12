@@ -348,11 +348,22 @@ public class TestUtils {
                                                         entry.getData(), MAX_CRASH_SNIPPET_LINES)))
                         .collect(Collectors.joining("\n============\n"));
 
+        String summary =
+                String.format(
+                        "Found a total of %s dropbox entries indicating the app %s may have run"
+                                + " into an issue. Types of entries include: [%s]. Entries:\n"
+                                + "============\n",
+                        entries.size(),
+                        packageName,
+                        entries.stream()
+                                .map(DropboxEntry::getTag)
+                                .collect(Collectors.joining(",")));
+
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_dropbox_entries", packageName),
                 LogDataType.TEXT,
-                fullText.getBytes());
-        return truncatedText;
+                (summary + fullText).getBytes());
+        return summary + truncatedText;
     }
 
     @VisibleForTesting
