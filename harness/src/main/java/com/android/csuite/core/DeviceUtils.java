@@ -36,6 +36,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -67,6 +70,8 @@ public class DeviceUtils {
                     "data_app_crash");
 
     private static final String VIDEO_PATH_ON_DEVICE_TEMPLATE = "/sdcard/screenrecord_%s.mp4";
+    private static final DateTimeFormatter DROPBOX_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss_SSS");
 
     @VisibleForTesting
     static final int WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS = 10 * 1000;
@@ -244,9 +249,15 @@ public class DeviceUtils {
                 }
             }
 
-            CommandResult result = mDevice.executeShellV2Command("ls -sh " + videoPath);
-            if (result != null && result.getStatus() == CommandStatus.SUCCESS) {
-                CLog.d("Completed screenrecord %s, video size: %s", videoPath, result.getStdout());
+            CommandResult sizeResult = mDevice.executeShellV2Command("ls -sh " + videoPath);
+            if (sizeResult != null && sizeResult.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d(
+                        "Completed screenrecord %s, video size: %s",
+                        videoPath, sizeResult.getStdout());
+            }
+            CommandResult hashResult = mDevice.executeShellV2Command("md5sum " + videoPath);
+            if (hashResult != null && hashResult.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d("Video file md5 sum: %s", hashResult.getStdout());
             }
             // Try to pull, handle, and delete the video file from the device anyway.
             handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
@@ -726,6 +737,17 @@ public class DeviceUtils {
         /** Returns the entrt's data. */
         public String getData() {
             return mData.toString();
+        }
+
+        @Override
+        public String toString() {
+            long time = getTime();
+            String formattedTime =
+                    DROPBOX_TIME_FORMATTER.format(
+                            Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()));
+            return String.format(
+                    "Dropbox entry:\n" + "Tag: %s\n" + "Timestamp: %s\n" + "Time: %s\n%s",
+                    getTag(), time, formattedTime, getData());
         }
 
         @VisibleForTesting
