@@ -302,13 +302,12 @@ public class TestUtils {
                     String[] lines = text.split("\\r?\\n");
                     StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < maxLines && i < lines.length; i++) {
-                        sb.append(lines[i]);
-                        sb.append('\n');
+                        sb.append(lines[i]).append('\n');
                     }
                     if (lines.length > maxLines) {
-                        sb.append("... ");
-                        sb.append(lines.length - maxLines);
-                        sb.append(" more lines truncated ...\n");
+                        sb.append("... ")
+                                .append(lines.length - maxLines)
+                                .append(" more lines truncated ...\n");
                     }
                     return sb.toString();
                 };
@@ -328,15 +327,11 @@ public class TestUtils {
 
         // Sort the entries according to tag names for more consistent test failure messages.
         Collections.sort(entries, Comparator.comparing(DropboxEntry::getTag));
-
+        String entryHeader = "\n============ Dropbox Entry ============\n";
         String fullText =
                 entries.stream()
-                        .map(
-                                entry ->
-                                        String.format(
-                                                "Dropbox tag: %s\n%s",
-                                                entry.getTag(), entry.getData()))
-                        .collect(Collectors.joining("\n============\n"));
+                        .map(DropboxEntry::toString)
+                        .collect(Collectors.joining(entryHeader));
         String truncatedText =
                 entries.stream()
                         .map(
@@ -345,14 +340,26 @@ public class TestUtils {
                                                 "Dropbox tag: %s\n%s",
                                                 entry.getTag(),
                                                 truncate.apply(
-                                                        entry.getData(), MAX_CRASH_SNIPPET_LINES)))
-                        .collect(Collectors.joining("\n============\n"));
+                                                        entry.toString(), MAX_CRASH_SNIPPET_LINES)))
+                        .collect(Collectors.joining(entryHeader));
+
+        String summary =
+                String.format(
+                        "Found a total of %s dropbox entries indicating the package %s may have run"
+                                + " into an issue. Types of entries include: [%s]. Entries:\n"
+                                + entryHeader,
+                        entries.size(),
+                        packageName,
+                        entries.stream()
+                                .map(DropboxEntry::getTag)
+                                .distinct()
+                                .collect(Collectors.joining(",")));
 
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_dropbox_entries", packageName),
                 LogDataType.TEXT,
-                fullText.getBytes());
-        return truncatedText;
+                (summary + fullText).getBytes());
+        return summary + truncatedText;
     }
 
     @VisibleForTesting
