@@ -21,13 +21,13 @@ import csuite_test_utils
 class CrashDetectionTest(csuite_test_utils.TestCase):
 
   def setUp(self):
-    super(CrashDetectionTest, self).setUp()
+    super().setUp()
     self.adb = csuite_test_utils.Adb()
     self.repo = csuite_test_utils.PackageRepository()
     self.harness = csuite_test_utils.CSuiteHarness()
 
   def tearDown(self):
-    super(CrashDetectionTest, self).tearDown()
+    super().tearDown()
     self.harness.cleanup()
     self.repo.cleanup()
 
@@ -55,7 +55,9 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
 
     self.expect_regex(completed_process.stdout, r"""FAILED\s*:\s*1""",
                       msg=str(completed_process))
-    self.expect_app_launched(test_app_package, msg=str(completed_process))
+    self.expect_regex(completed_process.stdout,
+                      r"""Intentional exception""",
+                      msg=str(completed_process))
     self.expect_package_not_installed(test_app_package,
                                       msg=str(completed_process))
 
