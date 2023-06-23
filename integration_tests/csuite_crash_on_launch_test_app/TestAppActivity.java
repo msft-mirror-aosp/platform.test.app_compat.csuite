@@ -18,22 +18,11 @@ package android.csuite;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.util.Log;
 
 public final class TestAppActivity extends Activity {
     @Override
     public void onCreate(Bundle bundle) {
         super.onCreate(bundle);
-
-        Log.i(getApplicationContext().getPackageName(), "App launched");
-        // Delay the exception to give the system enough time to write to logcat
-        try {
-            Thread.sleep(1000); // Sleep for 1 second
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Preserve the interrupt status
-            throw new RuntimeException("Thread sleep interrupted", e);
-        }
-
-        throw new RuntimeException("Expected exception");
+        throw new RuntimeException("Intentional exception");
     }
 }
