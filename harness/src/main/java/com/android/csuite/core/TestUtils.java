@@ -32,18 +32,14 @@ import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -236,71 +232,6 @@ public class TestUtils {
                 String.format("%s_[versionName=%s]", packageName, versionName),
                 LogDataType.TEXT,
                 versionName.getBytes());
-    }
-
-    /**
-     * Generates an artifact text file with a name indicating whether the Roboscript was successful.
-     *
-     * @param roboOutputFile - the file containing the Robo crawler output.
-     * @param packageName - the android package name of the app for which the signal file is being
-     *     generated.
-     */
-    public void generateRoboscriptSignalFile(Path roboOutputFile, String packageName) {
-        try {
-            File signalFile =
-                    Files.createTempFile(
-                                    packageName
-                                            + "_roboscript_"
-                                            + getRoboscriptSignal(Optional.of(roboOutputFile))
-                                                    .toString()
-                                                    .toLowerCase(),
-                                    ".txt")
-                            .toFile();
-            mTestArtifactReceiver.addTestArtifact(
-                    signalFile.getName(), LogDataType.TEXT, signalFile);
-        } catch (IOException e) {
-            CLog.e(e);
-        }
-    }
-
-    /**
-     * Computes whether the Robosript was successful based on the output file, and returns the
-     * success signal.
-     *
-     * @param roboOutput
-     * @return Roboscript success signal
-     */
-    public RoboscriptSignal getRoboscriptSignal(Optional<Path> roboOutput) {
-        if (!roboOutput.isPresent()) {
-            return RoboscriptSignal.UNKNOWN;
-        }
-        Pattern totalActionsPattern =
-                Pattern.compile("(?:robo_script_execution(?:.|\\n)*)total_actions.\\s(\\d*)");
-        Pattern successfulActionsPattern =
-                Pattern.compile("(?:robo_script_execution(?:.|\\n)*)successful_actions.\\s(\\d*)");
-        final String outputFile;
-        try {
-            outputFile =
-                    String.join("", Files.readAllLines(roboOutput.get(), Charset.defaultCharset()));
-        } catch (IOException e) {
-            CLog.e(e);
-            return RoboscriptSignal.UNKNOWN;
-        }
-        int totalActions = 0;
-        int successfulActions = 0;
-        Matcher mTotal = totalActionsPattern.matcher(outputFile);
-        Matcher mSuccessful = successfulActionsPattern.matcher(outputFile);
-        if (mTotal.find() && mSuccessful.find()) {
-            totalActions = Integer.parseInt(mTotal.group(1));
-            successfulActions = Integer.parseInt(mSuccessful.group(1));
-            if (totalActions == 0) {
-                return RoboscriptSignal.FAIL;
-            }
-            return successfulActions / totalActions < 1
-                    ? RoboscriptSignal.FAIL
-                    : RoboscriptSignal.SUCCESS;
-        }
-        return RoboscriptSignal.UNKNOWN;
     }
 
     /**
