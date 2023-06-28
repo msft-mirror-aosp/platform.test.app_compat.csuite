@@ -370,7 +370,7 @@ public final class AppCrawlTester {
                             .toFile();
             mTestUtils
                     .getTestArtifactReceiver()
-                    .addTestArtifact(signalFile.getName(), LogDataType.TEXT, signalFile);
+                    .addTestArtifact(signalFile.getName(), LogDataType.HOST_LOG, signalFile);
         } catch (IOException e) {
             CLog.e(e);
         }

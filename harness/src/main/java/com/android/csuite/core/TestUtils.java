@@ -202,11 +202,11 @@ public class TestUtils {
         // be parsing the output file name to get the version information.
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[GMS_versionCode=%s]", prefix, gmsVersionCode),
-                LogDataType.TEXT,
+                LogDataType.HOST_LOG,
                 gmsVersionCode.getBytes());
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[GMS_versionName=%s]", prefix, gmsVersionName),
-                LogDataType.TEXT,
+                LogDataType.HOST_LOG,
                 gmsVersionName.getBytes());
     }
 
@@ -226,11 +226,11 @@ public class TestUtils {
         // be parsing the output file name to get the version information.
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[versionCode=%s]", packageName, versionCode),
-                LogDataType.TEXT,
+                LogDataType.HOST_LOG,
                 versionCode.getBytes());
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[versionName=%s]", packageName, versionName),
-                LogDataType.TEXT,
+                LogDataType.HOST_LOG,
                 versionName.getBytes());
     }
 
@@ -341,7 +341,7 @@ public class TestUtils {
         if (saveToFile) {
             mTestArtifactReceiver.addTestArtifact(
                     String.format("%s_dropbox_entries", packageName),
-                    LogDataType.TEXT,
+                    LogDataType.HOST_LOG,
                     (summary + fullText).getBytes());
         }
 
