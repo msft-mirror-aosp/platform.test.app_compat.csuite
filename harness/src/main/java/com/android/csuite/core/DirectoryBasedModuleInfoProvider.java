@@ -92,7 +92,8 @@ public final class DirectoryBasedModuleInfoProvider implements ModuleInfoProvide
     private static final class AaptPackageNameParser implements PackageNameParser {
         @Override
         public String parsePackageName(File apkFile) throws IOException {
-            String packageName = AaptParser.parse(apkFile).getPackageName();
+            String packageName =
+                    AaptParser.parse(apkFile, AaptParser.AaptVersion.AAPT2).getPackageName();
             if (packageName == null) {
                 throw new IOException(
                         String.format("Failed to parse package name with AAPT for %s", apkFile));
