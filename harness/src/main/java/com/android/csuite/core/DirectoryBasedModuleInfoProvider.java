@@ -19,6 +19,7 @@ package com.android.csuite.core;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.AaptParser;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -35,6 +36,7 @@ import java.util.stream.Stream;
 /** Generates modules from package files in a directory. */
 public final class DirectoryBasedModuleInfoProvider implements ModuleInfoProvider {
     @VisibleForTesting static final String DIRECTORY_OPTION = "directory";
+    private static final String UNKNOWN_PACKAGE = "UNKNOWN_PACKAGE";
 
     @VisibleForTesting
     static final String PACKAGE_INSTALL_FILE_PLACEHOLDER = "{package_install_file}";
@@ -92,13 +94,12 @@ public final class DirectoryBasedModuleInfoProvider implements ModuleInfoProvide
     private static final class AaptPackageNameParser implements PackageNameParser {
         @Override
         public String parsePackageName(File apkFile) throws IOException {
-            String packageName =
-                    AaptParser.parse(apkFile, AaptParser.AaptVersion.AAPT2).getPackageName();
-            if (packageName == null) {
-                throw new IOException(
-                        String.format("Failed to parse package name with AAPT for %s", apkFile));
+            AaptParser parseResult = AaptParser.parse(apkFile, AaptParser.AaptVersion.AAPT2);
+            if (parseResult == null) {
+                CLog.e(String.format("Failed to parse package name with AAPT for %s", apkFile));
+                return UNKNOWN_PACKAGE + "_" + apkFile.getName();
             }
-            return packageName;
+            return parseResult.getPackageName();
         }
     }
 
