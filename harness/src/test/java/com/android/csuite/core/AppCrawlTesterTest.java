@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.when;
 
 import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
@@ -51,6 +52,7 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 @RunWith(JUnit4.class)
@@ -112,11 +114,10 @@ public final class AppCrawlTesterTest {
         Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
                 .when(mDeviceUtils)
                 .currentTimeMillis();
-        String noCrashLog = null;
-        Mockito.doReturn(noCrashLog)
-                .when(mTestUtils)
-                .getDropboxPackageCrashLog(
-                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+        Mockito.doReturn(new ArrayList<>())
+                .when(mDeviceUtils)
+                .getDropboxEntries(
+                        Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any());
 
         suj.startAndAssertAppNoCrash();
     }
@@ -161,7 +162,7 @@ public final class AppCrawlTesterTest {
         suj.start();
 
         Mockito.verify(mTestUtils, Mockito.times(1))
-                .collectScreenRecord(Mockito.any(), Mockito.any());
+                .collectScreenRecord(Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -173,7 +174,7 @@ public final class AppCrawlTesterTest {
         suj.start();
 
         Mockito.verify(mTestUtils, Mockito.never())
-                .collectScreenRecord(Mockito.any(), Mockito.anyString());
+                .collectScreenRecord(Mockito.any(), Mockito.anyString(), Mockito.any());
     }
 
     @Test
@@ -607,17 +608,28 @@ public final class AppCrawlTesterTest {
         preparer.setUp(mTestInfo);
     }
 
-    private AppCrawlTester createNotPreparedTestSubject() {
+    private AppCrawlTester createNotPreparedTestSubject() throws DeviceNotAvailableException {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
+        when(mDevice.executeShellV2Command(Mockito.startsWith("echo ${EPOCHREALTIME")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("1"));
+        when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("33"));
         return new AppCrawlTester(PACKAGE_NAME, mTestUtils, () -> mRunUtil, mFileSystem);
     }
+
     private AppCrawlTester createPreparedTestSubject()
-            throws IOException, ConfigurationException, TargetSetupError {
+            throws IOException, ConfigurationException, TargetSetupError,
+                    DeviceNotAvailableException {
         simulatePreparerWasExecutedSuccessfully();
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
+        Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
+        when(mDevice.executeShellV2Command(Mockito.startsWith("echo ${EPOCHREALTIME")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("1"));
+        when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("33"));
         return new AppCrawlTester(PACKAGE_NAME, mTestUtils, () -> mRunUtil, mFileSystem);
     }
 
@@ -632,7 +644,7 @@ public final class AppCrawlTesterTest {
                             return null;
                         })
                 .when(testUtils)
-                .collectScreenRecord(Mockito.any(), Mockito.anyString());
+                .collectScreenRecord(Mockito.any(), Mockito.anyString(), Mockito.any());
         Mockito.doNothing().when(testUtils).collectAppVersion(Mockito.anyString());
         Mockito.doNothing().when(testUtils).collectGmsVersion(Mockito.anyString());
         return testUtils;
@@ -652,6 +664,14 @@ public final class AppCrawlTesterTest {
         Files.createFile(root.resolve("config.apk"));
 
         return root;
+    }
+
+    private static CommandResult createSuccessfulCommandResultWithStdout(String stdout) {
+        CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
+        commandResult.setExitCode(0);
+        commandResult.setStdout(stdout);
+        commandResult.setStderr("");
+        return commandResult;
     }
 
     private static CommandResult createSuccessfulCommandResult() {
