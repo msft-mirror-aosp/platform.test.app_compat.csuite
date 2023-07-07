@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2021 The Android Open Source Project
+<!-- Copyright (C) 2023 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Launches an app that exists on the device and check for crashes">
+<configuration description="Crawl's an app after installing WebView">
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
@@ -23,6 +23,9 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="set-option" value="package-name:{package}"/>
-        <option name="class" value="com.android.csuite.tests.AppLaunchTest" />
+        <option name="set-option" value="install-apk:app\://{package}"/>
+        <option name="set-option" value="ui-automator-mode:true"/>
+        <option name="set-option" value="install-arg:-g"/>
+        <option name="class" value="com.android.webview.tests.WebviewAppCrawlTest" />
     </test>
 </configuration>
