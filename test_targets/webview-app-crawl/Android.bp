@@ -1,4 +1,4 @@
-// Copyright (C) 2021 The Android Open Source Project
+// Copyright (C) 2023 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@ package {
 }
 
 csuite_test {
-    name: "csuite-app-crawl",
+    name: "webview-app-crawl",
     test_plan_include: "plan.xml",
-    test_config_template: "ui-automator-crawl.xml",
-    extra_test_config_templates: ["espresso-crawl.xml", "pre-installed-crawl.xml"]
+    test_config_template: "ui-automator-mode.xml",
 }
