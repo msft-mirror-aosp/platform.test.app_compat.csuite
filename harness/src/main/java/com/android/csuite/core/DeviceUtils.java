@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -66,7 +67,10 @@ public class DeviceUtils {
                     "data_app_crash");
 
     private static final String VIDEO_PATH_ON_DEVICE_TEMPLATE = "/sdcard/screenrecord_%s.mp4";
-    @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS = 10 * 1000;
+
+    @VisibleForTesting
+    static final int WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS = 10 * 1000;
+
     @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_INTERVAL_MILLIS = 500;
 
     private final ITestDevice mDevice;
@@ -159,7 +163,8 @@ public class DeviceUtils {
                             .get()
                             .runCmdInBackground(
                                     String.format(
-                                                    "adb -s %s shell screenrecord %s",
+                                                    "adb -s %s shell screenrecord --time-limit 600"
+                                                            + " %s",
                                                     mDevice.getSerialNumber(), videoPath)
                                             .split("\\s+"));
         } catch (IOException ioException) {
@@ -187,10 +192,10 @@ public class DeviceUtils {
                 }
 
                 if (mClock.currentTimeMillis() - start
-                        > WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS) {
+                        > WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS) {
                     CLog.e(
                             "Screenrecord did not start within %s milliseconds.",
-                            WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS);
+                            WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS);
                     break;
                 }
             }
@@ -198,7 +203,26 @@ public class DeviceUtils {
             action.run();
         } finally {
             if (recordingProcess != null) {
-                recordingProcess.destroy();
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS,
+                                "kill",
+                                "-SIGINT",
+                                Long.toString(recordingProcess.pid()));
+                try {
+                    recordingProcess.waitFor(
+                            WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS,
+                            TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    recordingProcess.destroyForcibly();
+                }
+            }
+
+            CommandResult result = mDevice.executeShellV2Command("ls -sh " + videoPath);
+            if (result != null && result.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d("Completed screenrecord %s, video size: %s", videoPath, result.getStdout());
             }
             // Try to pull, handle, and delete the video file from the device anyway.
             handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
@@ -264,6 +288,18 @@ public class DeviceUtils {
      */
     public void launchPackage(String packageName)
             throws DeviceUtilsException, DeviceNotAvailableException {
+        CommandResult monkeyResult =
+                mDevice.executeShellV2Command(
+                        String.format(
+                                "monkey -p %s -c android.intent.category.LAUNCHER 1", packageName));
+        if (monkeyResult.getStatus() == CommandStatus.SUCCESS) {
+            return;
+        }
+        CLog.w(
+                "Continuing to attempt using am command to launch the package %s after the monkey"
+                        + " command failed: %s",
+                packageName, monkeyResult);
+
         CommandResult pmResult =
                 mDevice.executeShellV2Command(String.format("pm dump %s", packageName));
         if (pmResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
@@ -282,7 +318,9 @@ public class DeviceUtils {
 
         CommandResult amResult =
                 mDevice.executeShellV2Command(String.format("am start -n %s", activity));
-        if (amResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
+        if (amResult.getStatus() != CommandStatus.SUCCESS
+                || amResult.getExitCode() != 0
+                || amResult.getStdout().contains("Error")) {
             throw new DeviceUtilsException(
                     String.format(
                             "The command to start the package %s with activity %s failed: %s",
@@ -403,12 +441,11 @@ public class DeviceUtils {
 
         Activity res = filteredActivities.get(0);
 
-        if (res.mCategories.contains(categoryLauncher)) {
-            CLog.d("Activity %s is not specified with a LAUNCHER category.", res);
+        if (!res.mCategories.contains(categoryLauncher)) {
+            CLog.d("Activity %s is not specified with a LAUNCHER category.", res.mName);
         }
-
-        if (res.mActions.contains(actionMain)) {
-            CLog.d("Activity %s is not specified with a MAIN action.", res);
+        if (!res.mActions.contains(actionMain)) {
+            CLog.d("Activity %s is not specified with a MAIN action.", res.mName);
         }
 
         return res.mName;
