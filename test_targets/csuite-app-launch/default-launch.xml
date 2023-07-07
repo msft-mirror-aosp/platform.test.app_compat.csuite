@@ -15,6 +15,7 @@
 -->
 <configuration description="Launches an app and check for crashes">
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
@@ -23,6 +24,7 @@
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="set-option" value="package-name:{package}"/>
         <option name="set-option" value="install-apk:app\://{package}"/>
+        <option name="set-option" value="install-arg:-g"/>
         <option name="class" value="com.android.csuite.tests.AppLaunchTest" />
     </test>
 </configuration>
