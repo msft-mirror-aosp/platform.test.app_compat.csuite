@@ -175,11 +175,12 @@ public final class AppCrawlTester {
             failureMessages.add(crawlerException.getMessage());
         }
 
-        Assert.assertTrue(
-                String.join(
-                        "\n============\n",
-                        failureMessages.toArray(new String[failureMessages.size()])),
-                failureMessages.isEmpty());
+        if (!failureMessages.isEmpty()) {
+            Assert.fail(
+                    String.join(
+                            "\n============\n",
+                            failureMessages.toArray(new String[failureMessages.size()])));
+        }
     }
 
     /**
