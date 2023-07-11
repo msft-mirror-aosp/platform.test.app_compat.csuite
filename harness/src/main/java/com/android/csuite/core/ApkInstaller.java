@@ -20,7 +20,6 @@ import com.android.csuite.core.TestUtils.TestUtilsException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.AaptParser;
-import com.android.tradefed.util.AaptParser.AaptVersion;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
@@ -269,13 +268,13 @@ public final class ApkInstaller {
     private static final class AaptPackageNameParser implements PackageNameParser {
         @Override
         public String parsePackageName(Path apkFile) throws IOException {
-            String packageName =
-                    AaptParser.parse(apkFile.toFile(), AaptVersion.AAPT2).getPackageName();
-            if (packageName == null) {
+            AaptParser parseResult =
+                    AaptParser.parse(apkFile.toFile(), AaptParser.AaptVersion.AAPT2);
+            if (parseResult == null || parseResult.getPackageName() == null) {
                 throw new IOException(
                         String.format("Failed to parse package name with AAPT for %s", apkFile));
             }
-            return packageName;
+            return parseResult.getPackageName();
         }
     }
 
