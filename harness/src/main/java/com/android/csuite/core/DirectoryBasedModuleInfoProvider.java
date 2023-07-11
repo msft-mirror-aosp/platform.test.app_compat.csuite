@@ -95,7 +95,7 @@ public final class DirectoryBasedModuleInfoProvider implements ModuleInfoProvide
         @Override
         public String parsePackageName(File apkFile) throws IOException {
             AaptParser parseResult = AaptParser.parse(apkFile, AaptParser.AaptVersion.AAPT2);
-            if (parseResult == null) {
+            if (parseResult == null || parseResult.getPackageName() == null) {
                 CLog.e(String.format("Failed to parse package name with AAPT for %s", apkFile));
                 return UNKNOWN_PACKAGE + "_" + apkFile.getName();
             }
