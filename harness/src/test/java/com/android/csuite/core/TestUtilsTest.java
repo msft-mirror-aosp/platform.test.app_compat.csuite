@@ -43,15 +43,11 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RunWith(JUnit4.class)
@@ -406,46 +402,6 @@ public final class TestUtilsTest {
     }
 
     @Test
-    public void getRoboscriptSignal_withSuccessfulRoboscriptActions_successSignal()
-            throws IOException {
-        Path roboOutput = createMockRoboOutputFile(7, 7);
-        TestUtils sut = createSubjectUnderTest();
-
-        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
-
-        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.SUCCESS);
-    }
-
-    @Test
-    public void getRoboscriptSignal_withNoRoboscriptOutput_unknownSignal() throws IOException {
-        Path roboOutput = Files.createFile(mFileSystem.getPath("output.txt"));
-        TestUtils sut = createSubjectUnderTest();
-
-        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
-
-        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.UNKNOWN);
-    }
-
-    @Test
-    public void getRoboscriptSignal_withEmptyOutputFile_unknownSignal() throws IOException {
-        TestUtils sut = createSubjectUnderTest();
-
-        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.empty());
-
-        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.UNKNOWN);
-    }
-
-    @Test
-    public void getRoboscriptSignal_withUnsuccessfulActions_failureSignal() throws IOException {
-        Path roboOutput = createMockRoboOutputFile(0, 7);
-        TestUtils sut = createSubjectUnderTest();
-
-        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
-
-        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.FAIL);
-    }
-
-    @Test
     public void compileTestFailureMessage_videoStartTimeProvided_returnWithVideoTimeForCrashes()
             throws Exception {
         TestUtils sut = createSubjectUnderTest();
@@ -493,18 +449,5 @@ public final class TestUtilsTest {
         context.addAllocatedDevice("device1", mMockDevice);
         context.addDeviceBuildInfo("device1", new BuildInfo());
         return TestInformation.newBuilder().setInvocationContext(context).build();
-    }
-
-    private Path createMockRoboOutputFile(int totalActions, int successfulActions)
-            throws IOException {
-        Path roboOutput = Files.createFile(mFileSystem.getPath("output.txt"));
-        ArrayList<String> outputContent = new ArrayList<>();
-        outputContent.add("some previous fields");
-        outputContent.add("robo_script_execution {");
-        outputContent.add("  total_actions: " + String.valueOf(totalActions) + "\n");
-        outputContent.add("  successful_actions: " + String.valueOf(successfulActions));
-        outputContent.add("}");
-        Files.write(roboOutput, outputContent, StandardCharsets.UTF_8);
-        return roboOutput;
     }
 }
