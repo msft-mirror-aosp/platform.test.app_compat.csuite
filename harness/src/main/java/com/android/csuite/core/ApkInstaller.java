@@ -265,6 +265,30 @@ public final class ApkInstaller {
         }
     }
 
+    /** Grants additional permissions for installed apps. */
+    public void grantExternalStoragePermissions(String packageName) {
+        ArrayList<String> cmd = new ArrayList<>();
+        cmd.addAll(
+                Arrays.asList(
+                        "adb",
+                        "-s",
+                        mDeviceSerial,
+                        "shell",
+                        "appops",
+                        "set",
+                        packageName,
+                        "MANAGE_EXTERNAL_STORAGE",
+                        "allow"));
+        CommandResult cmdResult =
+                mRunUtil.runTimedCmd(sCommandTimeOut, cmd.toArray(new String[cmd.size()]));
+        if (cmdResult.getStatus() != CommandStatus.SUCCESS) {
+            CLog.d(
+                    "Granting MANAGE_EXTERNAL_STORAGE permissions for package %s was unsuccessful."
+                            + " Reason: %s.",
+                    packageName, cmdResult.toString());
+        }
+    }
+
     private static final class AaptPackageNameParser implements PackageNameParser {
         @Override
         public String parsePackageName(Path apkFile) throws IOException {
