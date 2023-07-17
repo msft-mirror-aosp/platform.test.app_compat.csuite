@@ -150,6 +150,12 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
             description = "When to save apk files to the test result artifacts.")
     private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
 
+    @Option(
+            name = "grant-external-storage",
+            mandatory = false,
+            description = "After an apks are installed, grant MANAGE_EXTERNAL_STORAGE permissions.")
+    private boolean mGrantExternalStoragePermission = false;
+
     @Before
     public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
         mIsLastTestPass = false;
@@ -171,6 +177,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         mApkInstaller.install(
                 mInstallApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
                 mInstallArgs);
+        if (mGrantExternalStoragePermission) {
+            mApkInstaller.grantExternalStoragePermissions(mPackageName);
+        }
     }
 
     /** Helper method to fetch the path of optional File variables. */
