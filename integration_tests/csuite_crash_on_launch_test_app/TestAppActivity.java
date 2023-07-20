@@ -18,13 +18,11 @@ package android.csuite;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.util.Log;
 
 public final class TestAppActivity extends Activity {
     @Override
     public void onCreate(Bundle bundle) {
         super.onCreate(bundle);
-        Log.i(getApplicationContext().getPackageName(), "App launched");
-        throw new RuntimeException("Expected exception");
+        throw new RuntimeException("Intentional exception");
     }
 }

@@ -17,6 +17,7 @@
 package com.android.csuite.core;
 
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
+import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.csuite.core.TestUtils.TestUtilsException;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
@@ -68,6 +69,7 @@ public final class AppCrawlTester {
     private Path mCrawlGuidanceProtoFile;
     private Path mLoginConfigDir;
     private FileSystem mFileSystem;
+    private DeviceTimestamp mScreenRecordStartTime;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -143,12 +145,24 @@ public final class AppCrawlTester {
         } catch (CrawlerException e) {
             crawlerException = e;
         }
+        DeviceTimestamp endTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
         ArrayList<String> failureMessages = new ArrayList<>();
 
         try {
+
+            List<DropboxEntry> crashEntries =
+                    mTestUtils
+                            .getDeviceUtils()
+                            .getDropboxEntries(
+                                    DeviceUtils.DROPBOX_APP_CRASH_TAGS,
+                                    mPackageName,
+                                    startTime,
+                                    endTime);
             String dropboxCrashLog =
-                    mTestUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
+                    mTestUtils.compileTestFailureMessage(
+                            mPackageName, crashEntries, true, mScreenRecordStartTime);
+
             if (dropboxCrashLog != null) {
                 // Put dropbox crash log on the top of the failure messages.
                 failureMessages.add(dropboxCrashLog);
@@ -241,7 +255,8 @@ public final class AppCrawlTester {
                     () -> {
                         commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
                     },
-                    mPackageName);
+                    mPackageName,
+                    deviceTime -> mScreenRecordStartTime = deviceTime);
         } else {
             commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
         }
