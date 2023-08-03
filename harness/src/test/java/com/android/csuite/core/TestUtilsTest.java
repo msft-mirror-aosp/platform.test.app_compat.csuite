@@ -23,6 +23,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
+import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.device.ITestDevice;
@@ -42,15 +43,11 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RunWith(JUnit4.class)
@@ -59,7 +56,7 @@ public final class TestUtilsTest {
             Mockito.mock(TestArtifactReceiver.class);
     private final ITestDevice mMockDevice = mock(ITestDevice.class);
     private final DeviceUtils mMockDeviceUtils = Mockito.mock(DeviceUtils.class);
-    private static final String TEST_PACKAGE_NAME = "package_name";
+    private static final String TEST_PACKAGE_NAME = "package.name";
     @Rule public final TemporaryFolder mTempFolder = new TemporaryFolder();
     private final FileSystem mFileSystem =
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
@@ -382,7 +379,8 @@ public final class TestUtilsTest {
     @Test
     public void getDropboxPackageCrashLog_appCrashed_saveOutput() throws Exception {
         TestUtils sut = createSubjectUnderTest();
-        when(mMockDeviceUtils.getDropboxEntries(Mockito.any()))
+        when(mMockDeviceUtils.getDropboxEntries(
+                        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(
                         List.of(
                                 new DeviceUtils.DropboxEntry(
@@ -392,7 +390,7 @@ public final class TestUtilsTest {
                                                         new String
                                                                 [DeviceUtils.DROPBOX_APP_CRASH_TAGS
                                                                         .size()])[0],
-                                        TEST_PACKAGE_NAME)));
+                                        "Package: " + TEST_PACKAGE_NAME)));
         DeviceTimestamp startTime = new DeviceTimestamp(0);
         boolean saveToFile = true;
 
@@ -404,301 +402,42 @@ public final class TestUtilsTest {
     }
 
     @Test
-    public void getDropboxPackageCrashLog_containsOldEntries_onlyReturnsNewEntries()
+    public void compileTestFailureMessage_videoStartTimeProvided_returnWithVideoTimeForCrashes()
             throws Exception {
         TestUtils sut = createSubjectUnderTest();
-        DeviceTimestamp startTime = new DeviceTimestamp(1);
-        when(mMockDeviceUtils.getDropboxEntries(Mockito.any()))
-                .thenReturn(
-                        List.of(
-                                new DeviceUtils.DropboxEntry(
-                                        0,
-                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
-                                                .toArray(
-                                                        new String
-                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
-                                                                        .size()])[0],
-                                        TEST_PACKAGE_NAME + " entry1"),
-                                new DeviceUtils.DropboxEntry(
-                                        2,
-                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
-                                                .toArray(
-                                                        new String
-                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
-                                                                        .size()])[0],
-                                        TEST_PACKAGE_NAME + " entry2")));
-
-        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
-
-        assertThat(result).doesNotContain("entry1");
-        assertThat(result).contains("entry2");
-    }
-
-    @Test
-    public void getDropboxPackageCrashLog_containsOtherProcessEntries_onlyReturnsPackageEntries()
-            throws Exception {
-        TestUtils sut = createSubjectUnderTest();
-        DeviceTimestamp startTime = new DeviceTimestamp(1);
-        when(mMockDeviceUtils.getDropboxEntries(Mockito.any()))
-                .thenReturn(
-                        List.of(
-                                new DeviceUtils.DropboxEntry(
-                                        2,
-                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
-                                                .toArray(
-                                                        new String
-                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
-                                                                        .size()])[0],
-                                        "other.package" + " entry1"),
-                                new DeviceUtils.DropboxEntry(
-                                        2,
-                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
-                                                .toArray(
-                                                        new String
-                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
-                                                                        .size()])[0],
-                                        TEST_PACKAGE_NAME + " entry2")));
-
-        String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
-
-        assertThat(result).doesNotContain("entry1");
-        assertThat(result).contains("entry2");
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_cmdlineMatched_returnsTrue() throws Exception {
-        String dropboxEntryData = "Cmd line: com.app.package";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isTrue();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_processMatched_returnsTrue() throws Exception {
-        String dropboxEntryData = "Process: com.app.package";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isTrue();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_processMatchedInLines_returnsTrue()
-            throws Exception {
-        String dropboxEntryData = "line\nProcess: com.app.package\nline";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isTrue();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_processNameFollowedByOtherChar_returnsTrue()
-            throws Exception {
-        String dropboxEntryData = "line\nProcess: com.app.package, (time)\nline";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isTrue();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_processNameFollowedByDot_returnsFalse()
-            throws Exception {
-        String dropboxEntryData = "line\nProcess: com.app.package.sub, (time)\nline";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isFalse();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_processNameFollowedByColon_returnsTrue()
-            throws Exception {
-        String dropboxEntryData = "line\nProcess: com.app.package:sub, (time)\nline";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isTrue();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_processNameFollowedByUnderscore_returnsFalse()
-            throws Exception {
-        String dropboxEntryData = "line\nProcess: com.app.package_sub, (time)\nline";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isFalse();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_doesNotContainPackageName_returnsFalse()
-            throws Exception {
-        String dropboxEntryData = "line\n";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isFalse();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_packageNameWithUnderscorePrefix_returnsFalse()
-            throws Exception {
-        String dropboxEntryData = "line\na_com.app.package\n";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isFalse();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_packageNameWithUnderscorePostfix_returnsFalse()
-            throws Exception {
-        String dropboxEntryData = "line\ncom.app.package_a\n";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isFalse();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_packageNameWithDotPrefix_returnsFalse()
-            throws Exception {
-        String dropboxEntryData = "line\na.com.app.package\n";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isFalse();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_packageNameWithDotPostfix_returnsFalse()
-            throws Exception {
-        String dropboxEntryData = "line\ncom.app.package.a\n";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isFalse();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_packageNameWithColonPostfix_returnsTrue()
-            throws Exception {
-        String dropboxEntryData = "line\ncom.app.package:a\n";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isTrue();
-    }
-
-    @Test
-    public void
-            isDropboxEntryFromPackageProcess_packageNameWithAcceptiblePrefixAndPostfix_returnsTrue()
-                    throws Exception {
-        String dropboxEntryData = "line\ncom.app.package)\n";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isTrue();
-    }
-
-    @Test
-    public void
-            isDropboxEntryFromPackageProcess_wrongProcessNameWithCorrectPackageName_returnsFalse()
-                    throws Exception {
-        String dropboxEntryData = "line\nProcess: com.app.package_other\ncom.app.package";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isFalse();
-    }
-
-    @Test
-    public void isDropboxEntryFromPackageProcess_MultipleProcessNamesWithOneMatching_returnsTrue()
-            throws Exception {
-        String dropboxEntryData =
-                "line\n"
-                        + "Process: com.app.package_other\n"
-                        + "Process: com.app.package\n"
-                        + "Process: com.other";
-        String packageName = "com.app.package";
-        TestUtils sut = createSubjectUnderTest();
-
-        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
-
-        assertThat(res).isTrue();
-    }
-
-    @Test
-    public void getRoboscriptSignal_withSuccessfulRoboscriptActions_successSignal()
-            throws IOException {
-        Path roboOutput = createMockRoboOutputFile(7, 7);
-        TestUtils sut = createSubjectUnderTest();
-
-        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
-
-        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.SUCCESS);
-    }
-
-    @Test
-    public void getRoboscriptSignal_withNoRoboscriptOutput_unknownSignal() throws IOException {
-        Path roboOutput = Files.createFile(mFileSystem.getPath("output.txt"));
-        TestUtils sut = createSubjectUnderTest();
-
-        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
-
-        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.UNKNOWN);
-    }
-
-    @Test
-    public void getRoboscriptSignal_withEmptyOutputFile_unknownSignal() throws IOException {
-        TestUtils sut = createSubjectUnderTest();
-
-        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.empty());
-
-        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.UNKNOWN);
-    }
-
-    @Test
-    public void getRoboscriptSignal_withUnsuccessfulActions_failureSignal() throws IOException {
-        Path roboOutput = createMockRoboOutputFile(0, 7);
-        TestUtils sut = createSubjectUnderTest();
-
-        TestUtils.RoboscriptSignal signal = sut.getRoboscriptSignal(Optional.of(roboOutput));
-
-        assertThat(signal).isEqualTo(TestUtils.RoboscriptSignal.FAIL);
+        int videoStartTime = 10000;
+        int crashTime1 = 12000;
+        int crashTime2 = 72000;
+        String expectedTime1 = "00:02";
+        String expectedTime2 = "01:02";
+        List<DropboxEntry> crashEntries =
+                List.of(
+                        new DeviceUtils.DropboxEntry(
+                                crashTime1,
+                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                        .toArray(
+                                                new String
+                                                        [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                                .size()])[0],
+                                TEST_PACKAGE_NAME + " entry1"),
+                        new DeviceUtils.DropboxEntry(
+                                crashTime2,
+                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                        .toArray(
+                                                new String
+                                                        [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                                .size()])[0],
+                                TEST_PACKAGE_NAME + " entry2"));
+
+        String crashMessage =
+                sut.compileTestFailureMessage(
+                        TEST_PACKAGE_NAME,
+                        crashEntries,
+                        false,
+                        new DeviceTimestamp(videoStartTime));
+
+        assertThat(crashMessage).contains(expectedTime1);
+        assertThat(crashMessage).contains(expectedTime2);
     }
 
     private TestUtils createSubjectUnderTest() {
@@ -710,18 +449,5 @@ public final class TestUtilsTest {
         context.addAllocatedDevice("device1", mMockDevice);
         context.addDeviceBuildInfo("device1", new BuildInfo());
         return TestInformation.newBuilder().setInvocationContext(context).build();
-    }
-
-    private Path createMockRoboOutputFile(int totalActions, int successfulActions)
-            throws IOException {
-        Path roboOutput = Files.createFile(mFileSystem.getPath("output.txt"));
-        ArrayList<String> outputContent = new ArrayList<>();
-        outputContent.add("some previous fields");
-        outputContent.add("robo_script_execution {");
-        outputContent.add("  total_actions: " + String.valueOf(totalActions) + "\n");
-        outputContent.add("  successful_actions: " + String.valueOf(successfulActions));
-        outputContent.add("}");
-        Files.write(roboOutput, outputContent, StandardCharsets.UTF_8);
-        return roboOutput;
     }
 }

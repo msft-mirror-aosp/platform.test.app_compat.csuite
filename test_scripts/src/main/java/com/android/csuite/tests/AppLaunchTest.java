@@ -21,6 +21,8 @@ import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
+import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.csuite.core.DeviceUtils.RunnableThrowingDeviceNotAvailable;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -43,6 +45,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
@@ -129,17 +132,70 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
 
     @Test
     public void testAppCrash() throws DeviceNotAvailableException {
+        CLog.d("Launching package: %s.", mPackageName);
+
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+
+        try {
+            if (!deviceUtils.isPackageInstalled(mPackageName)) {
+                Assert.fail(
+                        "Package "
+                                + mPackageName
+                                + " is not installed on the device. Aborting the test.");
+            }
+        } catch (DeviceUtilsException e) {
+            Assert.fail("Failed to check the installed package list: " + e.getMessage());
+        }
+
+        AtomicReference<DeviceTimestamp> startTime = new AtomicReference<>();
+        AtomicReference<DeviceTimestamp> videoStartTime = new AtomicReference<>();
+
+        RunnableThrowingDeviceNotAvailable launchJob =
+                () -> {
+                    startTime.set(deviceUtils.currentTimeMillis());
+                    try {
+                        deviceUtils.launchPackage(mPackageName);
+                    } catch (DeviceUtilsException e) {
+                        Assert.fail(
+                                "Failed to launch package " + mPackageName + ": " + e.getMessage());
+                    }
+
+                    CLog.d(
+                            "Waiting %s milliseconds for the app to launch fully.",
+                            mAppLaunchTimeoutMs);
+                    RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
+                };
 
         if (mRecordScreen) {
             testUtils.collectScreenRecord(
-                    () -> {
-                        launchPackageAndCheckForCrash();
-                    },
-                    mPackageName);
+                    launchJob,
+                    mPackageName,
+                    videoStartTimeOnDevice -> videoStartTime.set(videoStartTimeOnDevice));
         } else {
-            launchPackageAndCheckForCrash();
+            launchJob.run();
         }
+
+        CLog.d("Completed launching package: %s", mPackageName);
+        DeviceTimestamp endTime = deviceUtils.currentTimeMillis();
+
+        try {
+            List<DropboxEntry> crashEntries =
+                    deviceUtils.getDropboxEntries(
+                            DeviceUtils.DROPBOX_APP_CRASH_TAGS,
+                            mPackageName,
+                            startTime.get(),
+                            endTime);
+            String crashLog =
+                    testUtils.compileTestFailureMessage(
+                            mPackageName, crashEntries, true, videoStartTime.get());
+            if (crashLog != null) {
+                Assert.fail(crashLog);
+            }
+        } catch (IOException e) {
+            Assert.fail("Error while getting dropbox crash log: " + e);
+        }
+
         mIsLastTestPass = true;
     }
 
@@ -161,42 +217,5 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         deviceUtils.unfreezeRotation();
 
         mApkInstaller.uninstallAllInstalledPackages();
-    }
-
-    private void launchPackageAndCheckForCrash() throws DeviceNotAvailableException {
-        CLog.d("Launching package: %s.", mPackageName);
-
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
-
-        try {
-            if (!deviceUtils.isPackageInstalled(mPackageName)) {
-                Assert.fail(
-                        "Package "
-                                + mPackageName
-                                + " is not installed on the device. Aborting the test.");
-            }
-        } catch (DeviceUtilsException e) {
-            Assert.fail("Failed to check the installed package list: " + e.getMessage());
-        }
-
-        DeviceTimestamp startTime = deviceUtils.currentTimeMillis();
-        try {
-            deviceUtils.launchPackage(mPackageName);
-        } catch (DeviceUtilsException e) {
-            Assert.fail("Failed to launch package " + mPackageName + ": " + e.getMessage());
-        }
-
-        CLog.d("Waiting %s milliseconds for the app to launch fully.", mAppLaunchTimeoutMs);
-        RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
-
-        CLog.d("Completed launching package: %s", mPackageName);
-
-        try {
-            String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
-            Assert.assertNull(crashLog, crashLog);
-        } catch (IOException e) {
-            Assert.fail("Error while getting dropbox crash log: " + e);
-        }
     }
 }
