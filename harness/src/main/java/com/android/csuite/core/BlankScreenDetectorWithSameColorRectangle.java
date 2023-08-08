@@ -16,23 +16,50 @@
 
 package com.android.csuite.core;
 
+import com.android.tradefed.log.LogUtil.CLog;
+
 import com.google.common.annotations.VisibleForTesting;
 
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 
+import javax.imageio.ImageIO;
+
+/**
+ * A class that helps detect the presence of a blank screen in an app using the approach of first
+ * finding the largest same-color rectangle area, and then comparing it to the total area of the
+ * original image.
+ */
 public class BlankScreenDetectorWithSameColorRectangle {
-
-    // Returns the result of the analysis of whether the given image represents a blank screen.
-    public static boolean hasBlankScreen(Path path) {
-        // TODO(b/292125742) - implement logic to determine blank screen based on threshold.
-
-        return false;
+    /**
+     * Returns the percentage of the image that is occupied by a same-color rectangle. When the
+     * rectangle is very large it is considered to represent a blank screen.
+     *
+     * @param path of the image against which to calculate the blank screen area.
+     * @return a number between 0 and 1 which represents the percentage of the image area
+     * occupied by a blank screen (defined by the same-color rectangle area).
+     */
+    public static double getBlankScreenPercentage(Path path) {
+        BufferedImage image;
+        try {
+            image = ImageIO.read(path.toFile());
+        } catch (IOException e) {
+            CLog.e("Failed to read the image at path: " + path.toString());
+            return -1;
+        }
+        Rectangle rectangle = maxSameColorRectangle(image);
+        return (double) getRectangleArea(rectangle)
+                / getRectangleArea(new Rectangle(0, 0, image.getWidth(), image.getHeight()));
     }
 
-    // Given an RGB image, finds the biggest same-color rectangle.
+    /** Given an RGB image, finds the biggest same-color rectangle.
+     *
+     * @param image within which to look for the largest same-color rectangle.
+     * @return the Rectangle object representing the largest same-color rectangle.
+     */
     @VisibleForTesting
     static Rectangle maxSameColorRectangle(BufferedImage image) {
         int[][] imageMatrix = getPixels(image);
@@ -62,8 +89,13 @@ public class BlankScreenDetectorWithSameColorRectangle {
         return maxRectangle;
     }
 
-    // Finds the SubRectangle with the largest possible area given a row of column heights and its
-    // index in a larger matrix.
+    /** Finds the SubRectangle with the largest possible area given a row of column heights and its
+     * index in a larger matrix.
+     *
+     * @param heightsRow an array representing the height of each column of same-colorex pixels.
+     * @param index the index of the given array in the larger two-dimensional matrix.
+     * @return the Rectangle object representing the largest same-color rectangle.
+     */
     @VisibleForTesting
     static Rectangle maxSubRectangle(int[] heightsRow, int index) {
         ArrayDeque<Integer> stack = new ArrayDeque<>();
@@ -97,8 +129,12 @@ public class BlankScreenDetectorWithSameColorRectangle {
         return maxRectangle;
     }
 
-    // Converts a BufferedImage to a two-dimensional array containing the int representation of
-    // its pixels.
+    /** Converts a BufferedImage to a two-dimensional array containing the int representation of
+     * its pixels.
+     *
+     * @param image which to convert.
+     * @return a two-dimensional array containing the int representation of the image's pixels.
+     */
     private static int[][] getPixels(BufferedImage image) {
         int[][] pixels = new int[image.getHeight()][image.getWidth()];
         for (int i = 0; i < pixels.length; i++) {
