@@ -26,6 +26,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.nio.file.Path;
 
 @RunWith(JUnit4.class)
 public class BlankScreenDetectorWithSameColorRectangleTest {
@@ -156,6 +157,46 @@ public class BlankScreenDetectorWithSameColorRectangleTest {
         assertThat(rectangle.getWidth() * rectangle.getHeight()).isEqualTo(50 * 40);
         assertThat(rectangle.x).isEqualTo(40);
         assertThat(rectangle.y).isEqualTo(20);
+    }
+
+    @Test
+    public void getBlankScreenPercentage_withFullScreenAndBlank_returnsHighRatio() {
+        Path imagePath = Path.of("BlankScreenWithFullScreen.png");
+
+        double hasBlankScreen =
+                BlankScreenDetectorWithSameColorRectangle.getBlankScreenPercentage(imagePath);
+
+        assertThat(hasBlankScreen).isGreaterThan(0.7);
+    }
+
+    @Test
+    public void getBlankScreenPercentage_withNavBarsAndBlank_returnsHighRatio() {
+        Path imagePath = Path.of("BlankScreenWithNavBars.png");
+
+        double hasBlankScreen =
+                BlankScreenDetectorWithSameColorRectangle.getBlankScreenPercentage(imagePath);
+
+        assertThat(hasBlankScreen).isGreaterThan(0.7);
+    }
+
+    @Test
+    public void getBlankScreenPercentage_withWhiteScreenAndBlank_returnsHighRatio() {
+        Path imagePath = Path.of("BlankScreenWithWhiteScreen.png");
+
+        double hasBlankScreen =
+                BlankScreenDetectorWithSameColorRectangle.getBlankScreenPercentage(imagePath);
+
+        assertThat(hasBlankScreen).isGreaterThan(0.7);
+    }
+
+    @Test
+    public void getBlankScreenPercentage_hasNormalScreen_returnsLowRatio() {
+        Path imagePath = Path.of("NotBlankScreen.png");
+
+        double hasBlankScreen =
+                BlankScreenDetectorWithSameColorRectangle.getBlankScreenPercentage(imagePath);
+
+        assertThat(hasBlankScreen).isLessThan(0.7);
     }
 
     private void drawRectangles(BufferedImage image, Rectangle... rectangles) {
