@@ -93,7 +93,6 @@ public class TestUtils {
      * Take a screenshot on the device and save it to the test result artifacts.
      *
      * @param prefix The file name prefix.
-     * @throws DeviceNotAvailableException
      */
     public void collectScreenshot(String prefix) throws DeviceNotAvailableException {
         try (InputStreamSource screenSource = mTestInformation.getDevice().getScreenshot()) {
@@ -191,7 +190,6 @@ public class TestUtils {
      * Collect the GMS version name and version code, and save them as test result artifacts.
      *
      * @param prefix The file name prefix.
-     * @throws DeviceNotAvailableException
      */
     public void collectGmsVersion(String prefix) throws DeviceNotAvailableException {
         String gmsVersionCode = mDeviceUtils.getPackageVersionCode(GMS_PACKAGE_NAME);
@@ -215,7 +213,6 @@ public class TestUtils {
      * artifacts.
      *
      * @param packageName The package name.
-     * @throws DeviceNotAvailableException
      */
     public void collectAppVersion(String packageName) throws DeviceNotAvailableException {
         String versionCode = mDeviceUtils.getPackageVersionCode(packageName);
