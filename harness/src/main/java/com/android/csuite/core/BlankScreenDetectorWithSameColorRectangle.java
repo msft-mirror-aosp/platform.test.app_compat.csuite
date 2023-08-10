@@ -16,14 +16,21 @@
 
 package com.android.csuite.core;
 
+import com.android.csuite.core.TestUtils.TestArtifactReceiver;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.result.LogDataType;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import java.awt.Color;
+import java.awt.Graphics;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 
 import javax.imageio.ImageIO;
@@ -35,27 +42,16 @@ import javax.imageio.ImageIO;
  */
 public class BlankScreenDetectorWithSameColorRectangle {
     /**
-     * Returns the percentage of the image that is occupied by a same-color rectangle. When the
-     * rectangle is very large it is considered to represent a blank screen.
-     *
-     * @param path of the image against which to calculate the blank screen area.
-     * @return a number between 0 and 1 which represents the percentage of the image area
-     * occupied by a blank screen (defined by the same-color rectangle area).
+     * @param image against which to calculate the blank screen area.
+     * @return a BlankScreen object which represents the largest same-color rectangle within the
+     *     given image.
      */
-    public static double getBlankScreenPercentage(Path path) {
-        BufferedImage image;
-        try {
-            image = ImageIO.read(path.toFile());
-        } catch (IOException e) {
-            CLog.e("Failed to read the image at path: " + path.toString());
-            return -1;
-        }
-        Rectangle rectangle = maxSameColorRectangle(image);
-        return (double) getRectangleArea(rectangle)
-                / getRectangleArea(new Rectangle(0, 0, image.getWidth(), image.getHeight()));
+    public static BlankScreen getBlankScreen(BufferedImage image) {
+        return new BlankScreen(maxSameColorRectangle(image), image);
     }
 
-    /** Given an RGB image, finds the biggest same-color rectangle.
+    /**
+     * Given an RGB image, finds the biggest same-color rectangle.
      *
      * @param image within which to look for the largest same-color rectangle.
      * @return the Rectangle object representing the largest same-color rectangle.
@@ -89,7 +85,8 @@ public class BlankScreenDetectorWithSameColorRectangle {
         return maxRectangle;
     }
 
-    /** Finds the SubRectangle with the largest possible area given a row of column heights and its
+    /**
+     * Finds the SubRectangle with the largest possible area given a row of column heights and its
      * index in a larger matrix.
      *
      * @param heightsRow an array representing the height of each column of same-colorex pixels.
@@ -129,8 +126,9 @@ public class BlankScreenDetectorWithSameColorRectangle {
         return maxRectangle;
     }
 
-    /** Converts a BufferedImage to a two-dimensional array containing the int representation of
-     * its pixels.
+    /**
+     * Converts a BufferedImage to a two-dimensional array containing the int representation of its
+     * pixels.
      *
      * @param image which to convert.
      * @return a two-dimensional array containing the int representation of the image's pixels.
@@ -147,5 +145,102 @@ public class BlankScreenDetectorWithSameColorRectangle {
 
     private static long getRectangleArea(Rectangle rectangle) {
         return (long) rectangle.width * (long) rectangle.height;
+    }
+
+    /**
+     * Computes the screenshot's blank screen area using the biggest same-color rectangle detection
+     * method and, if the area is bigger than the given threshold, adds the blank screen image to
+     * artifacts.
+     *
+     * @param prefix The file name prefix.
+     * @param threshold a number between 0 and 1 that represents the percentage of the screen that
+     *     is allowed to be occupied by a same-color rectangle.
+     * @return a BlankScreen object which contains the dimensions of the same-color rectangle within
+     *     the larger image.
+     * @throws DeviceNotAvailableException when device is lost
+     */
+    public static BlankScreen detectBlankScreenWithSameColorRectangle(
+            String prefix, double threshold, TestInformation testInformation)
+            throws DeviceNotAvailableException, IOException {
+        try {
+            InputStreamSource screenSource = testInformation.getDevice().getScreenshot();
+            BufferedImage screen = ImageIO.read(screenSource.createInputStream());
+            BlankScreen blankScreen =
+                    BlankScreenDetectorWithSameColorRectangle.getBlankScreen(screen);
+            return blankScreen;
+        } catch (Exception e) {
+            CLog.e("Failed to read the screenshot image.");
+            throw e;
+        }
+    }
+
+    /**
+     * Saves the image containing the screenshot and drawing of the blank screen rectangle to the
+     * test artifacts.
+     *
+     * @param prefix the file name prefix.
+     * @param blankScreen the representation of the blank screen to write to artifacts.
+     */
+    public static void saveBlankScreenArtifact(
+            String prefix,
+            BlankScreen blankScreen,
+            TestArtifactReceiver testArtifactReceiver,
+            TestInformation testInformation) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            ImageIO.write(blankScreen.getScreenImage(), "png", baos);
+        } catch (IOException e) {
+            CLog.e(
+                    "Failed to write the screenshot to byte array when saving blank screen"
+                            + " artifact.");
+        }
+        testArtifactReceiver.addTestArtifact(
+                prefix + "_screenshot_blankscreen_" + testInformation.getDevice().getSerialNumber(),
+                LogDataType.PNG,
+                baos.toByteArray());
+    }
+
+    /**
+     * A representation of a same-color rectangle within a larger image which may represent a blank
+     * screen in a mobile app.
+     */
+    public static final class BlankScreen {
+        // The screen capture within which the blank screen rectangle is computed.
+        private BufferedImage mScreenImage;
+        // The same-color rectangle arearepresenting the blank screen.
+        private Rectangle mBlankScreenRectangle;
+
+        public BufferedImage getScreenImage() {
+            return mScreenImage;
+        }
+
+        public Rectangle getBlankScreenRectangle() {
+            return mBlankScreenRectangle;
+        }
+
+        public BlankScreen(Rectangle r, BufferedImage image) {
+            this.mScreenImage = image;
+            this.mBlankScreenRectangle = r;
+            drawBlankScreenRectangle();
+        }
+
+        // Draws the outline of the rectangle which is interpreted as a blank screen within the
+        // context of the larger image.
+        private void drawBlankScreenRectangle() {
+            Graphics g = mScreenImage.getGraphics();
+            g.setColor(Color.MAGENTA);
+            g.drawRect(
+                    mBlankScreenRectangle.x,
+                    mBlankScreenRectangle.y,
+                    mBlankScreenRectangle.width,
+                    mBlankScreenRectangle.height);
+            g.dispose();
+        }
+
+        // Returns the percentage of the larger image occupied by the blank screen rectangle.
+        public double getBlankScreenPercent() {
+            return ((double) mBlankScreenRectangle.width * mBlankScreenRectangle.height)
+                    / ((double) mScreenImage.getHeight() * mScreenImage.getWidth());
+        }
     }
 }
