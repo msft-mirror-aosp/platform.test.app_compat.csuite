@@ -18,6 +18,8 @@ package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
+import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle;
+import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle.BlankScreen;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
@@ -107,6 +109,13 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             description = "Time to wait for app to launch in msecs.")
     private int mAppLaunchTimeoutMs = 15000;
 
+    @Option(
+            name = "blank-screen-same-color-area-threshold",
+            description =
+                    "Percentage of the screen which, if occupied by a same-color rectangle "
+                            + "area, indicates that the app has reached a blank screen.")
+    private double mBlankScreenSameColorThreshold = -1;
+
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
@@ -131,7 +140,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testAppCrash() throws DeviceNotAvailableException {
+    public void testAppCrash() throws DeviceNotAvailableException, IOException {
         CLog.d("Launching package: %s.", mPackageName);
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
@@ -194,6 +203,26 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             }
         } catch (IOException e) {
             Assert.fail("Error while getting dropbox crash log: " + e);
+        }
+
+        if (mBlankScreenSameColorThreshold > 0) {
+            BlankScreen blankScreen =
+                    BlankScreenDetectorWithSameColorRectangle
+                            .detectBlankScreenWithSameColorRectangle(
+                                    mPackageName,
+                                    mBlankScreenSameColorThreshold,
+                                    testUtils.getTestInformation());
+            double blankScreenPercent = blankScreen.getBlankScreenPercent();
+            if (blankScreenPercent > mBlankScreenSameColorThreshold) {
+                BlankScreenDetectorWithSameColorRectangle.saveBlankScreenArtifact(
+                        mPackageName,
+                        blankScreen,
+                        testUtils.getTestArtifactReceiver(),
+                        testUtils.getTestInformation());
+                Assert.fail(
+                        "Blank screen detected with same-color rectangle area percentage of : "
+                                + blankScreenPercent);
+            }
         }
 
         mIsLastTestPass = true;
