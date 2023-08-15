@@ -17,10 +17,7 @@
 package com.android.csuite.core;
 
 import com.android.csuite.core.TestUtils.TestArtifactReceiver;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -148,44 +145,19 @@ public class BlankScreenDetectorWithSameColorRectangle {
     }
 
     /**
-     * Computes the screenshot's blank screen area using the biggest same-color rectangle detection
-     * method and, if the area is bigger than the given threshold, adds the blank screen image to
-     * artifacts.
-     *
-     * @param prefix The file name prefix.
-     * @param threshold a number between 0 and 1 that represents the percentage of the screen that
-     *     is allowed to be occupied by a same-color rectangle.
-     * @return a BlankScreen object which contains the dimensions of the same-color rectangle within
-     *     the larger image.
-     * @throws DeviceNotAvailableException when device is lost
-     */
-    public static BlankScreen detectBlankScreenWithSameColorRectangle(
-            String prefix, double threshold, TestInformation testInformation)
-            throws DeviceNotAvailableException, IOException {
-        try {
-            InputStreamSource screenSource = testInformation.getDevice().getScreenshot();
-            BufferedImage screen = ImageIO.read(screenSource.createInputStream());
-            BlankScreen blankScreen =
-                    BlankScreenDetectorWithSameColorRectangle.getBlankScreen(screen);
-            return blankScreen;
-        } catch (Exception e) {
-            CLog.e("Failed to read the screenshot image.");
-            throw e;
-        }
-    }
-
-    /**
      * Saves the image containing the screenshot and drawing of the blank screen rectangle to the
      * test artifacts.
      *
      * @param prefix the file name prefix.
      * @param blankScreen the representation of the blank screen to write to artifacts.
+     * @param testArtifactReceiver the interface which allows to save test artifacts.
+     * @param deviceSerial the serial number of the device which will be used to name the artifacts.
      */
     public static void saveBlankScreenArtifact(
             String prefix,
             BlankScreen blankScreen,
             TestArtifactReceiver testArtifactReceiver,
-            TestInformation testInformation) {
+            String deviceSerial) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
             ImageIO.write(blankScreen.getScreenImage(), "png", baos);
@@ -195,7 +167,7 @@ public class BlankScreenDetectorWithSameColorRectangle {
                             + " artifact.");
         }
         testArtifactReceiver.addTestArtifact(
-                prefix + "_screenshot_blankscreen_" + testInformation.getDevice().getSerialNumber(),
+                prefix + "_screenshot_blankscreen_" + deviceSerial,
                 LogDataType.PNG,
                 baos.toByteArray());
     }
