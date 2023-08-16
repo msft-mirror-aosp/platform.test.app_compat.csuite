@@ -18,6 +18,8 @@ package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
+import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle;
+import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle.BlankScreen;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
@@ -27,12 +29,14 @@ import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -41,12 +45,15 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import javax.imageio.ImageIO;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -107,6 +114,13 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             description = "Time to wait for app to launch in msecs.")
     private int mAppLaunchTimeoutMs = 15000;
 
+    @Option(
+            name = "blank-screen-same-color-area-threshold",
+            description =
+                    "Percentage of the screen which, if occupied by a same-color rectangle "
+                            + "area, indicates that the app has reached a blank screen.")
+    private double mBlankScreenSameColorThreshold = -1;
+
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
@@ -131,7 +145,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testAppCrash() throws DeviceNotAvailableException {
+    public void testAppCrash() throws DeviceNotAvailableException, IOException {
         CLog.d("Launching package: %s.", mPackageName);
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
@@ -194,6 +208,28 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             }
         } catch (IOException e) {
             Assert.fail("Error while getting dropbox crash log: " + e);
+        }
+
+        if (mBlankScreenSameColorThreshold > 0) {
+            BufferedImage screen;
+            try (InputStreamSource screenShot =
+                    testUtils.getTestInformation().getDevice().getScreenshot()) {
+                Preconditions.checkNotNull(screenShot);
+                screen = ImageIO.read(screenShot.createInputStream());
+            }
+            BlankScreen blankScreen =
+                    BlankScreenDetectorWithSameColorRectangle.getBlankScreen(screen);
+            double blankScreenPercent = blankScreen.getBlankScreenPercent();
+            if (blankScreenPercent > mBlankScreenSameColorThreshold) {
+                BlankScreenDetectorWithSameColorRectangle.saveBlankScreenArtifact(
+                        mPackageName,
+                        blankScreen,
+                        testUtils.getTestArtifactReceiver(),
+                        testUtils.getTestInformation().getDevice().getSerialNumber());
+                Assert.fail(
+                        "Blank screen detected with same-color rectangle area percentage of : "
+                                + blankScreenPercent);
+            }
         }
 
         mIsLastTestPass = true;

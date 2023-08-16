@@ -18,6 +18,10 @@ package com.android.csuite.core;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle.BlankScreen;
+import com.android.tradefed.log.LogUtil.CLog;
+
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,7 +30,10 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.nio.file.Path;
+
+import javax.imageio.ImageIO;
 
 @RunWith(JUnit4.class)
 public class BlankScreenDetectorWithSameColorRectangleTest {
@@ -160,43 +167,43 @@ public class BlankScreenDetectorWithSameColorRectangleTest {
     }
 
     @Test
-    public void getBlankScreenPercentage_withFullScreenAndBlank_returnsHighRatio() {
+    public void getBlankScreen_withFullScreenAndBlank_returnsHighRatio() {
         Path imagePath = Path.of("BlankScreenWithFullScreen.png");
 
-        double hasBlankScreen =
-                BlankScreenDetectorWithSameColorRectangle.getBlankScreenPercentage(imagePath);
+        BlankScreen blankScreen =
+                BlankScreenDetectorWithSameColorRectangle.getBlankScreen(readImage(imagePath));
 
-        assertThat(hasBlankScreen).isGreaterThan(0.7);
+        assertThat(blankScreen.getBlankScreenPercent()).isGreaterThan(0.7);
     }
 
     @Test
-    public void getBlankScreenPercentage_withNavBarsAndBlank_returnsHighRatio() {
+    public void getBlankScreen_withNavBarsAndBlank_returnsHighRatio() {
         Path imagePath = Path.of("BlankScreenWithNavBars.png");
 
-        double hasBlankScreen =
-                BlankScreenDetectorWithSameColorRectangle.getBlankScreenPercentage(imagePath);
+        BlankScreen blankScreen =
+                BlankScreenDetectorWithSameColorRectangle.getBlankScreen(readImage(imagePath));
 
-        assertThat(hasBlankScreen).isGreaterThan(0.7);
+        assertThat(blankScreen.getBlankScreenPercent()).isGreaterThan(0.7);
     }
 
     @Test
-    public void getBlankScreenPercentage_withWhiteScreenAndBlank_returnsHighRatio() {
+    public void getBlankScreen_withWhiteScreenAndBlank_returnsHighRatio() {
         Path imagePath = Path.of("BlankScreenWithWhiteScreen.png");
 
-        double hasBlankScreen =
-                BlankScreenDetectorWithSameColorRectangle.getBlankScreenPercentage(imagePath);
+        BlankScreen blankScreen =
+                BlankScreenDetectorWithSameColorRectangle.getBlankScreen(readImage(imagePath));
 
-        assertThat(hasBlankScreen).isGreaterThan(0.7);
+        assertThat(blankScreen.getBlankScreenPercent()).isGreaterThan(0.7);
     }
 
     @Test
-    public void getBlankScreenPercentage_hasNormalScreen_returnsLowRatio() {
+    public void getBlankScreen_hasNormalScreen_returnsLowRatio() {
         Path imagePath = Path.of("NotBlankScreen.png");
 
-        double hasBlankScreen =
-                BlankScreenDetectorWithSameColorRectangle.getBlankScreenPercentage(imagePath);
+        BlankScreen blankScreen =
+                BlankScreenDetectorWithSameColorRectangle.getBlankScreen(readImage(imagePath));
 
-        assertThat(hasBlankScreen).isLessThan(0.7);
+        assertThat(blankScreen.getBlankScreenPercent()).isLessThan(0.7);
     }
 
     private void drawRectangles(BufferedImage image, Rectangle... rectangles) {
@@ -206,5 +213,16 @@ public class BlankScreenDetectorWithSameColorRectangleTest {
             graphic.fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
         }
         graphic.dispose();
+    }
+
+    private BufferedImage readImage(Path path) {
+        BufferedImage image = null;
+        try {
+            image = ImageIO.read(path.toFile());
+        } catch (IOException e) {
+            CLog.e("Failed to read the image at path: " + path.toString());
+            Assert.fail();
+        }
+        return image;
     }
 }
