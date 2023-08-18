@@ -227,8 +227,10 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
                         testUtils.getTestArtifactReceiver(),
                         testUtils.getTestInformation().getDevice().getSerialNumber());
                 Assert.fail(
-                        "Blank screen detected with same-color rectangle area percentage of : "
-                                + blankScreenPercent);
+                        String.format(
+                                "Blank screen detected with same-color rectangle area percentage of"
+                                        + " %.2f%%",
+                                blankScreenPercent * 100));
             }
         }
 
