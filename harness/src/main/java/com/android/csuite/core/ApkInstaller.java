@@ -158,17 +158,19 @@ public final class ApkInstaller {
         CLog.d("Uninstalling all installed packages.");
 
         StringBuilder errorMessage = new StringBuilder();
-        mInstalledPackages.forEach(
-                installedPackage -> {
-                    String[] cmd = createUninstallCommand(installedPackage, mDeviceSerial);
-                    CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, cmd);
-                    if (res.getStatus() != CommandStatus.SUCCESS) {
-                        errorMessage.append(
-                                String.format(
-                                        "Failed to uninstall package %s. Reason: %s.\n",
-                                        installedPackage, res.toString()));
-                    }
-                });
+        mInstalledPackages.stream()
+                .distinct()
+                .forEach(
+                        installedPackage -> {
+                            String[] cmd = createUninstallCommand(installedPackage, mDeviceSerial);
+                            CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, cmd);
+                            if (res.getStatus() != CommandStatus.SUCCESS) {
+                                errorMessage.append(
+                                        String.format(
+                                                "Failed to uninstall package %s. Reason: %s.\n",
+                                                installedPackage, res.toString()));
+                            }
+                        });
 
         if (errorMessage.length() > 0) {
             throw new ApkInstallerException(errorMessage.toString());

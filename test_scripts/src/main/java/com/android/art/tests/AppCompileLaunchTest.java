@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.csuite.tests;
+package com.android.art.tests;
 
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
@@ -33,6 +33,8 @@ import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -57,7 +59,7 @@ import javax.imageio.ImageIO;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class AppLaunchTest extends BaseHostJUnit4Test {
+public class AppCompileLaunchTest extends BaseHostJUnit4Test {
     @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
     @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";
     @VisibleForTesting static final String COLLECT_GMS_VERSION = "collect-gms-version";
@@ -145,7 +147,58 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testAppCrash() throws DeviceNotAvailableException, IOException {
+    public void testCompileLaunch() throws Throwable {
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
+        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+
+        Throwable testFailureThrowable = null;
+
+        CommandResult cmdResult =
+                getDevice().executeShellV2Command("cmd package compile -m speed " + mPackageName);
+        Assert.assertEquals(
+                "Failed to execute compile command: " + cmdResult,
+                cmdResult.getStatus(),
+                CommandStatus.SUCCESS);
+
+        try {
+            doTestAppCrash(false);
+            mIsLastTestPass = true;
+        } catch (DeviceNotAvailableException e) {
+            throw e;
+        } catch (Throwable e) {
+            testFailureThrowable = e;
+        }
+
+        if (mScreenshotAfterLaunch) {
+            testUtils.collectScreenshot(mPackageName);
+        }
+
+        if (mIsLastTestPass) {
+            return;
+        }
+
+        CLog.i("Test on %s failed. Starting verification without speed compile.", mPackageName);
+
+        // No need to call uninstall command as the install command does uninstall first anyway
+        mApkInstaller.install(
+                mApkPaths.stream().map(File::toPath).collect(Collectors.toList()), mInstallArgs);
+
+        try {
+            doTestAppCrash(true);
+        } catch (Throwable e) {
+            CLog.i(
+                    "Ignoring test result for %s as the test failed both with and without art"
+                            + " compile.",
+                    mPackageName);
+            mIsLastTestPass = true;
+            return;
+        }
+
+        throw testFailureThrowable;
+    }
+
+    private void doTestAppCrash(boolean isVerificationRun)
+            throws DeviceNotAvailableException, IOException {
         CLog.d("Launching package: %s.", mPackageName);
 
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
@@ -181,7 +234,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
                     RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
                 };
 
-        if (mRecordScreen) {
+        if (mRecordScreen && !isVerificationRun) {
             testUtils.collectScreenRecord(
                     launchJob,
                     mPackageName,
@@ -221,11 +274,13 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
                     BlankScreenDetectorWithSameColorRectangle.getBlankScreen(screen);
             double blankScreenPercent = blankScreen.getBlankScreenPercent();
             if (blankScreenPercent > mBlankScreenSameColorThreshold) {
-                BlankScreenDetectorWithSameColorRectangle.saveBlankScreenArtifact(
-                        mPackageName,
-                        blankScreen,
-                        testUtils.getTestArtifactReceiver(),
-                        testUtils.getTestInformation().getDevice().getSerialNumber());
+                if (!isVerificationRun) {
+                    BlankScreenDetectorWithSameColorRectangle.saveBlankScreenArtifact(
+                            mPackageName,
+                            blankScreen,
+                            testUtils.getTestArtifactReceiver(),
+                            testUtils.getTestInformation().getDevice().getSerialNumber());
+                }
                 Assert.fail(
                         String.format(
                                 "Blank screen detected with same-color rectangle area percentage of"
@@ -233,8 +288,6 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
                                 blankScreenPercent * 100));
             }
         }
-
-        mIsLastTestPass = true;
     }
 
     @After
@@ -245,10 +298,6 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         if (!mIsApkSaved) {
             mIsApkSaved =
                     testUtils.saveApks(mSaveApkWhen, mIsLastTestPass, mPackageName, mApkPaths);
-        }
-
-        if (mScreenshotAfterLaunch) {
-            testUtils.collectScreenshot(mPackageName);
         }
 
         deviceUtils.stopPackage(mPackageName);
