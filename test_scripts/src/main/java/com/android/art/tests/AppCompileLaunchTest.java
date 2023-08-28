@@ -42,7 +42,6 @@ import com.google.common.base.Preconditions;
 
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,8 +122,8 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
                             + "area, indicates that the app has reached a blank screen.")
     private double mBlankScreenSameColorThreshold = -1;
 
-    @Before
-    public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
+    @Test
+    public void testCompileLaunch() throws Throwable {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
         mIsLastTestPass = false;
 
@@ -132,8 +131,10 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
+        try {
         mApkInstaller.install(
                 mApkPaths.stream().map(File::toPath).collect(Collectors.toList()), mInstallArgs);
+
 
         if (mCollectGmsVersion) {
             testUtils.collectGmsVersion(mPackageName);
@@ -144,12 +145,11 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
         }
 
         deviceUtils.freezeRotation();
-    }
-
-    @Test
-    public void testCompileLaunch() throws Throwable {
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+        } catch (ApkInstallerException | IOException | DeviceNotAvailableException e) {
+            CLog.e("Skipping the test on %s as the setup failed: %s", mPackageName, e.getMessage());
+            // Do not throw to fail the test here as it's not compile related
+            return;
+        }
 
         Throwable testFailureThrowable = null;
 
@@ -191,6 +191,7 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
                             + " compile.",
                     mPackageName);
             mIsLastTestPass = true;
+            // Do not throw to fail the test here as it's not compile related
             return;
         }
 
@@ -291,7 +292,7 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
     }
 
     @After
-    public void tearDown() throws DeviceNotAvailableException, ApkInstallerException {
+    public void tearDown() {
         DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
@@ -300,9 +301,13 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
                     testUtils.saveApks(mSaveApkWhen, mIsLastTestPass, mPackageName, mApkPaths);
         }
 
-        deviceUtils.stopPackage(mPackageName);
-        deviceUtils.unfreezeRotation();
-
-        mApkInstaller.uninstallAllInstalledPackages();
+        try {
+            deviceUtils.stopPackage(mPackageName);
+            deviceUtils.unfreezeRotation();
+            mApkInstaller.uninstallAllInstalledPackages();
+        } catch (ApkInstallerException | DeviceNotAvailableException e) {
+            CLog.e("Failed to tearDown the test for %", mPackageName);
+            // Do not throw to fail the test here as it's not compile related
+        }
     }
 }
