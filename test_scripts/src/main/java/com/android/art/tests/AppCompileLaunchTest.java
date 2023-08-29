@@ -42,6 +42,7 @@ import com.google.common.base.Preconditions;
 
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -148,7 +149,7 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
         } catch (ApkInstallerException | IOException | DeviceNotAvailableException e) {
             CLog.e("Skipping the test on %s as the setup failed: %s", mPackageName, e.getMessage());
             // Do not throw to fail the test here as it's not compile related
-            return;
+            Assume.assumeNoException(e);
         }
 
         Throwable testFailureThrowable = null;
@@ -192,7 +193,7 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
                     mPackageName);
             mIsLastTestPass = true;
             // Do not throw to fail the test here as it's not compile related
-            return;
+            Assume.assumeNoException(e);
         }
 
         throw testFailureThrowable;
@@ -308,6 +309,7 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
         } catch (ApkInstallerException | DeviceNotAvailableException e) {
             CLog.e("Failed to tearDown the test for %", mPackageName);
             // Do not throw to fail the test here as it's not compile related
+            Assume.assumeNoException(e);
         }
     }
 }
