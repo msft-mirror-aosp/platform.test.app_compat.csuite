@@ -210,12 +210,15 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         if (!mIsApkSaved) {
             mIsApkSaved =
                     testUtils.saveApks(
-                                    mSaveApkWhen, mIsLastTestPass, mPackageName, mInstallApkPaths)
-                            && testUtils.saveApks(
-                                    mSaveApkWhen,
-                                    mIsLastTestPass,
-                                    mPackageName,
-                                    Arrays.asList(mRepackApk));
+                            mSaveApkWhen, mIsLastTestPass, mPackageName, mInstallApkPaths);
+            if (mRepackApk != null) {
+                mIsApkSaved &=
+                        testUtils.saveApks(
+                                mSaveApkWhen,
+                                mIsLastTestPass,
+                                mPackageName,
+                                Arrays.asList(mRepackApk));
+            }
         }
 
         try {
