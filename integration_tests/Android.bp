@@ -35,6 +35,7 @@ java_genrule_host {
         "rm -rf $${CSUITE_TOOLS} && mkdir -p $${CSUITE_TOOLS} && " +
         "rm -rf $${CSUITE_TESTCASES} && mkdir -p $${CSUITE_TESTCASES} && " +
         "cp $(location :csuite-tradefed) $${CSUITE_TOOLS} && " +
+        "cp $(location :test-utils-script) $${CSUITE_TOOLS} && " +
         "cp $${ANDROID_HOST_OUT}/framework/csuite-tradefed.jar $${CSUITE_TOOLS} && " +
         "cp $(location :tradefed) $${CSUITE_TOOLS} && " +
         "cp $(location :compatibility-host-util) $${CSUITE_TOOLS} && " +
@@ -53,6 +54,7 @@ java_genrule_host {
     tools: [
         "soong_zip",
         ":csuite-tradefed",
+        ":test-utils-script",
     ],
 }
 
