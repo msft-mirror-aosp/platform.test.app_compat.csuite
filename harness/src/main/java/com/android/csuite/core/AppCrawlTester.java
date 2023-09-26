@@ -487,23 +487,30 @@ public final class AppCrawlTester {
             Preconditions.checkNotNull(
                     mApkRoot, "Apk file path is required when not running in UIAutomator mode");
 
-            List<Path> apks;
             try {
-                apks =
-                        TestUtils.listApks(mApkRoot).stream()
-                                .filter(
-                                        path ->
-                                                path.getFileName()
-                                                        .toString()
-                                                        .toLowerCase()
-                                                        .endsWith(".apk"))
-                                .collect(Collectors.toList());
+                TestUtils.listApks(mApkRoot)
+                        .forEach(
+                                path -> {
+                                    String nameLowercase =
+                                            path.getFileName().toString().toLowerCase();
+                                    if (nameLowercase.endsWith(".apk")) {
+                                        cmd.add("--apks-to-crawl");
+                                        cmd.add(path.toString());
+                                    } else if (nameLowercase.endsWith(".obb")) {
+                                        cmd.add("--files-to-push");
+                                        cmd.add(
+                                                String.format(
+                                                        "%s=/sdcard/Android/obb/%s/%s",
+                                                        path.toString(),
+                                                        mPackageName,
+                                                        path.getFileName().toString()));
+                                    } else {
+                                        CLog.d("Skipping unrecognized file %s", path.toString());
+                                    }
+                                });
             } catch (TestUtilsException e) {
                 throw new CrawlerException(e);
             }
-
-            cmd.add("--apks-to-crawl");
-            cmd.add(apks.stream().map(Path::toString).collect(Collectors.joining(",")));
         }
 
         if (mRoboscriptFile != null) {
