@@ -505,7 +505,7 @@ public final class AppCrawlTesterTest {
     }
 
     @Test
-    public void createUtpCrawlerRunCommand_splitApksProvided_useApkFileAndSplitApkFilesParams()
+    public void createUtpCrawlerRunCommand_splitApksProvided_includedInTheCommand()
             throws Exception {
         Path apkRoot = mFileSystem.getPath("apk");
         Files.createDirectories(apkRoot);
@@ -519,8 +519,33 @@ public final class AppCrawlTesterTest {
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
         assertThat(Arrays.asList(result).stream().filter(s -> s.equals("--apks-to-crawl")).count())
-                .isEqualTo(1);
+                .isEqualTo(3);
         assertThat(Arrays.asList(result).stream().filter(s -> s.contains("config1.apk")).count())
+                .isEqualTo(1);
+    }
+
+    @Test
+    public void createUtpCrawlerRunCommand_obbProvided_includedInTheCommand() throws Exception {
+        Path apkRoot = mFileSystem.getPath("apk");
+        Files.createDirectories(apkRoot);
+        Files.createFile(apkRoot.resolve("base.apk"));
+        Files.createFile(apkRoot.resolve("config1.apk"));
+        Files.createFile(apkRoot.resolve("main.package.obb"));
+        Files.createFile(apkRoot.resolve("patch.package.obb"));
+        AppCrawlTester sut = createPreparedTestSubject();
+        sut.setApkPath(apkRoot);
+        sut.start();
+
+        String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
+
+        assertThat(Arrays.asList(result).stream().filter(s -> s.equals("--apks-to-crawl")).count())
+                .isEqualTo(2);
+        assertThat(Arrays.asList(result).stream().filter(s -> s.equals("--files-to-push")).count())
+                .isEqualTo(2);
+        assertThat(
+                        Arrays.asList(result).stream()
+                                .filter(s -> s.contains("main.package.obb"))
+                                .count())
                 .isEqualTo(1);
     }
 
