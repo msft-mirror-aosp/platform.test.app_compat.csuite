@@ -19,6 +19,7 @@ package com.android.csuite.tests;
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
+import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -157,7 +158,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     private boolean mGrantExternalStoragePermission = false;
 
     @Before
-    public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
+    public void setUp()
+            throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         mIsLastTestPass = false;
         mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         if (!mUiAutomatorMode) {
@@ -178,7 +181,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
                 mInstallApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
                 mInstallArgs);
         if (mGrantExternalStoragePermission) {
-            mApkInstaller.grantExternalStoragePermissions(mPackageName);
+            deviceUtils.grantExternalStoragePermissions(mPackageName);
         }
     }
 
