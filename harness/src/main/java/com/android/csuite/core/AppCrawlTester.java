@@ -20,6 +20,7 @@ import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.csuite.core.TestUtils.RoboscriptSignal;
 import com.android.csuite.core.TestUtils.TestUtilsException;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -54,7 +55,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.annotation.Nullable;
 
 /** A tester that interact with an app crawler during testing. */
 public final class AppCrawlTester {
@@ -62,18 +62,10 @@ public final class AppCrawlTester {
     private final RunUtilProvider mRunUtilProvider;
     private final TestUtils mTestUtils;
     private final String mPackageName;
-    private boolean mRecordScreen = false;
-    private boolean mCollectGmsVersion = false;
-    private boolean mCollectAppVersion = false;
-    private boolean mUiAutomatorMode = false;
-    private int mTimeoutSec;
-    private String mCrawlControllerEndpoint;
     private Path mApkRoot;
-    private Path mRoboscriptFile;
-    private Path mCrawlGuidanceProtoFile;
-    private Path mLoginConfigDir;
     private FileSystem mFileSystem;
     private DeviceTimestamp mScreenRecordStartTime;
+    private IConfiguration mConfiguration;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -84,12 +76,16 @@ public final class AppCrawlTester {
      * @return an {@link AppCrawlTester} instance.
      */
     public static AppCrawlTester newInstance(
-            String packageName, TestInformation testInformation, TestLogData testLogData) {
+            String packageName,
+            TestInformation testInformation,
+            TestLogData testLogData,
+            IConfiguration configuration) {
         return new AppCrawlTester(
                 packageName,
                 TestUtils.getInstance(testInformation, testLogData),
                 () -> new RunUtil(),
-                FileSystems.getDefault());
+                FileSystems.getDefault(),
+                configuration);
     }
 
     @VisibleForTesting
@@ -97,11 +93,30 @@ public final class AppCrawlTester {
             String packageName,
             TestUtils testUtils,
             RunUtilProvider runUtilProvider,
-            FileSystem fileSystem) {
+            FileSystem fileSystem,
+            IConfiguration configuration) {
         mRunUtilProvider = runUtilProvider;
         mPackageName = packageName;
         mTestUtils = testUtils;
         mFileSystem = fileSystem;
+        mConfiguration = configuration;
+    }
+
+    /** Returns the options object for the app crawl tester */
+    public AppCrawlTesterOptions getOptions() {
+        List<?> configurations =
+                mConfiguration.getConfigurationObjectList(AppCrawlTesterOptions.OBJECT_TYPE);
+        Preconditions.checkNotNull(
+                configurations,
+                "Expecting a "
+                        + ModuleInfoProvider.MODULE_INFO_PROVIDER_OBJECT_TYPE
+                        + " in the module configuration.");
+        Preconditions.checkArgument(
+                configurations.size() == 1,
+                "Expecting exactly 1 instance of "
+                        + ModuleInfoProvider.MODULE_INFO_PROVIDER_OBJECT_TYPE
+                        + " in the module configuration.");
+        return (AppCrawlTesterOptions) configurations.get(0);
     }
 
     /** An exception class representing crawler test failures. */
@@ -246,16 +261,16 @@ public final class AppCrawlTester {
                     "Crawler executable binaries not found in " + bin.toString());
         }
 
-        if (mCollectGmsVersion) {
+        if (getOptions().isCollectGmsVersion()) {
             mTestUtils.collectGmsVersion(mPackageName);
         }
 
         // Minimum timeout 3 minutes plus crawl test timeout.
-        long commandTimeout = 3 * 60 * 1000 + mTimeoutSec * 1000;
+        long commandTimeout = 3L * 60 * 1000 + getOptions().getTimeoutSec() * 1000;
 
         // TODO(yuexima): When the obb_file option is supported in espresso mode, the timeout need
         // to be extended.
-        if (mRecordScreen) {
+        if (getOptions().isRecordScreen()) {
             mTestUtils.collectScreenRecord(
                     () -> {
                         commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
@@ -267,7 +282,7 @@ public final class AppCrawlTester {
         }
 
         // Must be done after the crawler run because the app is installed by the crawler.
-        if (mCollectAppVersion) {
+        if (getOptions().isCollectAppVersion()) {
             mTestUtils.collectAppVersion(mPackageName);
         }
 
@@ -476,12 +491,12 @@ public final class AppCrawlTester {
                         "--tmp-dir",
                         mOutput.toString()));
 
-        if (mTimeoutSec > 0) {
+        if (getOptions().getTimeoutSec() > 0) {
             cmd.add("--crawler-flag");
-            cmd.add("crawlDurationSec=" + Integer.toString(mTimeoutSec));
+            cmd.add("crawlDurationSec=" + Integer.toString(getOptions().getTimeoutSec()));
         }
 
-        if (mUiAutomatorMode) {
+        if (getOptions().isUiAutomatorMode()) {
             cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-installed-on-device"));
         } else {
             Preconditions.checkNotNull(
@@ -513,24 +528,29 @@ public final class AppCrawlTester {
             }
         }
 
-        if (mRoboscriptFile != null) {
+        if (getOptions().getRoboscriptFile() != null) {
             Assert.assertTrue(
                     "Please provide a valid roboscript file.",
-                    Files.isRegularFile(mRoboscriptFile));
+                    Files.isRegularFile(
+                            mFileSystem.getPath(getOptions().getRoboscriptFile().toString())));
             cmd.add("--crawler-asset");
-            cmd.add("robo.script=" + mRoboscriptFile.toString());
+            cmd.add("robo.script=" + getOptions().getRoboscriptFile().toString());
         }
 
-        if (mCrawlGuidanceProtoFile != null) {
+        if (getOptions().getCrawlGuidanceProtoFile() != null) {
             Assert.assertTrue(
                     "Please provide a valid CrawlGuidance file.",
-                    Files.isRegularFile(mCrawlGuidanceProtoFile));
+                    Files.isRegularFile(
+                            mFileSystem.getPath(
+                                    getOptions().getCrawlGuidanceProtoFile().toString())));
             cmd.add("--crawl-guidance-proto-path");
-            cmd.add(mCrawlGuidanceProtoFile.toString());
+            cmd.add(getOptions().getCrawlGuidanceProtoFile().toString());
         }
 
-        if (mLoginConfigDir != null) {
-            RoboLoginConfigProvider configProvider = new RoboLoginConfigProvider(mLoginConfigDir);
+        if (getOptions().getLoginConfigDir() != null) {
+            RoboLoginConfigProvider configProvider =
+                    new RoboLoginConfigProvider(
+                            mFileSystem.getPath(getOptions().getLoginConfigDir().toString()));
             cmd.addAll(configProvider.findConfigFor(mPackageName, true).getLoginArgs());
         }
 
@@ -563,11 +583,12 @@ public final class AppCrawlTester {
                         // Using the publicly known default password of the debug keystore.
                         "android"));
 
-        if (mCrawlControllerEndpoint != null && mCrawlControllerEndpoint.length() > 0) {
-            cmd.addAll(Arrays.asList("--endpoint", mCrawlControllerEndpoint));
+        if (getOptions().getCrawlControllerEndpoint() != null
+                && getOptions().getCrawlControllerEndpoint().length() > 0) {
+            cmd.addAll(Arrays.asList("--endpoint", getOptions().getCrawlControllerEndpoint()));
         }
 
-        if (mUiAutomatorMode) {
+        if (getOptions().isUiAutomatorMode()) {
             cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-package-name", mPackageName));
         } else {
             Preconditions.checkNotNull(
@@ -597,27 +618,37 @@ public final class AppCrawlTester {
             }
         }
 
-        if (mTimeoutSec > 0) {
+        if (getOptions().getTimeoutSec() > 0) {
             cmd.add("--timeout-sec");
-            cmd.add(Integer.toString(mTimeoutSec));
+            cmd.add(Integer.toString(getOptions().getTimeoutSec()));
         }
 
-        if (mRoboscriptFile != null) {
+        if (getOptions().getRoboscriptFile() != null) {
             Assert.assertTrue(
                     "Please provide a valid roboscript file.",
-                    Files.isRegularFile(mRoboscriptFile));
-            cmd.addAll(Arrays.asList("--robo-script-file", mRoboscriptFile.toString()));
+                    Files.isRegularFile(
+                            mFileSystem.getPath(getOptions().getRoboscriptFile().toString())));
+            cmd.addAll(
+                    Arrays.asList(
+                            "--robo-script-file", getOptions().getRoboscriptFile().toString()));
         }
 
-        if (mCrawlGuidanceProtoFile != null) {
+        if (getOptions().getCrawlGuidanceProtoFile() != null) {
             Assert.assertTrue(
                     "Please provide a valid CrawlGuidance file.",
-                    Files.isRegularFile(mCrawlGuidanceProtoFile));
-            cmd.addAll(Arrays.asList("--text-guide-file", mCrawlGuidanceProtoFile.toString()));
+                    Files.isRegularFile(
+                            mFileSystem.getPath(
+                                    getOptions().getCrawlGuidanceProtoFile().toString())));
+            cmd.addAll(
+                    Arrays.asList(
+                            "--text-guide-file",
+                            getOptions().getCrawlGuidanceProtoFile().toString()));
         }
 
-        if (mLoginConfigDir != null) {
-            RoboLoginConfigProvider configProvider = new RoboLoginConfigProvider(mLoginConfigDir);
+        if (getOptions().getLoginConfigDir() != null) {
+            RoboLoginConfigProvider configProvider =
+                    new RoboLoginConfigProvider(
+                            mFileSystem.getPath(getOptions().getLoginConfigDir().toString()));
             cmd.addAll(configProvider.findConfigFor(mPackageName, false).getLoginArgs());
         }
 
@@ -637,36 +668,6 @@ public final class AppCrawlTester {
         }
     }
 
-    /** Sets the option of whether to record the device screen during crawling. */
-    public void setRecordScreen(boolean recordScreen) {
-        mRecordScreen = recordScreen;
-    }
-
-    /** Sets the option of whether to collect GMS version in test artifacts. */
-    public void setCollectGmsVersion(boolean collectGmsVersion) {
-        mCollectGmsVersion = collectGmsVersion;
-    }
-
-    /** Sets the option of whether to collect the app version in test artifacts. */
-    public void setCollectAppVersion(boolean collectAppVersion) {
-        mCollectAppVersion = collectAppVersion;
-    }
-
-    /** Sets the option of whether to run the crawler with UIAutomator mode. */
-    public void setUiAutomatorMode(boolean uiAutomatorMode) {
-        mUiAutomatorMode = uiAutomatorMode;
-    }
-
-    /** Sets the value of the "timeout-sec" param for the crawler launcher. */
-    public void setTimeoutSec(int timeoutSec) {
-        mTimeoutSec = timeoutSec;
-    }
-
-    /** Sets the robo crawler controller endpoint (optional). */
-    public void setCrawlControllerEndpoint(String crawlControllerEndpoint) {
-        mCrawlControllerEndpoint = crawlControllerEndpoint;
-    }
-
     /**
      * Sets the apk file path. Required when not running in UIAutomator mode.
      *
@@ -674,27 +675,6 @@ public final class AppCrawlTester {
      */
     public void setApkPath(Path apkRoot) {
         mApkRoot = apkRoot;
-    }
-
-    /**
-     * Sets the option of the Roboscript file to be used by the crawler. Null can be passed to
-     * remove the reference to the file.
-     */
-    public void setRoboscriptFile(@Nullable Path roboscriptFile) {
-        mRoboscriptFile = roboscriptFile;
-    }
-
-    /**
-     * Sets the option of the CrawlGuidance file to be used by the crawler. Null can be passed to
-     * remove the reference to the file.
-     */
-    public void setCrawlGuidanceProtoFile(@Nullable Path crawlGuidanceProtoFile) {
-        mCrawlGuidanceProtoFile = crawlGuidanceProtoFile;
-    }
-
-    /** Sets the option of the directory that contains configuration for login. */
-    public void setLoginConfigDir(@Nullable Path loginFilesDir) {
-        mLoginConfigDir = loginFilesDir;
     }
 
     @VisibleForTesting

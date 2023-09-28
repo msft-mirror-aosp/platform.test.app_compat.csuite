@@ -27,7 +27,9 @@ import static org.mockito.Mockito.when;
 
 import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -48,6 +50,7 @@ import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -80,7 +83,7 @@ public final class AppCrawlTesterTest {
     @Test
     public void start_apkNotProvided_throwsException() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
-        sut.setUiAutomatorMode(false);
+        sut.getOptions().setUiAutomatorMode(false);
 
         assertThrows(NullPointerException.class, () -> sut.start());
     }
@@ -88,11 +91,11 @@ public final class AppCrawlTesterTest {
     @Test
     public void start_roboscriptDirectoryProvided_throws() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
-        sut.setUiAutomatorMode(true);
+        sut.getOptions().setUiAutomatorMode(true);
         Path roboDir = mFileSystem.getPath("robo");
         Files.createDirectories(roboDir);
 
-        sut.setRoboscriptFile(roboDir);
+        sut.getOptions().setRoboscriptFile(new File(roboDir.toString()));
 
         assertThrows(AssertionError.class, () -> sut.start());
     }
@@ -100,11 +103,11 @@ public final class AppCrawlTesterTest {
     @Test
     public void start_crawlGuidanceDirectoryProvided_throws() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
-        sut.setUiAutomatorMode(true);
+        sut.getOptions().setUiAutomatorMode(true);
         Path crawlGuidanceDir = mFileSystem.getPath("crawlguide");
         Files.createDirectories(crawlGuidanceDir);
 
-        sut.setCrawlGuidanceProtoFile(crawlGuidanceDir);
+        sut.getOptions().setCrawlGuidanceProtoFile(new File(crawlGuidanceDir.toString()));
 
         assertThrows(AssertionError.class, () -> sut.start());
     }
@@ -159,7 +162,7 @@ public final class AppCrawlTesterTest {
     public void start_screenRecordEnabled_screenIsRecorded() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
         sut.setApkPath(createApkPathWithSplitApks());
-        sut.setRecordScreen(true);
+        sut.getOptions().setRecordScreen(true);
 
         sut.start();
 
@@ -171,7 +174,7 @@ public final class AppCrawlTesterTest {
     public void start_screenRecordDisabled_screenIsNotRecorded() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
         sut.setApkPath(createApkPathWithSplitApks());
-        sut.setRecordScreen(false);
+        sut.getOptions().setRecordScreen(false);
 
         sut.start();
 
@@ -183,7 +186,7 @@ public final class AppCrawlTesterTest {
     public void start_collectGmsVersionEnabled_versionIsCollected() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
         sut.setApkPath(createApkPathWithSplitApks());
-        sut.setCollectGmsVersion(true);
+        sut.getOptions().setCollectGmsVersion(true);
 
         sut.start();
 
@@ -194,7 +197,7 @@ public final class AppCrawlTesterTest {
     public void start_collectGmsVersionDisabled_versionIsNotCollected() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
         sut.setApkPath(createApkPathWithSplitApks());
-        sut.setCollectGmsVersion(false);
+        sut.getOptions().setCollectGmsVersion(false);
 
         sut.start();
 
@@ -205,7 +208,7 @@ public final class AppCrawlTesterTest {
     public void start_collectAppVersionEnabled_versionIsCollected() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
         sut.setApkPath(createApkPathWithSplitApks());
-        sut.setCollectAppVersion(true);
+        sut.getOptions().setCollectAppVersion(true);
 
         sut.start();
 
@@ -216,7 +219,7 @@ public final class AppCrawlTesterTest {
     public void start_collectAppVersionDisabled_versionIsNotCollected() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
         sut.setApkPath(createApkPathWithSplitApks());
-        sut.setCollectAppVersion(false);
+        sut.getOptions().setCollectAppVersion(false);
 
         sut.start();
 
@@ -390,8 +393,8 @@ public final class AppCrawlTesterTest {
         Path roboDir = mFileSystem.getPath("/robo");
         Files.createDirectory(roboDir);
         Path roboFile = Files.createFile(roboDir.resolve("app.roboscript"));
-        sut.setUiAutomatorMode(true);
-        sut.setRoboscriptFile(roboFile);
+        sut.getOptions().setUiAutomatorMode(true);
+        sut.getOptions().setRoboscriptFile(new File(roboFile.toString()));
         sut.start();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -408,8 +411,8 @@ public final class AppCrawlTesterTest {
         Files.createDirectory(crawlGuideDir);
         Path crawlGuideFile = Files.createFile(crawlGuideDir.resolve("app.crawlguide"));
 
-        sut.setUiAutomatorMode(true);
-        sut.setCrawlGuidanceProtoFile(crawlGuideFile);
+        sut.getOptions().setUiAutomatorMode(true);
+        sut.getOptions().setCrawlGuidanceProtoFile(new File(crawlGuideFile.toString()));
         sut.start();
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
@@ -425,8 +428,8 @@ public final class AppCrawlTesterTest {
         Path crawlGuideFile =
                 Files.createFile(loginFilesDir.resolve(PACKAGE_NAME + CRAWL_GUIDANCE_FILE_SUFFIX));
 
-        sut.setUiAutomatorMode(true);
-        sut.setLoginConfigDir(loginFilesDir);
+        sut.getOptions().setUiAutomatorMode(true);
+        sut.getOptions().setLoginConfigDir(new File(loginFilesDir.toString()));
         sut.start();
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
@@ -443,8 +446,8 @@ public final class AppCrawlTesterTest {
         Path roboscriptFile =
                 Files.createFile(loginFilesDir.resolve(PACKAGE_NAME + ROBOSCRIPT_FILE_SUFFIX));
 
-        sut.setUiAutomatorMode(true);
-        sut.setLoginConfigDir(loginFilesDir);
+        sut.getOptions().setUiAutomatorMode(true);
+        sut.getOptions().setLoginConfigDir(new File(loginFilesDir.toString()));
         sut.start();
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
@@ -464,8 +467,8 @@ public final class AppCrawlTesterTest {
         Path crawlGuideFile =
                 Files.createFile(loginFilesDir.resolve(PACKAGE_NAME + CRAWL_GUIDANCE_FILE_SUFFIX));
 
-        sut.setUiAutomatorMode(true);
-        sut.setLoginConfigDir(loginFilesDir);
+        sut.getOptions().setUiAutomatorMode(true);
+        sut.getOptions().setLoginConfigDir(new File(loginFilesDir.toString()));
         sut.start();
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
@@ -480,8 +483,9 @@ public final class AppCrawlTesterTest {
         Path loginFilesDir = mFileSystem.getPath("/login");
         Files.createDirectory(loginFilesDir);
 
-        sut.setUiAutomatorMode(true);
-        sut.setLoginConfigDir(loginFilesDir);
+        sut.getOptions()
+                .setUiAutomatorMode(true)
+                .setLoginConfigDir(new File(loginFilesDir.toString()));
         sut.start();
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
@@ -559,7 +563,7 @@ public final class AppCrawlTesterTest {
         Files.createFile(apkRoot.resolve("config2.apk"));
         AppCrawlTester sut = createPreparedTestSubject();
         sut.setApkPath(apkRoot);
-        sut.setUiAutomatorMode(true);
+        sut.getOptions().setUiAutomatorMode(true);
         sut.start();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -578,7 +582,7 @@ public final class AppCrawlTesterTest {
         Files.createFile(apkRoot.resolve("config2.apk"));
         AppCrawlTester sut = createPreparedTestSubject();
         sut.setApkPath(apkRoot);
-        sut.setUiAutomatorMode(true);
+        sut.getOptions().setUiAutomatorMode(true);
         sut.start();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -688,7 +692,8 @@ public final class AppCrawlTesterTest {
         preparer.setUp(mTestInfo);
     }
 
-    private AppCrawlTester createNotPreparedTestSubject() throws DeviceNotAvailableException {
+    private AppCrawlTester createNotPreparedTestSubject()
+            throws DeviceNotAvailableException, ConfigurationException {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
@@ -696,7 +701,11 @@ public final class AppCrawlTesterTest {
                 .thenReturn(createSuccessfulCommandResultWithStdout("1"));
         when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("33"));
-        return new AppCrawlTester(PACKAGE_NAME, mTestUtils, () -> mRunUtil, mFileSystem);
+        IConfiguration configuration = new Configuration("name", "description");
+        configuration.setConfigurationObject(
+                AppCrawlTesterOptions.OBJECT_TYPE, new AppCrawlTesterOptions());
+        return new AppCrawlTester(
+                PACKAGE_NAME, mTestUtils, () -> mRunUtil, mFileSystem, configuration);
     }
 
     private AppCrawlTester createPreparedTestSubject()
@@ -710,7 +719,11 @@ public final class AppCrawlTesterTest {
                 .thenReturn(createSuccessfulCommandResultWithStdout("1"));
         when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("33"));
-        return new AppCrawlTester(PACKAGE_NAME, mTestUtils, () -> mRunUtil, mFileSystem);
+        IConfiguration configuration = new Configuration("name", "description");
+        configuration.setConfigurationObject(
+                AppCrawlTesterOptions.OBJECT_TYPE, new AppCrawlTesterOptions());
+        return new AppCrawlTester(
+                PACKAGE_NAME, mTestUtils, () -> mRunUtil, mFileSystem, configuration);
     }
 
     private TestUtils createTestUtils() throws DeviceNotAvailableException {

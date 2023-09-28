@@ -19,12 +19,14 @@ package com.android.webview.tests;
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
+import com.android.csuite.core.DeviceJUnit4ClassRunner;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
+import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
@@ -43,23 +45,27 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
+public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigurationReceiver {
     @Rule public TestLogData mLogData = new TestLogData();
 
-    private static final String COLLECT_APP_VERSION = "collect-app-version";
-    private static final String COLLECT_GMS_VERSION = "collect-gms-version";
+    @Deprecated private static final String COLLECT_APP_VERSION = "collect-app-version";
+    @Deprecated private static final String COLLECT_GMS_VERSION = "collect-gms-version";
+    @Deprecated private static final int DEFAULT_TIMEOUT_SEC = 60;
     private static final long COMMAND_TIMEOUT_MILLIS = 5 * 60 * 1000;
 
     private WebviewUtils mWebviewUtils;
     private WebviewPackage mPreInstalledWebview;
     private ApkInstaller mApkInstaller;
     private AppCrawlTester mCrawler;
+    private IConfiguration mConfiguration;
 
+    @Deprecated
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
 
@@ -74,6 +80,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
+    @Deprecated
     @Option(
             name = "install-apk",
             description =
@@ -81,6 +88,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
                             + " installed on device. Can be repeated.")
     private List<File> mApkPaths = new ArrayList<>();
 
+    @Deprecated
     @Option(
             name = "install-arg",
             description = "Arguments for the 'adb install-multiple' package installation command.")
@@ -91,6 +99,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
             description = "Time to wait for an app to launch in msecs.")
     private int mAppLaunchTimeoutMs = 20000;
 
+    @Deprecated
     @Option(
             name = COLLECT_APP_VERSION,
             description =
@@ -98,6 +107,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
                             + " test log files.")
     private boolean mCollectAppVersion;
 
+    @Deprecated
     @Option(
             name = COLLECT_GMS_VERSION,
             description =
@@ -105,6 +115,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
                             + " test log files.")
     private boolean mCollectGmsVersion;
 
+    @Deprecated
     @Option(
             name = "repack-apk",
             mandatory = false,
@@ -113,12 +124,14 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
                             + "to repack and install in Espresso mode")
     private File mRepackApk;
 
+    @Deprecated
     @Option(
             name = "crawl-controller-endpoint",
             mandatory = false,
             description = "The crawl controller endpoint to target.")
     private String mCrawlControllerEndpoint;
 
+    @Deprecated
     @Option(
             name = "ui-automator-mode",
             mandatory = false,
@@ -127,6 +140,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
                             + " mode.")
     private boolean mUiAutomatorMode = false;
 
+    @Deprecated
     @Option(
             name = "robo-script-file",
             description = "A Roboscript file to be executed by the crawler.")
@@ -134,22 +148,26 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
 
     // TODO(b/234512223): add support for contextual roboscript files
 
+    @Deprecated
     @Option(
             name = "crawl-guidance-proto-file",
             description = "A CrawlGuidance file to be executed by the crawler.")
     private File mCrawlGuidanceProtoFile;
 
+    @Deprecated
     @Option(
             name = "timeout-sec",
             mandatory = false,
             description = "The timeout for the crawl test.")
-    private int mTimeoutSec = 60;
+    private int mTimeoutSec = DEFAULT_TIMEOUT_SEC;
 
+    @Deprecated
     @Option(
             name = "save-apk-when",
             description = "When to save apk files to the test result artifacts.")
     private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
 
+    @Deprecated
     @Option(
             name = "login-config-dir",
             description =
@@ -167,27 +185,53 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
                         + "must be used",
                 mWebviewVersionToTest != null || mReleaseChannel != null);
 
-        mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
-        if (!mUiAutomatorMode) {
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
+        mCrawler =
+                AppCrawlTester.newInstance(
+                        mPackageName, getTestInformation(), mLogData, mConfiguration);
+        if (!mCrawler.getOptions().isUiAutomatorMode()) {
             setApkForEspressoMode();
         }
-        mCrawler.setCrawlControllerEndpoint(mCrawlControllerEndpoint);
-        mCrawler.setRecordScreen(mRecordScreen);
-        mCrawler.setCollectGmsVersion(mCollectGmsVersion);
-        mCrawler.setCollectAppVersion(mCollectAppVersion);
-        mCrawler.setUiAutomatorMode(mUiAutomatorMode);
-        mCrawler.setRoboscriptFile(toPathOrNull(mRoboscriptFile));
-        mCrawler.setCrawlGuidanceProtoFile(toPathOrNull(mCrawlGuidanceProtoFile));
-        mCrawler.setLoginConfigDir(toPathOrNull(mLoginConfigDir));
-        mCrawler.setTimeoutSec(mTimeoutSec);
+        if (mCrawlControllerEndpoint != null) {
+            mCrawler.getOptions().setCrawlControllerEndpoint(mCrawlControllerEndpoint);
+        }
+        if (mRecordScreen) {
+            mCrawler.getOptions().setRecordScreen(mRecordScreen);
+        }
+        if (mCollectGmsVersion) {
+            mCrawler.getOptions().setCollectGmsVersion(mCollectGmsVersion);
+        }
+        if (mCollectAppVersion) {
+            mCrawler.getOptions().setCollectAppVersion(mCollectAppVersion);
+        }
+        if (mUiAutomatorMode) {
+            mCrawler.getOptions().setUiAutomatorMode(mUiAutomatorMode);
+        }
+        if (mRoboscriptFile != null) {
+            mCrawler.getOptions().setRoboscriptFile(mRoboscriptFile);
+        }
+        if (mCrawlGuidanceProtoFile != null) {
+            mCrawler.getOptions().setCrawlGuidanceProtoFile(mCrawlGuidanceProtoFile);
+        }
+        if (mLoginConfigDir != null) {
+            mCrawler.getOptions().setLoginConfigDir(mLoginConfigDir);
+        }
+        if (mTimeoutSec != DEFAULT_TIMEOUT_SEC) {
+            mCrawler.getOptions().setTimeoutSec(mTimeoutSec);
+        }
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mWebviewUtils = new WebviewUtils(getTestInformation());
         mPreInstalledWebview = mWebviewUtils.getCurrentWebviewPackage();
 
-        for (File apkPath : mApkPaths) {
-            CLog.d("Installing " + apkPath);
-            mApkInstaller.install(apkPath.toPath(), mInstallArgs);
+        mApkInstaller = ApkInstaller.getInstance(getDevice());
+        mApkInstaller.install(
+                mCrawler.getOptions().getInstallApkPaths().stream()
+                        .map(File::toPath)
+                        .collect(Collectors.toList()),
+                mCrawler.getOptions().getInstallArgs());
+        if (mCrawler.getOptions().isGrantExternalStoragePermission()) {
+            deviceUtils.grantExternalStoragePermissions(mPackageName);
         }
 
         DeviceUtils.getInstance(getDevice()).freezeRotation();
@@ -264,5 +308,10 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
         }
 
         mCrawler.cleanUp();
+    }
+
+    @Override
+    public void setConfiguration(IConfiguration configuration) {
+        mConfiguration = configuration;
     }
 }
