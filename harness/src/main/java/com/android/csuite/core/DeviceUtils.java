@@ -124,6 +124,28 @@ public class DeviceUtils {
     }
 
     /**
+     * Grants additional permissions for installed an installed app
+     *
+     * <p>If the package is not installed or the command failed, there will be no error thrown
+     * beyond debug logging.
+     *
+     * @param packageName the package name to grant permission.
+     * @throws DeviceNotAvailableException
+     */
+    public void grantExternalStoragePermissions(String packageName)
+            throws DeviceNotAvailableException {
+        CommandResult cmdResult =
+                mDevice.executeShellV2Command(
+                        String.format("appops set %s MANAGE_EXTERNAL_STORAGE allow", packageName));
+        if (cmdResult.getStatus() != CommandStatus.SUCCESS) {
+            CLog.d(
+                    "Granting MANAGE_EXTERNAL_STORAGE permissions for package %s was unsuccessful."
+                            + " Reason: %s.",
+                    packageName, cmdResult.toString());
+        }
+    }
+
+    /**
      * Get the current device timestamp in milliseconds.
      *
      * @return The device time
