@@ -30,8 +30,6 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
-import com.google.common.base.Preconditions;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -179,9 +177,6 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
         mCrawler =
                 AppCrawlTester.newInstance(
                         mPackageName, getTestInformation(), mLogData, mConfiguration);
-        if (!mCrawler.getOptions().isUiAutomatorMode()) {
-            setApkForEspressoMode();
-        }
         if (mCrawlControllerEndpoint != null) {
             mCrawler.getOptions().setCrawlControllerEndpoint(mCrawlControllerEndpoint);
         }
@@ -218,17 +213,6 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
                 mCrawler.getOptions().getInstallArgs());
 
         mCrawler.runSetup();
-    }
-
-    /**
-     * For Espresso mode, checks that a path with the location of the apk to repackage was provided
-     */
-    private void setApkForEspressoMode() {
-        Preconditions.checkNotNull(
-                mCrawler.getOptions().getRepackApk(),
-                "Apk file path is required when not running in UIAutomator mode");
-        // set the root path of the target apk for Espresso mode
-        mCrawler.setApkPath(mCrawler.getOptions().getRepackApk().toPath());
     }
 
     @Test

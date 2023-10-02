@@ -33,8 +33,6 @@ import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.webview.lib.WebviewPackage;
 import com.android.webview.lib.WebviewUtils;
 
-import com.google.common.base.Preconditions;
-
 import org.json.JSONException;
 import org.junit.After;
 import org.junit.Assert;
@@ -187,9 +185,6 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         mCrawler =
                 AppCrawlTester.newInstance(
                         mPackageName, getTestInformation(), mLogData, mConfiguration);
-        if (!mCrawler.getOptions().isUiAutomatorMode()) {
-            setApkForEspressoMode();
-        }
         if (mCrawlControllerEndpoint != null) {
             mCrawler.getOptions().setCrawlControllerEndpoint(mCrawlControllerEndpoint);
         }
@@ -233,16 +228,6 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         mWebviewUtils.printWebviewVersion();
 
         mCrawler.runSetup();
-    }
-
-    /**
-     * For Espresso mode, checks that a path with the location of the apk to repackage was provided
-     */
-    private void setApkForEspressoMode() {
-        Preconditions.checkNotNull(
-                mRepackApk, "Apk file path is required when not running in UIAutomator mode");
-        // set the root path of the target apk for Espresso mode
-        mCrawler.setApkPath(mRepackApk.toPath());
     }
 
     @Test

@@ -62,7 +62,6 @@ public final class AppCrawlTester {
     private final RunUtilProvider mRunUtilProvider;
     private final TestUtils mTestUtils;
     private final String mPackageName;
-    private Path mApkRoot;
     private FileSystem mFileSystem;
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
@@ -174,6 +173,15 @@ public final class AppCrawlTester {
      * @throws DeviceNotAvailableException when the device is lost.
      */
     public void runSetup() throws DeviceNotAvailableException {
+        // For Espresso mode, checks that a path with the location of the apk to repackage was
+        // provided
+        if (!getOptions().isUiAutomatorMode()) {
+            Preconditions.checkNotNull(
+                    getOptions().getRepackApk(),
+                    "Apk file path is required when not running in UIAutomator mode");
+        }
+
+        // Grant external storage permission
         if (getOptions().isGrantExternalStoragePermission()) {
             mTestUtils.getDeviceUtils().grantExternalStoragePermissions(mPackageName);
         }
@@ -541,10 +549,11 @@ public final class AppCrawlTester {
             cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-installed-on-device"));
         } else {
             Preconditions.checkNotNull(
-                    mApkRoot, "Apk file path is required when not running in UIAutomator mode");
+                    getOptions().getRepackApk(),
+                    "Apk file path is required when not running in UIAutomator mode");
 
             try {
-                TestUtils.listApks(mApkRoot)
+                TestUtils.listApks(mFileSystem.getPath(getOptions().getRepackApk().toString()))
                         .forEach(
                                 path -> {
                                     String nameLowercase =
@@ -633,12 +642,15 @@ public final class AppCrawlTester {
             cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-package-name", mPackageName));
         } else {
             Preconditions.checkNotNull(
-                    mApkRoot, "Apk file path is required when not running in UIAutomator mode");
+                    getOptions().getRepackApk(),
+                    "Apk file path is required when not running in UIAutomator mode");
 
             List<Path> apks;
             try {
                 apks =
-                        TestUtils.listApks(mApkRoot).stream()
+                        TestUtils.listApks(
+                                        mFileSystem.getPath(getOptions().getRepackApk().toString()))
+                                .stream()
                                 .filter(
                                         path ->
                                                 path.getFileName()
@@ -708,15 +720,6 @@ public final class AppCrawlTester {
         } catch (IOException e) {
             CLog.e("Failed to clean up the crawler output directory: " + e);
         }
-    }
-
-    /**
-     * Sets the apk file path. Required when not running in UIAutomator mode.
-     *
-     * @param apkRoot The root path for an apk or a directory that contains apk files for a package.
-     */
-    public void setApkPath(Path apkRoot) {
-        mApkRoot = apkRoot;
     }
 
     @VisibleForTesting
