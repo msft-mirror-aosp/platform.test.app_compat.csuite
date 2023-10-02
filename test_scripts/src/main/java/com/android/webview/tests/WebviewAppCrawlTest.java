@@ -44,12 +44,9 @@ import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import javax.annotation.Nullable;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -59,7 +56,6 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     @Deprecated private static final String COLLECT_APP_VERSION = "collect-app-version";
     @Deprecated private static final String COLLECT_GMS_VERSION = "collect-gms-version";
     @Deprecated private static final int DEFAULT_TIMEOUT_SEC = 60;
-    private static final long COMMAND_TIMEOUT_MILLIS = 5 * 60 * 1000;
 
     private WebviewUtils mWebviewUtils;
     private WebviewPackage mPreInstalledWebview;
@@ -187,7 +183,6 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
                         + "must be used",
                 mWebviewVersionToTest != null || mReleaseChannel != null);
 
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         mCrawler =
                 AppCrawlTester.newInstance(
                         mPackageName, getTestInformation(), mLogData, mConfiguration);
@@ -232,9 +227,6 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
                         .map(File::toPath)
                         .collect(Collectors.toList()),
                 mCrawler.getOptions().getInstallArgs());
-        if (mCrawler.getOptions().isGrantExternalStoragePermission()) {
-            deviceUtils.grantExternalStoragePermissions(mPackageName);
-        }
 
         DeviceUtils.getInstance(getDevice()).freezeRotation();
         mWebviewUtils.printWebviewVersion();
@@ -250,14 +242,8 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         mCrawler.setApkPath(mRepackApk.toPath());
     }
 
-    private static Path toPathOrNull(@Nullable File f) {
-        return f == null ? null : f.toPath();
-    }
-
     @Test
-    public void testAppCrawl()
-            throws DeviceNotAvailableException, InterruptedException, ApkInstallerException,
-                    IOException, JSONException {
+    public void testAppCrawl() throws DeviceNotAvailableException, IOException, JSONException {
         AssertionError lastError = null;
         WebviewPackage lastWebviewInstalled =
                 mWebviewUtils.installWebview(mWebviewVersionToTest, mReleaseChannel);

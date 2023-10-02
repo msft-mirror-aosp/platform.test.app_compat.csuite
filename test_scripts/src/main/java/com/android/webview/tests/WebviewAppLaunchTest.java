@@ -51,7 +51,6 @@ import java.util.List;
 public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     @Rule public TestLogData mLogData = new TestLogData();
 
-    private static final long COMMAND_TIMEOUT_MILLIS = 5 * 60 * 1000;
     private WebviewUtils mWebviewUtils;
     private WebviewPackage mPreInstalledWebview;
     private ApkInstaller mApkInstaller;
@@ -109,9 +108,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testAppLaunch()
-            throws DeviceNotAvailableException, InterruptedException, ApkInstallerException,
-                    IOException, JSONException {
+    public void testAppLaunch() throws DeviceNotAvailableException, IOException, JSONException {
         AssertionError lastError = null;
         WebviewPackage lastWebviewInstalled =
                 mWebviewUtils.installWebview(mWebviewVersionToTest, mReleaseChannel);

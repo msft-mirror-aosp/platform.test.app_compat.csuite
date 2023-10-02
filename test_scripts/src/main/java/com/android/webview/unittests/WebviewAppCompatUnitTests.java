@@ -46,7 +46,6 @@ public class WebviewAppCompatUnitTests {
 
     @Test
     public void testSortWebviewPackages() {
-        String pkgName = "com.android.webview";
         List<WebviewPackage> webviewPackages =
                 Arrays.asList(
                                 new WebviewPackage(WEBVIEW_PACKAGE, "101.0.4911.122", 4911122),
