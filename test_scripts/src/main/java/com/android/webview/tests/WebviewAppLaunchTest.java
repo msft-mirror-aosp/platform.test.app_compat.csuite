@@ -29,6 +29,8 @@ import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.RunUtil;
+import com.android.webview.lib.WebviewPackage;
+import com.android.webview.lib.WebviewUtils;
 
 import org.json.JSONException;
 import org.junit.After;

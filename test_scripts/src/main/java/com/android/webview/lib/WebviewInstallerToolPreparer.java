@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.webview.tests;
+package com.android.webview.lib;
 
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;

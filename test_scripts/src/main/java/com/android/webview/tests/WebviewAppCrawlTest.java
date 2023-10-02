@@ -29,6 +29,8 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.webview.lib.WebviewPackage;
+import com.android.webview.lib.WebviewUtils;
 
 import com.google.common.base.Preconditions;
 
