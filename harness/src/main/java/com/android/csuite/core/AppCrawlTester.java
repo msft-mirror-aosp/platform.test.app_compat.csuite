@@ -156,6 +156,10 @@ public final class AppCrawlTester {
      * @throws DeviceNotAvailableException When device because unavailable.
      */
     public void startAndAssertAppNoCrash() throws DeviceNotAvailableException {
+        if (getOptions().isGrantExternalStoragePermission()) {
+            mTestUtils.getDeviceUtils().grantExternalStoragePermissions(mPackageName);
+        }
+
         DeviceTimestamp startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
         CrawlerException crawlerException = null;
