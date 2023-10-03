@@ -66,11 +66,6 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     @Option(name = "package-name", description = "Package name of testing app.")
     private String mPackageName;
 
-    @Option(
-            name = "app-launch-timeout-ms",
-            description = "Time to wait for an app to launch in msecs.")
-    private int mAppLaunchTimeoutMs = 20000;
-
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
