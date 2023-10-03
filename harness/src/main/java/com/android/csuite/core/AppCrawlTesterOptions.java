@@ -79,8 +79,9 @@ public class AppCrawlTesterOptions {
             mandatory = false,
             description =
                     "Run the crawler with UIAutomator mode. Apk option is not required in this"
-                            + " mode.")
-    private boolean mUiAutomatorMode = false;
+                            + " mode. This option is by default true. Setting it to false enables"
+                            + " espresso mode which is less stable.")
+    private boolean mUiAutomatorMode = true;
 
     @Option(
             name = "timeout-sec",
