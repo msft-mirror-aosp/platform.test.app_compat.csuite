@@ -16,6 +16,7 @@
 
 package com.android.csuite.core;
 
+import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.csuite.core.TestUtils.RoboscriptSignal;
@@ -65,6 +66,7 @@ public final class AppCrawlTester {
     private FileSystem mFileSystem;
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
+    private ApkInstaller mApkInstaller;
     private boolean mIsSetupComplete = false;
     private boolean mIsTestExecuted = false;
 
@@ -158,8 +160,14 @@ public final class AppCrawlTester {
      *
      * @throws DeviceNotAvailableException when the device is lost.
      * @throws CrawlerException when unexpected happened.
+     * @throws IOException
+     * @throws ApkInstallerException
      */
-    public void run() throws DeviceNotAvailableException, CrawlerException {
+    public void run()
+            throws DeviceNotAvailableException,
+                    CrawlerException,
+                    ApkInstallerException,
+                    IOException {
         try {
             runSetup();
             runTest();
@@ -172,8 +180,10 @@ public final class AppCrawlTester {
      * Runs only the setup step of the crawl test.
      *
      * @throws DeviceNotAvailableException when the device is lost.
+     * @throws IOException when IO operations fail.
+     * @throws ApkInstallerException when APK installation fails.
      */
-    public void runSetup() throws DeviceNotAvailableException {
+    public void runSetup() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         // For Espresso mode, checks that a path with the location of the apk to repackage was
         // provided
         if (!getOptions().isUiAutomatorMode()) {
@@ -181,6 +191,13 @@ public final class AppCrawlTester {
                     getOptions().getRepackApk(),
                     "Apk file path is required when not running in UIAutomator mode");
         }
+
+        mApkInstaller = ApkInstaller.getInstance(mTestUtils.getDeviceUtils().getITestDevice());
+        mApkInstaller.install(
+                getOptions().getInstallApkPaths().stream()
+                        .map(File::toPath)
+                        .collect(Collectors.toList()),
+                getOptions().getInstallArgs());
 
         // Grant external storage permission
         if (getOptions().isGrantExternalStoragePermission()) {
@@ -191,6 +208,21 @@ public final class AppCrawlTester {
 
     /** Runs only the teardown step of the crawl test. */
     public void runTearDown() {
+        try {
+            mApkInstaller.uninstallAllInstalledPackages();
+        } catch (ApkInstallerException e) {
+            CLog.e("Uninstallation of installed apps failed during teardown: %s", e.getMessage());
+        }
+        if (!getOptions().isUiAutomatorMode()) {
+            try {
+                mTestUtils.getDeviceUtils().getITestDevice().uninstallPackage(mPackageName);
+            } catch (DeviceNotAvailableException e) {
+                CLog.e(
+                        "Uninstallation of installed apps failed during teardown: %s",
+                        e.getMessage());
+            }
+        }
+
         cleanUpOutputDir();
     }
 
