@@ -49,6 +49,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
@@ -56,13 +57,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
 /** A tester that interact with an app crawler during testing. */
 public final class AppCrawlTester {
     @VisibleForTesting Path mOutput;
     private final RunUtilProvider mRunUtilProvider;
     private final TestUtils mTestUtils;
-    private final String mPackageName;
     private FileSystem mFileSystem;
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
@@ -72,18 +71,15 @@ public final class AppCrawlTester {
     /**
      * Creates an {@link AppCrawlTester} instance.
      *
-     * @param packageName The package name of the apk files.
      * @param testInformation The TradeFed test information.
      * @param testLogData The TradeFed test output receiver.
      * @return an {@link AppCrawlTester} instance.
      */
     public static AppCrawlTester newInstance(
-            String packageName,
             TestInformation testInformation,
             TestLogData testLogData,
             IConfiguration configuration) {
         return new AppCrawlTester(
-                packageName,
                 TestUtils.getInstance(testInformation, testLogData),
                 () -> new RunUtil(),
                 FileSystems.getDefault(),
@@ -92,13 +88,11 @@ public final class AppCrawlTester {
 
     @VisibleForTesting
     AppCrawlTester(
-            String packageName,
             TestUtils testUtils,
             RunUtilProvider runUtilProvider,
             FileSystem fileSystem,
             IConfiguration configuration) {
         mRunUtilProvider = runUtilProvider;
-        mPackageName = packageName;
         mTestUtils = testUtils;
         mFileSystem = fileSystem;
         mConfiguration = configuration;
@@ -183,6 +177,7 @@ public final class AppCrawlTester {
      * @throws ApkInstallerException when APK installation fails.
      */
     public void runSetup() throws DeviceNotAvailableException, ApkInstallerException, IOException {
+        Preconditions.checkNotNull(getOptions().getPackageName(), "Package name cannot be null");
         // For Espresso mode, checks that a path with the location of the apk to repackage was
         // provided
         if (!getOptions().isUiAutomatorMode()) {
@@ -200,7 +195,9 @@ public final class AppCrawlTester {
 
         // Grant external storage permission
         if (getOptions().isGrantExternalStoragePermission()) {
-            mTestUtils.getDeviceUtils().grantExternalStoragePermissions(mPackageName);
+            mTestUtils
+                    .getDeviceUtils()
+                    .grantExternalStoragePermissions(getOptions().getPackageName());
         }
 
         String[] unlockScreenCmd =
@@ -221,13 +218,13 @@ public final class AppCrawlTester {
         mTestUtils.saveApks(
                 getOptions().getSaveApkWhen(),
                 mExecutionStage.isTestPassed(),
-                mPackageName,
+                getOptions().getPackageName(),
                 getOptions().getInstallApkPaths());
         if (getOptions().getRepackApk() != null) {
             mTestUtils.saveApks(
                     getOptions().getSaveApkWhen(),
                     mExecutionStage.isTestPassed(),
-                    mPackageName,
+                    getOptions().getPackageName(),
                     Arrays.asList(getOptions().getRepackApk()));
         }
 
@@ -238,7 +235,10 @@ public final class AppCrawlTester {
         }
         if (!getOptions().isUiAutomatorMode()) {
             try {
-                mTestUtils.getDeviceUtils().getITestDevice().uninstallPackage(mPackageName);
+                mTestUtils
+                        .getDeviceUtils()
+                        .getITestDevice()
+                        .uninstallPackage(getOptions().getPackageName());
             } catch (DeviceNotAvailableException e) {
                 CLog.e(
                         "Uninstallation of installed apps failed during teardown: %s",
@@ -286,12 +286,15 @@ public final class AppCrawlTester {
                             .getDeviceUtils()
                             .getDropboxEntries(
                                     DeviceUtils.DROPBOX_APP_CRASH_TAGS,
-                                    mPackageName,
+                                    getOptions().getPackageName(),
                                     startTime,
                                     endTime);
             String dropboxCrashLog =
                     mTestUtils.compileTestFailureMessage(
-                            mPackageName, crashEntries, true, mScreenRecordStartTime);
+                            getOptions().getPackageName(),
+                            crashEntries,
+                            true,
+                            mScreenRecordStartTime);
 
             if (dropboxCrashLog != null) {
                 // Put dropbox crash log on the top of the failure messages.
@@ -343,7 +346,7 @@ public final class AppCrawlTester {
         AtomicReference<String[]> command = new AtomicReference<>();
         AtomicReference<CommandResult> commandResult = new AtomicReference<>();
 
-        CLog.d("Start to crawl package: %s.", mPackageName);
+        CLog.d("Start to crawl package: %s.", getOptions().getPackageName());
 
         Path bin =
                 mFileSystem.getPath(
@@ -369,11 +372,11 @@ public final class AppCrawlTester {
         }
 
         if (getOptions().isCollectGmsVersion()) {
-            mTestUtils.collectGmsVersion(mPackageName);
+            mTestUtils.collectGmsVersion(getOptions().getPackageName());
         }
 
         // Minimum timeout 3 minutes plus crawl test timeout.
-        long commandTimeout = 3L * 60 * 1000 + getOptions().getTimeoutSec() * 1000;
+        long commandTimeout = 3L * 60 * 1000 + getOptions().getTimeoutSec() * 1000L;
 
         CLog.i(
                 "Starting to crawl the package %s with command %s",
@@ -385,7 +388,7 @@ public final class AppCrawlTester {
                     () -> {
                         commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
                     },
-                    mPackageName,
+                    getOptions().getPackageName(),
                     deviceTime -> mScreenRecordStartTime = deviceTime);
         } else {
             commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
@@ -393,7 +396,7 @@ public final class AppCrawlTester {
 
         // Must be done after the crawler run because the app is installed by the crawler.
         if (getOptions().isCollectAppVersion()) {
-            mTestUtils.collectAppVersion(mPackageName);
+            mTestUtils.collectAppVersion(getOptions().getPackageName());
         }
 
         collectOutputZip();
@@ -405,7 +408,9 @@ public final class AppCrawlTester {
             throw new CrawlerException("Crawler command failed: " + commandResult.get());
         }
 
-        CLog.i("Completed crawling the package %s. Outputs: %s", mPackageName, commandResult.get());
+        CLog.i(
+                "Completed crawling the package %s. Outputs: %s",
+                getOptions().getPackageName(), commandResult.get());
     }
 
     /** Copys the step screenshots into test outputs for easier access. */
@@ -424,13 +429,18 @@ public final class AppCrawlTester {
         }
 
         try (Stream<Path> files = Files.list(subDir)) {
-            files.filter(path -> path.getFileName().toString().toLowerCase().endsWith(".png"))
+            files.filter(
+                            path ->
+                                    path.getFileName()
+                                            .toString()
+                                            .toLowerCase(Locale.getDefault())
+                                            .endsWith(".png"))
                     .forEach(
                             path -> {
                                 mTestUtils
                                         .getTestArtifactReceiver()
                                         .addTestArtifact(
-                                                mPackageName
+                                                getOptions().getPackageName()
                                                         + "-crawl_step_screenshot_"
                                                         + path.getFileName(),
                                                 LogDataType.PNG,
@@ -465,11 +475,11 @@ public final class AppCrawlTester {
                                     path ->
                                             path.getFileName()
                                                     .toString()
-                                                    .toLowerCase()
+                                                    .toLowerCase(Locale.getDefault())
                                                     .endsWith("crawl_outputs.txt"))
                             .findFirst();
             if (roboOutputFile.isPresent()) {
-                generateRoboscriptSignalFile(roboOutputFile.get(), mPackageName);
+                generateRoboscriptSignalFile(roboOutputFile.get(), getOptions().getPackageName());
             }
         } catch (IOException e) {
             CLog.e(e);
@@ -491,7 +501,7 @@ public final class AppCrawlTester {
                                             + "_roboscript_"
                                             + getRoboscriptSignal(Optional.of(roboOutputFile))
                                                     .toString()
-                                                    .toLowerCase(),
+                                                    .toLowerCase(Locale.getDefault()),
                                     ".txt")
                             .toFile();
             mTestUtils
@@ -561,7 +571,10 @@ public final class AppCrawlTester {
             File outputZip = ZipUtil.createZip(mOutput.toFile());
             mTestUtils
                     .getTestArtifactReceiver()
-                    .addTestArtifact(mPackageName + "-crawler_output", LogDataType.ZIP, outputZip);
+                    .addTestArtifact(
+                            getOptions().getPackageName() + "-crawler_output",
+                            LogDataType.ZIP,
+                            outputZip);
         } catch (IOException e) {
             CLog.e("Failed to zip the output directory: " + e);
         }
@@ -585,7 +598,7 @@ public final class AppCrawlTester {
                         "--device-id",
                         testInfo.getDevice().getSerialNumber(),
                         "--app-id",
-                        mPackageName,
+                        getOptions().getPackageName(),
                         "--controller-endpoint",
                         "PROD",
                         "--utp-binaries-dir",
@@ -619,16 +632,20 @@ public final class AppCrawlTester {
                                 path -> {
                                     String nameLowercase =
                                             path.getFileName().toString().toLowerCase();
-                                    if (nameLowercase.endsWith(".apk")) {
+                                    if (nameLowercase
+                                            .toLowerCase(Locale.getDefault())
+                                            .endsWith(".apk")) {
                                         cmd.add("--apks-to-crawl");
                                         cmd.add(path.toString());
-                                    } else if (nameLowercase.endsWith(".obb")) {
+                                    } else if (nameLowercase
+                                            .toLowerCase(Locale.getDefault())
+                                            .endsWith(".obb")) {
                                         cmd.add("--files-to-push");
                                         cmd.add(
                                                 String.format(
                                                         "%s=/sdcard/Android/obb/%s/%s",
                                                         path.toString(),
-                                                        mPackageName,
+                                                        getOptions().getPackageName(),
                                                         path.getFileName().toString()));
                                     } else {
                                         CLog.d("Skipping unrecognized file %s", path.toString());
@@ -662,7 +679,10 @@ public final class AppCrawlTester {
             RoboLoginConfigProvider configProvider =
                     new RoboLoginConfigProvider(
                             mFileSystem.getPath(getOptions().getLoginConfigDir().toString()));
-            cmd.addAll(configProvider.findConfigFor(mPackageName, true).getLoginArgs());
+            cmd.addAll(
+                    configProvider
+                            .findConfigFor(getOptions().getPackageName(), true)
+                            .getLoginArgs());
         }
 
         return cmd.toArray(new String[cmd.size()]);
@@ -700,7 +720,11 @@ public final class AppCrawlTester {
         }
 
         if (getOptions().isUiAutomatorMode()) {
-            cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-package-name", mPackageName));
+            cmd.addAll(
+                    Arrays.asList(
+                            "--ui-automator-mode",
+                            "--app-package-name",
+                            getOptions().getPackageName()));
         } else {
             Preconditions.checkNotNull(
                     getOptions().getRepackApk(),
@@ -717,6 +741,7 @@ public final class AppCrawlTester {
                                                 path.getFileName()
                                                         .toString()
                                                         .toLowerCase()
+                                                        .toLowerCase(Locale.getDefault())
                                                         .endsWith(".apk"))
                                 .collect(Collectors.toList());
             } catch (TestUtilsException e) {
@@ -763,7 +788,10 @@ public final class AppCrawlTester {
             RoboLoginConfigProvider configProvider =
                     new RoboLoginConfigProvider(
                             mFileSystem.getPath(getOptions().getLoginConfigDir().toString()));
-            cmd.addAll(configProvider.findConfigFor(mPackageName, false).getLoginArgs());
+            cmd.addAll(
+                    configProvider
+                            .findConfigFor(getOptions().getPackageName(), false)
+                            .getLoginArgs());
         }
 
         return cmd.toArray(new String[cmd.size()]);
