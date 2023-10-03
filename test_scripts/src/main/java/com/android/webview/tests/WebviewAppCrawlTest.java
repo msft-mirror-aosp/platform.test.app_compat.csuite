@@ -60,6 +60,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     private WebviewPackage mPreInstalledWebview;
     private ApkInstaller mApkInstaller;
     private AppCrawlTester mCrawler;
+    private AppCrawlTester mCrawlerVerify;
     private IConfiguration mConfiguration;
 
     @Deprecated
@@ -185,33 +186,12 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         mCrawler =
                 AppCrawlTester.newInstance(
                         mPackageName, getTestInformation(), mLogData, mConfiguration);
-        if (mCrawlControllerEndpoint != null) {
-            mCrawler.getOptions().setCrawlControllerEndpoint(mCrawlControllerEndpoint);
-        }
-        if (mRecordScreen) {
-            mCrawler.getOptions().setRecordScreen(mRecordScreen);
-        }
-        if (mCollectGmsVersion) {
-            mCrawler.getOptions().setCollectGmsVersion(mCollectGmsVersion);
-        }
-        if (mCollectAppVersion) {
-            mCrawler.getOptions().setCollectAppVersion(mCollectAppVersion);
-        }
-        if (mUiAutomatorMode) {
-            mCrawler.getOptions().setUiAutomatorMode(mUiAutomatorMode);
-        }
-        if (mRoboscriptFile != null) {
-            mCrawler.getOptions().setRoboscriptFile(mRoboscriptFile);
-        }
-        if (mCrawlGuidanceProtoFile != null) {
-            mCrawler.getOptions().setCrawlGuidanceProtoFile(mCrawlGuidanceProtoFile);
-        }
-        if (mLoginConfigDir != null) {
-            mCrawler.getOptions().setLoginConfigDir(mLoginConfigDir);
-        }
-        if (mTimeoutSec != DEFAULT_TIMEOUT_SEC) {
-            mCrawler.getOptions().setTimeoutSec(mTimeoutSec);
-        }
+        mCrawlerVerify =
+                AppCrawlTester.newInstance(
+                        mPackageName, getTestInformation(), mLogData, mConfiguration);
+
+        setCrawlerOptions(mCrawler);
+        setCrawlerOptions(mCrawlerVerify);
 
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mWebviewUtils = new WebviewUtils(getTestInformation());
@@ -228,6 +208,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         mWebviewUtils.printWebviewVersion();
 
         mCrawler.runSetup();
+        mCrawlerVerify.runSetup();
     }
 
     @Test
@@ -253,7 +234,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         // If the app crashes, try the app with the original webview version that comes with the
         // device.
         try {
-            mCrawler.runTest();
+            mCrawlerVerify.runTest();
         } catch (AssertionError newError) {
             CLog.w(
                     "The app %s crashed both with and without the webview installation,"
@@ -285,6 +266,37 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         }
 
         mCrawler.runTearDown();
+        mCrawlerVerify.runTearDown();
+    }
+
+    private void setCrawlerOptions(AppCrawlTester crawler) {
+        if (mCrawlControllerEndpoint != null) {
+            crawler.getOptions().setCrawlControllerEndpoint(mCrawlControllerEndpoint);
+        }
+        if (mRecordScreen) {
+            crawler.getOptions().setRecordScreen(mRecordScreen);
+        }
+        if (mCollectGmsVersion) {
+            crawler.getOptions().setCollectGmsVersion(mCollectGmsVersion);
+        }
+        if (mCollectAppVersion) {
+            crawler.getOptions().setCollectAppVersion(mCollectAppVersion);
+        }
+        if (mUiAutomatorMode) {
+            crawler.getOptions().setUiAutomatorMode(mUiAutomatorMode);
+        }
+        if (mRoboscriptFile != null) {
+            crawler.getOptions().setRoboscriptFile(mRoboscriptFile);
+        }
+        if (mCrawlGuidanceProtoFile != null) {
+            crawler.getOptions().setCrawlGuidanceProtoFile(mCrawlGuidanceProtoFile);
+        }
+        if (mLoginConfigDir != null) {
+            crawler.getOptions().setLoginConfigDir(mLoginConfigDir);
+        }
+        if (mTimeoutSec != DEFAULT_TIMEOUT_SEC) {
+            crawler.getOptions().setTimeoutSec(mTimeoutSec);
+        }
     }
 
     @Override

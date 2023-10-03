@@ -369,13 +369,21 @@ public final class AppCrawlTesterTest {
     }
 
     @Test
-    public void startCrawl_alreadyRun_throwsException() throws Exception {
+    public void runTest_alreadyRun_throwsException() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
         sut.getOptions().setUiAutomatorMode(false);
         sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
-        sut.startCrawl();
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
+        Mockito.doReturn(new ArrayList<>())
+                .when(mDeviceUtils)
+                .getDropboxEntries(
+                        Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any());
+        sut.runSetup();
+        sut.runTest();
 
-        assertThrows(AppCrawlTester.CrawlerException.class, () -> sut.startCrawl());
+        assertThrows(AppCrawlTester.CrawlerException.class, () -> sut.runTest());
     }
 
     @Test

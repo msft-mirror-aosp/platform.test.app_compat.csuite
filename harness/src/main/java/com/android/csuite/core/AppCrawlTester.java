@@ -66,6 +66,7 @@ public final class AppCrawlTester {
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
     private boolean mIsSetupComplete = false;
+    private boolean mIsTestExecuted = false;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -203,6 +204,13 @@ public final class AppCrawlTester {
         if (!mIsSetupComplete) {
             throw new CrawlerException("Crawler setup has not run.");
         }
+        if (mIsTestExecuted) {
+            throw new CrawlerException(
+                    "The crawler has already run. Multiple runs in the same "
+                            + AppCrawlTester.class.getName()
+                            + " instance are not supported.");
+        }
+        mIsTestExecuted = true;
 
         DeviceTimestamp startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
@@ -266,13 +274,6 @@ public final class AppCrawlTester {
                             + " is not ready. Please check whether "
                             + AppCrawlTesterHostPreparer.class.getName()
                             + " was included in the test plan and completed successfully.");
-        }
-
-        if (mOutput != null) {
-            throw new CrawlerException(
-                    "The crawler has already run. Multiple runs in the same "
-                            + AppCrawlTester.class.getName()
-                            + " instance are not supported.");
         }
 
         try {
