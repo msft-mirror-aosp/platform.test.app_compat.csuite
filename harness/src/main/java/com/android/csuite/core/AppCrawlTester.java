@@ -202,6 +202,17 @@ public final class AppCrawlTester {
         if (getOptions().isGrantExternalStoragePermission()) {
             mTestUtils.getDeviceUtils().grantExternalStoragePermissions(mPackageName);
         }
+
+        String[] unlockScreenCmd =
+                new String[] {
+                    "input keyevent KEYCODE_WAKEUP",
+                    "input keyevent KEYCODE_WAKEUP",
+                    "input keyevent KEYCODE_MENU"
+                };
+        for (String cmd : unlockScreenCmd) {
+            mTestUtils.getDeviceUtils().getITestDevice().executeShellV2Command(cmd);
+        }
+
         mExecutionStage.setSetupComplete(true);
     }
 
