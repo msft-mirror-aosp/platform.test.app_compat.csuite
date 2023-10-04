@@ -270,7 +270,7 @@ public class TestUtils {
             DeviceTimestamp screenRecordStartTime)
             throws IOException {
         if (entries.size() == 0) {
-            return null;
+            return "";
         }
 
         BiFunction<String, Integer, String> truncateFunction =

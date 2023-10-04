@@ -352,14 +352,14 @@ public final class TestUtilsTest {
     }
 
     @Test
-    public void getDropboxPackageCrashLog_noEntries_returnsNull() throws Exception {
+    public void getDropboxPackageCrashLog_noEntries_returnsEmpty() throws Exception {
         TestUtils sut = createSubjectUnderTest();
         when(mMockDeviceUtils.getDropboxEntries(Mockito.any())).thenReturn(List.of());
         DeviceTimestamp startTime = new DeviceTimestamp(0);
 
         String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
 
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 
     @Test
