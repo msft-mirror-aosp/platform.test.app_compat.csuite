@@ -18,6 +18,7 @@ package com.android.csuite.core;
 
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.csuite.core.TestUtils.RoboscriptSignal;
 import com.android.csuite.core.TestUtils.TestUtilsException;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
@@ -38,6 +39,7 @@ import org.junit.Assert;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -47,6 +49,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -175,11 +179,12 @@ public final class AppCrawlTester {
             failureMessages.add(crawlerException.getMessage());
         }
 
-        Assert.assertTrue(
-                String.join(
-                        "\n============\n",
-                        failureMessages.toArray(new String[failureMessages.size()])),
-                failureMessages.isEmpty());
+        if (!failureMessages.isEmpty()) {
+            Assert.fail(
+                    String.join(
+                            "\n============\n",
+                            failureMessages.toArray(new String[failureMessages.size()])));
+        }
     }
 
     /**
@@ -339,11 +344,77 @@ public final class AppCrawlTester {
                                                     .endsWith("crawl_outputs.txt"))
                             .findFirst();
             if (roboOutputFile.isPresent()) {
-                mTestUtils.generateRoboscriptSignalFile(roboOutputFile.get(), mPackageName);
+                generateRoboscriptSignalFile(roboOutputFile.get(), mPackageName);
             }
         } catch (IOException e) {
             CLog.e(e);
         }
+    }
+
+    /**
+     * Generates an artifact text file with a name indicating whether the Roboscript was successful.
+     *
+     * @param roboOutputFile - the file containing the Robo crawler output.
+     * @param packageName - the android package name of the app for which the signal file is being
+     *     generated.
+     */
+    private void generateRoboscriptSignalFile(Path roboOutputFile, String packageName) {
+        try {
+            File signalFile =
+                    Files.createTempFile(
+                                    packageName
+                                            + "_roboscript_"
+                                            + getRoboscriptSignal(Optional.of(roboOutputFile))
+                                                    .toString()
+                                                    .toLowerCase(),
+                                    ".txt")
+                            .toFile();
+            mTestUtils
+                    .getTestArtifactReceiver()
+                    .addTestArtifact(signalFile.getName(), LogDataType.HOST_LOG, signalFile);
+        } catch (IOException e) {
+            CLog.e(e);
+        }
+    }
+
+    /**
+     * Computes whether the Robosript was successful based on the output file, and returns the
+     * success signal.
+     *
+     * @param roboOutput
+     * @return Roboscript success signal
+     */
+    public RoboscriptSignal getRoboscriptSignal(Optional<Path> roboOutput) {
+        if (!roboOutput.isPresent()) {
+            return RoboscriptSignal.UNKNOWN;
+        }
+        Pattern totalActionsPattern =
+                Pattern.compile("(?:robo_script_execution(?:.|\\n)*)total_actions.\\s(\\d*)");
+        Pattern successfulActionsPattern =
+                Pattern.compile("(?:robo_script_execution(?:.|\\n)*)successful_actions.\\s(\\d*)");
+        final String outputFile;
+        try {
+            outputFile =
+                    String.join("", Files.readAllLines(roboOutput.get(), Charset.defaultCharset()));
+        } catch (IOException e) {
+            CLog.e(e);
+            return RoboscriptSignal.UNKNOWN;
+        }
+        int totalActions = 0;
+        int successfulActions = 0;
+        Matcher mTotal = totalActionsPattern.matcher(outputFile);
+        Matcher mSuccessful = successfulActionsPattern.matcher(outputFile);
+        if (mTotal.find() && mSuccessful.find()) {
+            totalActions = Integer.parseInt(mTotal.group(1));
+            successfulActions = Integer.parseInt(mSuccessful.group(1));
+            if (totalActions == 0) {
+                return RoboscriptSignal.FAIL;
+            }
+            return successfulActions / totalActions < 1
+                    ? RoboscriptSignal.FAIL
+                    : RoboscriptSignal.SUCCESS;
+        }
+        return RoboscriptSignal.UNKNOWN;
     }
 
     /** Based on the type of Robo client, resolves the Path for its output directory. */
@@ -416,23 +487,30 @@ public final class AppCrawlTester {
             Preconditions.checkNotNull(
                     mApkRoot, "Apk file path is required when not running in UIAutomator mode");
 
-            List<Path> apks;
             try {
-                apks =
-                        TestUtils.listApks(mApkRoot).stream()
-                                .filter(
-                                        path ->
-                                                path.getFileName()
-                                                        .toString()
-                                                        .toLowerCase()
-                                                        .endsWith(".apk"))
-                                .collect(Collectors.toList());
+                TestUtils.listApks(mApkRoot)
+                        .forEach(
+                                path -> {
+                                    String nameLowercase =
+                                            path.getFileName().toString().toLowerCase();
+                                    if (nameLowercase.endsWith(".apk")) {
+                                        cmd.add("--apks-to-crawl");
+                                        cmd.add(path.toString());
+                                    } else if (nameLowercase.endsWith(".obb")) {
+                                        cmd.add("--files-to-push");
+                                        cmd.add(
+                                                String.format(
+                                                        "%s=/sdcard/Android/obb/%s/%s",
+                                                        path.toString(),
+                                                        mPackageName,
+                                                        path.getFileName().toString()));
+                                    } else {
+                                        CLog.d("Skipping unrecognized file %s", path.toString());
+                                    }
+                                });
             } catch (TestUtilsException e) {
                 throw new CrawlerException(e);
             }
-
-            cmd.add("--apks-to-crawl");
-            cmd.add(apks.stream().map(Path::toString).collect(Collectors.joining(",")));
         }
 
         if (mRoboscriptFile != null) {

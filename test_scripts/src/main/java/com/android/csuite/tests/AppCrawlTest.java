@@ -19,6 +19,7 @@ package com.android.csuite.tests;
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
+import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -150,8 +151,16 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
             description = "When to save apk files to the test result artifacts.")
     private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
 
+    @Option(
+            name = "grant-external-storage",
+            mandatory = false,
+            description = "After an apks are installed, grant MANAGE_EXTERNAL_STORAGE permissions.")
+    private boolean mGrantExternalStoragePermission = false;
+
     @Before
-    public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
+    public void setUp()
+            throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         mIsLastTestPass = false;
         mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         if (!mUiAutomatorMode) {
@@ -171,6 +180,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         mApkInstaller.install(
                 mInstallApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
                 mInstallArgs);
+        if (mGrantExternalStoragePermission) {
+            deviceUtils.grantExternalStoragePermissions(mPackageName);
+        }
     }
 
     /** Helper method to fetch the path of optional File variables. */
@@ -201,12 +213,15 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         if (!mIsApkSaved) {
             mIsApkSaved =
                     testUtils.saveApks(
-                                    mSaveApkWhen, mIsLastTestPass, mPackageName, mInstallApkPaths)
-                            && testUtils.saveApks(
-                                    mSaveApkWhen,
-                                    mIsLastTestPass,
-                                    mPackageName,
-                                    Arrays.asList(mRepackApk));
+                            mSaveApkWhen, mIsLastTestPass, mPackageName, mInstallApkPaths);
+            if (mRepackApk != null) {
+                mIsApkSaved &=
+                        testUtils.saveApks(
+                                mSaveApkWhen,
+                                mIsLastTestPass,
+                                mPackageName,
+                                Arrays.asList(mRepackApk));
+            }
         }
 
         try {

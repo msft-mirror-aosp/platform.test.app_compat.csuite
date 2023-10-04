@@ -40,6 +40,7 @@ import com.google.protobuf.ByteString;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 
@@ -61,6 +62,18 @@ public final class DeviceUtilsTest {
     private final FileSystem mFileSystem =
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
     private static final String TEST_PACKAGE_NAME = "package.name";
+
+    @Test
+    public void grantExternalStoragePermissions_commandFailed_doesNotThrow() throws Exception {
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        when(mDevice.executeShellV2Command(captor.capture()))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        sut.grantExternalStoragePermissions(TEST_PACKAGE_NAME);
+
+        assertThat(captor.getValue()).contains("MANAGE_EXTERNAL_STORAGE allow");
+    }
 
     @Test
     public void isPackageInstalled_packageIsInstalled_returnsTrue() throws Exception {
