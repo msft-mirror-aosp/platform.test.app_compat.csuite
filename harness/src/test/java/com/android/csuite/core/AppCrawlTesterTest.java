@@ -81,42 +81,48 @@ public final class AppCrawlTesterTest {
     }
 
     @Test
-    public void startCrawl_apkNotProvided_throwsException() throws Exception {
+    public void setOption_crawlerStarted_throws() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
+        sut.runSetup();
+
+        assertThrows(IllegalStateException.class, () -> sut.setPackageName(""));
+    }
+
+    @Test
+    public void startCrawl_apkNotProvided_throwsException() throws Exception {
+        AppCrawlTester sut = createPreparedTestSubject().setUiAutomatorMode(false);
 
         assertThrows(NullPointerException.class, () -> sut.startCrawl());
     }
 
     @Test
     public void startCrawl_roboscriptDirectoryProvided_throws() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(true);
+        AppCrawlTester sut = createPreparedTestSubject().setUiAutomatorMode(true);
         Path roboDir = mFileSystem.getPath("robo");
         Files.createDirectories(roboDir);
 
-        sut.getOptions().setRoboscriptFile(new File(roboDir.toString()));
+        sut.setRoboscriptFile(new File(roboDir.toString()));
 
         assertThrows(AssertionError.class, () -> sut.startCrawl());
     }
 
     @Test
     public void startCrawl_crawlGuidanceDirectoryProvided_throws() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(true);
+        AppCrawlTester sut = createPreparedTestSubject().setUiAutomatorMode(true);
         Path crawlGuidanceDir = mFileSystem.getPath("crawlguide");
         Files.createDirectories(crawlGuidanceDir);
 
-        sut.getOptions().setCrawlGuidanceProtoFile(new File(crawlGuidanceDir.toString()));
+        sut.setCrawlGuidanceProtoFile(new File(crawlGuidanceDir.toString()));
 
         assertThrows(AssertionError.class, () -> sut.startCrawl());
     }
 
     @Test
     public void runTest_noCrashDetected_doesNotThrow() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
         Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
                 .when(mDeviceUtils)
                 .currentTimeMillis();
@@ -131,9 +137,10 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void runTest_dropboxEntriesDetected_throws() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
         Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
                 .when(mDeviceUtils)
                 .currentTimeMillis();
@@ -148,9 +155,10 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void runTest_crawlerExceptionIsThrown_throws() throws Exception {
-        AppCrawlTester sut = createNotPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        AppCrawlTester sut =
+                createNotPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
         Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
                 .when(mDeviceUtils)
                 .currentTimeMillis();
@@ -165,10 +173,11 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void startCrawl_screenRecordEnabled_screenIsRecorded() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
-        sut.getOptions().setRecordScreen(true);
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()))
+                        .setRecordScreen(true);
 
         sut.startCrawl();
 
@@ -178,10 +187,11 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void startCrawl_screenRecordDisabled_screenIsNotRecorded() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
-        sut.getOptions().setRecordScreen(false);
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()))
+                        .setRecordScreen(false);
 
         sut.startCrawl();
 
@@ -191,10 +201,11 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void startCrawl_collectGmsVersionEnabled_versionIsCollected() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
-        sut.getOptions().setCollectGmsVersion(true);
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()))
+                        .setCollectGmsVersion(true);
 
         sut.startCrawl();
 
@@ -203,10 +214,11 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void startCrawl_collectGmsVersionDisabled_versionIsNotCollected() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
-        sut.getOptions().setCollectGmsVersion(false);
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()))
+                        .setCollectGmsVersion(false);
 
         sut.startCrawl();
 
@@ -215,10 +227,11 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void startCrawl_collectAppVersionEnabled_versionIsCollected() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
-        sut.getOptions().setCollectAppVersion(true);
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()))
+                        .setCollectAppVersion(true);
 
         sut.startCrawl();
 
@@ -227,10 +240,11 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void startCrawl_collectAppVersionDisabled_versionIsNotCollected() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
-        sut.getOptions().setCollectAppVersion(false);
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()))
+                        .setCollectAppVersion(false);
 
         sut.startCrawl();
 
@@ -239,18 +253,20 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void startCrawl_withSplitApksDirectory_doesNotThrowException() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
 
         sut.startCrawl();
     }
 
     @Test
     public void startCrawl_sdkPathIsProvidedToCrawler() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
 
         sut.startCrawl();
 
@@ -264,9 +280,10 @@ public final class AppCrawlTesterTest {
         Files.createDirectories(root.resolve("sub"));
         Files.createFile(root.resolve("sub").resolve("base.apk"));
         Files.createFile(root.resolve("sub").resolve("config.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(root));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(root));
 
         sut.startCrawl();
     }
@@ -276,9 +293,10 @@ public final class AppCrawlTesterTest {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("base.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(root));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(root));
 
         sut.startCrawl();
     }
@@ -288,9 +306,10 @@ public final class AppCrawlTesterTest {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("single.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(root));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(root));
 
         sut.startCrawl();
     }
@@ -299,9 +318,10 @@ public final class AppCrawlTesterTest {
     public void startCrawl_withSingleApkFile_doesNotThrowException() throws Exception {
         Path root = mFileSystem.getPath("single.apk");
         Files.createFile(root);
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(root));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(root));
 
         sut.startCrawl();
     }
@@ -313,9 +333,10 @@ public final class AppCrawlTesterTest {
         Files.createDirectories(root);
         Files.createFile(root.resolve("single.apk"));
         Files.createFile(root.resolve("single.not_apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(root));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(root));
 
         sut.startCrawl();
     }
@@ -325,9 +346,10 @@ public final class AppCrawlTesterTest {
         Path root = mFileSystem.getPath("apk");
         Files.createDirectories(root);
         Files.createFile(root.resolve("single.not_apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(root));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(root));
 
         assertThrows(AppCrawlTester.CrawlerException.class, () -> sut.startCrawl());
     }
@@ -336,9 +358,10 @@ public final class AppCrawlTesterTest {
     public void startCrawl_withNonApkPath_throwException() throws Exception {
         Path root = mFileSystem.getPath("single.not_apk");
         Files.createFile(root);
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(root));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(root));
 
         assertThrows(AppCrawlTester.CrawlerException.class, () -> sut.startCrawl());
     }
@@ -351,27 +374,30 @@ public final class AppCrawlTesterTest {
         Files.createDirectories(root.resolve("2"));
         Files.createFile(root.resolve("1").resolve("single.apk"));
         Files.createFile(root.resolve("2").resolve("single.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(root));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(root));
 
         assertThrows(AppCrawlTester.CrawlerException.class, () -> sut.startCrawl());
     }
 
     @Test
     public void startCrawl_preparerNotRun_throwsException() throws Exception {
-        AppCrawlTester sut = createNotPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        AppCrawlTester sut =
+                createNotPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
 
         assertThrows(AppCrawlTester.CrawlerException.class, () -> sut.startCrawl());
     }
 
     @Test
     public void runTest_alreadyRun_throwsException() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
         Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
                 .when(mDeviceUtils)
                 .currentTimeMillis();
@@ -387,9 +413,10 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void cleanUpOutputDir_removesOutputDirectory() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
         sut.startCrawl();
         assertTrue(Files.exists(sut.mOutput));
 
@@ -403,9 +430,10 @@ public final class AppCrawlTesterTest {
         Path apkRoot = mFileSystem.getPath("apk");
         Files.createDirectories(apkRoot);
         Files.createFile(apkRoot.resolve("some.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(apkRoot));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(apkRoot));
         sut.startCrawl();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -422,12 +450,13 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void createUtpCrawlerRunCommand_containsRoboscriptFileWhenProvided() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
         Path roboDir = mFileSystem.getPath("/robo");
         Files.createDirectory(roboDir);
         Path roboFile = Files.createFile(roboDir.resolve("app.roboscript"));
-        sut.getOptions().setUiAutomatorMode(true);
-        sut.getOptions().setRoboscriptFile(new File(roboFile.toString()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(true)
+                        .setRoboscriptFile(new File(roboFile.toString()));
         sut.startCrawl();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -444,9 +473,9 @@ public final class AppCrawlTesterTest {
         Files.createDirectory(crawlGuideDir);
         Path crawlGuideFile = Files.createFile(crawlGuideDir.resolve("app.crawlguide"));
 
-        sut.getOptions().setUiAutomatorMode(true);
-        sut.getOptions().setCrawlGuidanceProtoFile(new File(crawlGuideFile.toString()));
-        sut.startCrawl();
+        sut.setUiAutomatorMode(true)
+                .setCrawlGuidanceProtoFile(new File(crawlGuideFile.toString()))
+                .startCrawl();
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
         assertThat(result).asList().contains("--crawl-guidance-proto-path");
@@ -455,15 +484,16 @@ public final class AppCrawlTesterTest {
     @Test
     public void createUtpCrawlerRunCommand_loginDirContainsOnlyCrawlGuidanceFile_addsFilePath()
             throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
         Path loginFilesDir = mFileSystem.getPath("/login");
         Files.createDirectory(loginFilesDir);
         Path crawlGuideFile =
                 Files.createFile(loginFilesDir.resolve(PACKAGE_NAME + CRAWL_GUIDANCE_FILE_SUFFIX));
-
-        sut.getOptions().setUiAutomatorMode(true);
-        sut.getOptions().setLoginConfigDir(new File(loginFilesDir.toString()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(true)
+                        .setLoginConfigDir(new File(loginFilesDir.toString()));
         sut.startCrawl();
+
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
         assertThat(result).asList().contains("--crawl-guidance-proto-path");
@@ -473,15 +503,16 @@ public final class AppCrawlTesterTest {
     @Test
     public void createUtpCrawlerRunCommand_loginDirContainsOnlyRoboscriptFile_addsFilePath()
             throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
         Path loginFilesDir = mFileSystem.getPath("/login");
         Files.createDirectory(loginFilesDir);
         Path roboscriptFile =
                 Files.createFile(loginFilesDir.resolve(PACKAGE_NAME + ROBOSCRIPT_FILE_SUFFIX));
-
-        sut.getOptions().setUiAutomatorMode(true);
-        sut.getOptions().setLoginConfigDir(new File(loginFilesDir.toString()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(true)
+                        .setLoginConfigDir(new File(loginFilesDir.toString()));
         sut.startCrawl();
+
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
         assertThat(result).asList().contains("--crawler-asset");
@@ -492,17 +523,18 @@ public final class AppCrawlTesterTest {
     public void
             createUtpCrawlerRunCommand_loginDirContainsMultipleLoginFiles_addsRoboscriptFilePath()
                     throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
         Path loginFilesDir = mFileSystem.getPath("/login");
         Files.createDirectory(loginFilesDir);
         Path roboscriptFile =
                 Files.createFile(loginFilesDir.resolve(PACKAGE_NAME + ROBOSCRIPT_FILE_SUFFIX));
         Path crawlGuideFile =
                 Files.createFile(loginFilesDir.resolve(PACKAGE_NAME + CRAWL_GUIDANCE_FILE_SUFFIX));
-
-        sut.getOptions().setUiAutomatorMode(true);
-        sut.getOptions().setLoginConfigDir(new File(loginFilesDir.toString()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(true)
+                        .setLoginConfigDir(new File(loginFilesDir.toString()));
         sut.startCrawl();
+
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
         assertThat(result).asList().contains("--crawler-asset");
@@ -512,14 +544,14 @@ public final class AppCrawlTesterTest {
 
     @Test
     public void createUtpCrawlerRunCommand_loginDirEmpty_doesNotAddFlag() throws Exception {
-        AppCrawlTester sut = createPreparedTestSubject();
         Path loginFilesDir = mFileSystem.getPath("/login");
         Files.createDirectory(loginFilesDir);
-
-        sut.getOptions()
-                .setUiAutomatorMode(true)
-                .setLoginConfigDir(new File(loginFilesDir.toString()));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(true)
+                        .setLoginConfigDir(new File(loginFilesDir.toString()));
         sut.startCrawl();
+
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
 
         assertThat(result).asList().doesNotContain("--crawler-asset");
@@ -531,9 +563,10 @@ public final class AppCrawlTesterTest {
         Path apkRoot = mFileSystem.getPath("apk");
         Files.createDirectories(apkRoot);
         Files.createFile(apkRoot.resolve("some.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(apkRoot));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(apkRoot));
         sut.startCrawl();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -550,9 +583,10 @@ public final class AppCrawlTesterTest {
         Files.createFile(apkRoot.resolve("base.apk"));
         Files.createFile(apkRoot.resolve("config1.apk"));
         Files.createFile(apkRoot.resolve("config2.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(apkRoot));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(apkRoot));
         sut.startCrawl();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -571,9 +605,10 @@ public final class AppCrawlTesterTest {
         Files.createFile(apkRoot.resolve("config1.apk"));
         Files.createFile(apkRoot.resolve("main.package.obb"));
         Files.createFile(apkRoot.resolve("patch.package.obb"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(apkRoot));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(apkRoot));
         sut.startCrawl();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -597,10 +632,11 @@ public final class AppCrawlTesterTest {
         Files.createFile(apkRoot.resolve("base.apk"));
         Files.createFile(apkRoot.resolve("config1.apk"));
         Files.createFile(apkRoot.resolve("config2.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(apkRoot));
-        sut.getOptions().setUiAutomatorMode(true);
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(apkRoot))
+                        .setUiAutomatorMode(true);
         sut.startCrawl();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -617,10 +653,11 @@ public final class AppCrawlTesterTest {
         Files.createFile(apkRoot.resolve("base.apk"));
         Files.createFile(apkRoot.resolve("config1.apk"));
         Files.createFile(apkRoot.resolve("config2.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(apkRoot));
-        sut.getOptions().setUiAutomatorMode(true);
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(apkRoot))
+                        .setUiAutomatorMode(true);
         sut.startCrawl();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -644,9 +681,10 @@ public final class AppCrawlTesterTest {
         Files.createFile(apkRoot.resolve("base.apk"));
         Files.createFile(apkRoot.resolve("config1.apk"));
         Files.createFile(apkRoot.resolve("config2.apk"));
-        AppCrawlTester sut = createPreparedTestSubject();
-        sut.getOptions().setUiAutomatorMode(false);
-        sut.getOptions().setRepackApk(convertToFile(apkRoot));
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(apkRoot));
         sut.startCrawl();
 
         String[] result = sut.createUtpCrawlerRunCommand(mTestInfo);
@@ -748,8 +786,8 @@ public final class AppCrawlTesterTest {
         configuration.setConfigurationObject(
                 AppCrawlTesterOptions.OBJECT_TYPE, new AppCrawlTesterOptions());
         AppCrawlTester sut =
-                new AppCrawlTester(mTestUtils, () -> mRunUtil, mFileSystem, configuration);
-        sut.getOptions().setPackageName(PACKAGE_NAME);
+                new AppCrawlTester(mTestUtils, () -> mRunUtil, mFileSystem, configuration)
+                        .setPackageName(PACKAGE_NAME);
         return sut;
     }
 
@@ -768,8 +806,8 @@ public final class AppCrawlTesterTest {
         configuration.setConfigurationObject(
                 AppCrawlTesterOptions.OBJECT_TYPE, new AppCrawlTesterOptions());
         AppCrawlTester sut =
-                new AppCrawlTester(mTestUtils, () -> mRunUtil, mFileSystem, configuration);
-        sut.getOptions().setPackageName(PACKAGE_NAME);
+                new AppCrawlTester(mTestUtils, () -> mRunUtil, mFileSystem, configuration)
+                        .setPackageName(PACKAGE_NAME);
         return sut;
     }
 

@@ -125,155 +125,155 @@ public class AppCrawlTesterOptions {
     private boolean mGrantExternalStoragePermission = false;
 
     /** Returns the config value for the package name to crawl. */
-    public String getPackageName() {
+    String getPackageName() {
         return mPackageName;
     }
 
     /** Sets the package name to crawl. */
-    public AppCrawlTesterOptions setPackageName(String packageName) {
+    AppCrawlTesterOptions setPackageName(String packageName) {
         this.mPackageName = packageName;
         return this;
     }
 
     /** Returns the config value for whether to record the screen. */
-    public boolean isRecordScreen() {
+    boolean isRecordScreen() {
         return mRecordScreen;
     }
 
     /** Sets whether to enable screen recording. */
-    public AppCrawlTesterOptions setRecordScreen(boolean recordScreen) {
+    AppCrawlTesterOptions setRecordScreen(boolean recordScreen) {
         this.mRecordScreen = recordScreen;
         return this;
     }
 
     /** Returns the config value for whether to collect app version information. */
-    public boolean isCollectAppVersion() {
+    boolean isCollectAppVersion() {
         return mCollectAppVersion;
     }
 
     /** Sets whether to enable app version collection. */
-    public AppCrawlTesterOptions setCollectAppVersion(boolean collectAppVersion) {
+    AppCrawlTesterOptions setCollectAppVersion(boolean collectAppVersion) {
         this.mCollectAppVersion = collectAppVersion;
         return this;
     }
 
     /** Returns the config value for whether to collect GMS version information. */
-    public boolean isCollectGmsVersion() {
+    boolean isCollectGmsVersion() {
         return mCollectGmsVersion;
     }
 
     /** Sets whether to enable GMS version collection. */
-    public AppCrawlTesterOptions setCollectGmsVersion(boolean collectGmsVersion) {
+    AppCrawlTesterOptions setCollectGmsVersion(boolean collectGmsVersion) {
         this.mCollectGmsVersion = collectGmsVersion;
         return this;
     }
 
     /** Returns the config value for the repacked APK file path. */
-    public File getRepackApk() {
+    File getRepackApk() {
         return mRepackApk;
     }
 
     /** Sets the repacked APK file path. */
-    public AppCrawlTesterOptions setRepackApk(File repackApk) {
+    AppCrawlTesterOptions setRepackApk(File repackApk) {
         this.mRepackApk = repackApk;
         return this;
     }
 
     /** Returns the config value for the list of APK paths for installation. */
-    public List<File> getInstallApkPaths() {
+    List<File> getInstallApkPaths() {
         return mInstallApkPaths;
     }
 
     /** Sets the list of APK paths for installation. */
-    public AppCrawlTesterOptions setInstallApkPaths(List<File> installApkPaths) {
+    AppCrawlTesterOptions setInstallApkPaths(List<File> installApkPaths) {
         this.mInstallApkPaths = installApkPaths;
         return this;
     }
 
     /** Returns the config value for the list of installation arguments. */
-    public List<String> getInstallArgs() {
+    List<String> getInstallArgs() {
         return mInstallArgs;
     }
 
     /** Sets the list of installation arguments. */
-    public AppCrawlTesterOptions setInstallArgs(List<String> installArgs) {
+    AppCrawlTesterOptions setInstallArgs(List<String> installArgs) {
         this.mInstallArgs = installArgs;
         return this;
     }
 
     /** Returns the config value for the crawl controller endpoint URL. */
-    public String getCrawlControllerEndpoint() {
+    String getCrawlControllerEndpoint() {
         return mCrawlControllerEndpoint;
     }
 
     /** Sets the crawl controller endpoint URL. */
-    public AppCrawlTesterOptions setCrawlControllerEndpoint(String crawlControllerEndpoint) {
+    AppCrawlTesterOptions setCrawlControllerEndpoint(String crawlControllerEndpoint) {
         this.mCrawlControllerEndpoint = crawlControllerEndpoint;
         return this;
     }
 
     /** Returns the config value for whether to enable UiAutomator mode. */
-    public boolean isUiAutomatorMode() {
+    boolean isUiAutomatorMode() {
         return mUiAutomatorMode;
     }
 
     /** Sets whether to enable UiAutomator mode. */
-    public AppCrawlTesterOptions setUiAutomatorMode(boolean uiAutomatorMode) {
+    AppCrawlTesterOptions setUiAutomatorMode(boolean uiAutomatorMode) {
         this.mUiAutomatorMode = uiAutomatorMode;
         return this;
     }
 
     /** Returns the config value for the timeout duration in seconds. */
-    public int getTimeoutSec() {
+    int getTimeoutSec() {
         return mTimeoutSec;
     }
 
     /** Sets the timeout duration in seconds. */
-    public AppCrawlTesterOptions setTimeoutSec(int timeoutSec) {
+    AppCrawlTesterOptions setTimeoutSec(int timeoutSec) {
         this.mTimeoutSec = timeoutSec;
         return this;
     }
 
     /** Returns the config value for the Roboscript file path. */
-    public File getRoboscriptFile() {
+    File getRoboscriptFile() {
         return mRoboscriptFile;
     }
 
     /** Sets the Roboscript file path. */
-    public AppCrawlTesterOptions setRoboscriptFile(File roboscriptFile) {
+    AppCrawlTesterOptions setRoboscriptFile(File roboscriptFile) {
         this.mRoboscriptFile = roboscriptFile;
         return this;
     }
 
     /** Returns the config value for the crawl guidance proto file path. */
-    public File getCrawlGuidanceProtoFile() {
+    File getCrawlGuidanceProtoFile() {
         return mCrawlGuidanceProtoFile;
     }
 
     /** Sets the crawl guidance proto file path. */
-    public AppCrawlTesterOptions setCrawlGuidanceProtoFile(File crawlGuidanceProtoFile) {
+    AppCrawlTesterOptions setCrawlGuidanceProtoFile(File crawlGuidanceProtoFile) {
         this.mCrawlGuidanceProtoFile = crawlGuidanceProtoFile;
         return this;
     }
 
     /** Gets the config value of login config directory. */
-    public File getLoginConfigDir() {
+    File getLoginConfigDir() {
         return mLoginConfigDir;
     }
 
     /** Sets the login config directory. */
-    public AppCrawlTesterOptions setLoginConfigDir(File loginConfigDir) {
+    AppCrawlTesterOptions setLoginConfigDir(File loginConfigDir) {
         this.mLoginConfigDir = loginConfigDir;
         return this;
     }
 
     /** Gets the config value for when to save apks. */
-    public TestUtils.TakeEffectWhen getSaveApkWhen() {
+    TestUtils.TakeEffectWhen getSaveApkWhen() {
         return mSaveApkWhen;
     }
 
     /** Sets when to save the apks to test artifacts. */
-    public AppCrawlTesterOptions setSaveApkWhen(TestUtils.TakeEffectWhen saveApkWhen) {
+    AppCrawlTesterOptions setSaveApkWhen(TestUtils.TakeEffectWhen saveApkWhen) {
         this.mSaveApkWhen = saveApkWhen;
         return this;
     }
@@ -281,12 +281,12 @@ public class AppCrawlTesterOptions {
     /**
      * Gets the config value for whether to grant external storage permission to the subject package
      */
-    public boolean isGrantExternalStoragePermission() {
+    boolean isGrantExternalStoragePermission() {
         return mGrantExternalStoragePermission;
     }
 
     /** Sets whether to grant external storage permission to the subject package. */
-    public AppCrawlTesterOptions setGrantExternalStoragePermission(
+    AppCrawlTesterOptions setGrantExternalStoragePermission(
             boolean grantExternalStoragePermission) {
         this.mGrantExternalStoragePermission = grantExternalStoragePermission;
         return this;
