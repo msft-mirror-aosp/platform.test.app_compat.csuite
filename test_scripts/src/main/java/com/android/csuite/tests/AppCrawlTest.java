@@ -16,7 +16,6 @@
 
 package com.android.csuite.tests;
 
-import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.AppCrawlTester;
 import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.csuite.core.DeviceJUnit4ClassRunner;
@@ -32,8 +31,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
-
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationReceiver {
@@ -43,8 +40,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     private IConfiguration mConfiguration;
 
     @Before
-    public void setUp()
-            throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
+    public void setUp() throws DeviceNotAvailableException, CrawlerException {
         mCrawler = AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration);
         mCrawler.runSetup();
     }
