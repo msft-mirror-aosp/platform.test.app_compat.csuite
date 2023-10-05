@@ -19,6 +19,7 @@ package com.android.webview.tests;
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
+import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.csuite.core.DeviceJUnit4ClassRunner;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
@@ -230,6 +231,8 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
 
         DeviceUtils.getInstance(getDevice()).freezeRotation();
         mWebviewUtils.printWebviewVersion();
+
+        mCrawler.runSetup();
     }
 
     /**
@@ -243,13 +246,14 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     }
 
     @Test
-    public void testAppCrawl() throws DeviceNotAvailableException, IOException, JSONException {
+    public void testAppCrawl()
+            throws DeviceNotAvailableException, IOException, CrawlerException, JSONException {
         AssertionError lastError = null;
         WebviewPackage lastWebviewInstalled =
                 mWebviewUtils.installWebview(mWebviewVersionToTest, mReleaseChannel);
 
         try {
-            mCrawler.startAndAssertAppNoCrash();
+            mCrawler.runTest();
         } catch (AssertionError e) {
             lastError = e;
         } finally {
@@ -264,7 +268,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         // If the app crashes, try the app with the original webview version that comes with the
         // device.
         try {
-            mCrawler.startAndAssertAppNoCrash();
+            mCrawler.runTest();
         } catch (AssertionError newError) {
             CLog.w(
                     "The app %s crashed both with and without the webview installation,"
@@ -295,7 +299,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
             getDevice().uninstallPackage(mPackageName);
         }
 
-        mCrawler.cleanUp();
+        mCrawler.runTearDown();
     }
 
     @Override

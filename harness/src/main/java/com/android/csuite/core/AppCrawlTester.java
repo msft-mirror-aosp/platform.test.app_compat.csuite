@@ -66,6 +66,7 @@ public final class AppCrawlTester {
     private FileSystem mFileSystem;
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
+    private boolean mIsSetupComplete = false;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -151,20 +152,55 @@ public final class AppCrawlTester {
     }
 
     /**
-     * Starts crawling the app and throw AssertionError if app crash is detected.
+     * Runs the setup, test, and teardown steps together.
      *
-     * @throws DeviceNotAvailableException When device because unavailable.
+     * <p>Test won't run if setup failed, and teardown will always run.
+     *
+     * @throws DeviceNotAvailableException when the device is lost.
+     * @throws CrawlerException when unexpected happened.
      */
-    public void startAndAssertAppNoCrash() throws DeviceNotAvailableException {
+    public void run() throws DeviceNotAvailableException, CrawlerException {
+        try {
+            runSetup();
+            runTest();
+        } finally {
+            runTearDown();
+        }
+    }
+
+    /**
+     * Runs only the setup step of the crawl test.
+     *
+     * @throws DeviceNotAvailableException when the device is lost.
+     */
+    public void runSetup() throws DeviceNotAvailableException {
         if (getOptions().isGrantExternalStoragePermission()) {
             mTestUtils.getDeviceUtils().grantExternalStoragePermissions(mPackageName);
+        }
+        mIsSetupComplete = true;
+    }
+
+    /** Runs only the teardown step of the crawl test. */
+    public void runTearDown() {
+        cleanUpOutputDir();
+    }
+
+    /**
+     * Starts crawling the app and throw AssertionError if app crash is detected.
+     *
+     * @throws DeviceNotAvailableException when the device because unavailable.
+     * @throws CrawlerException when unexpected happened during the execution.
+     */
+    public void runTest() throws DeviceNotAvailableException, CrawlerException {
+        if (!mIsSetupComplete) {
+            throw new CrawlerException("Crawler setup has not run.");
         }
 
         DeviceTimestamp startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
         CrawlerException crawlerException = null;
         try {
-            start();
+            startCrawl();
         } catch (CrawlerException e) {
             crawlerException = e;
         }
@@ -213,7 +249,8 @@ public final class AppCrawlTester {
      *     failed.
      * @throws DeviceNotAvailableException When device because unavailable.
      */
-    public void start() throws CrawlerException, DeviceNotAvailableException {
+    @VisibleForTesting
+    void startCrawl() throws CrawlerException, DeviceNotAvailableException {
         if (!AppCrawlTesterHostPreparer.isReady(mTestUtils.getTestInformation())) {
             throw new CrawlerException(
                     "The "
@@ -660,7 +697,8 @@ public final class AppCrawlTester {
     }
 
     /** Cleans up the crawler output directory. */
-    public void cleanUp() {
+    @VisibleForTesting
+    void cleanUpOutputDir() {
         if (mOutput == null) {
             return;
         }

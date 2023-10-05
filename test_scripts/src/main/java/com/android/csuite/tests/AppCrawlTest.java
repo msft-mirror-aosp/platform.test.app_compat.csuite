@@ -19,6 +19,7 @@ package com.android.csuite.tests;
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
+import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.csuite.core.DeviceJUnit4ClassRunner;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.IConfiguration;
@@ -172,7 +173,8 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     private boolean mGrantExternalStoragePermission = false;
 
     @Before
-    public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
+    public void setUp()
+            throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
         mIsLastTestPass = false;
         mCrawler =
                 AppCrawlTester.newInstance(
@@ -214,6 +216,8 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
                         .map(File::toPath)
                         .collect(Collectors.toList()),
                 mCrawler.getOptions().getInstallArgs());
+
+        mCrawler.runSetup();
     }
 
     /**
@@ -228,8 +232,8 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     }
 
     @Test
-    public void testAppCrash() throws DeviceNotAvailableException {
-        mCrawler.startAndAssertAppNoCrash();
+    public void testAppCrash() throws DeviceNotAvailableException, CrawlerException {
+        mCrawler.runTest();
         mIsLastTestPass = true;
     }
 
@@ -263,7 +267,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
             getDevice().uninstallPackage(mPackageName);
         }
 
-        mCrawler.cleanUp();
+        mCrawler.runTearDown();
     }
 
     @Override
