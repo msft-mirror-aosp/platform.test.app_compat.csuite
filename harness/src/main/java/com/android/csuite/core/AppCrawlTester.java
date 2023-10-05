@@ -182,7 +182,7 @@ public final class AppCrawlTester {
                 getConfigOptions().getSubjectPackageName(), "Package name cannot be null");
         // For Espresso mode, checks that a path with the location of the apk to repackage was
         // provided
-        if (!getConfigOptions().isUiAutomatorMode()) {
+        if (getConfigOptions().isEspressoMode()) {
             Preconditions.checkNotNull(
                     getConfigOptions().getSubjectApkPath(),
                     "Subject apk path is required when not running in UIAutomator mode");
@@ -245,7 +245,7 @@ public final class AppCrawlTester {
         } catch (ApkInstallerException e) {
             CLog.e("Uninstallation of installed apps failed during teardown: %s", e.getMessage());
         }
-        if (!getConfigOptions().isUiAutomatorMode()) {
+        if (getConfigOptions().isEspressoMode()) {
             try {
                 mTestUtils
                         .getDeviceUtils()
@@ -385,7 +385,7 @@ public final class AppCrawlTester {
         long commandTimeout =
                 3L * 60 * 1000
                         + getConfigOptions().getCrawlDurationSec() * 1000L
-                        + (!getConfigOptions().isUiAutomatorMode() ? 3L * 60 * 1000 : 0);
+                        + (getConfigOptions().isEspressoMode() ? 3L * 60 * 1000 : 0);
 
         CLog.i(
                 "Starting to crawl the package %s with command %s",
@@ -632,7 +632,7 @@ public final class AppCrawlTester {
                             + Integer.toString(getConfigOptions().getCrawlDurationSec()));
         }
 
-        if (getConfigOptions().isUiAutomatorMode()) {
+        if (!getConfigOptions().isEspressoMode()) {
             cmd.addAll(Arrays.asList("--ui-automator-mode", "--app-installed-on-device"));
         } else {
             Preconditions.checkNotNull(
@@ -736,7 +736,7 @@ public final class AppCrawlTester {
                     Arrays.asList("--endpoint", getConfigOptions().getCrawlControllerEndpoint()));
         }
 
-        if (getConfigOptions().isUiAutomatorMode()) {
+        if (!getConfigOptions().isEspressoMode()) {
             cmd.addAll(
                     Arrays.asList(
                             "--ui-automator-mode",
@@ -907,10 +907,10 @@ public final class AppCrawlTester {
         return this;
     }
 
-    /** Sets whether to enable UiAutomator mode. */
-    public AppCrawlTester setUiAutomatorMode(boolean uiAutomatorMode) {
+    /** Sets whether to enable espresso mode. */
+    public AppCrawlTester setEspressoMode(boolean espressoMode) {
         checkOptionSettable();
-        getConfigOptions().setUiAutomatorMode(uiAutomatorMode);
+        getConfigOptions().setEspressoMode(espressoMode);
         return this;
     }
 
