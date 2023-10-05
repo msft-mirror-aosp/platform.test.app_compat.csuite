@@ -833,8 +833,7 @@ public final class AppCrawlTesterTest {
         preparer.setUp(mTestInfo);
     }
 
-    private AppCrawlTester createNotPreparedTestSubject()
-            throws DeviceNotAvailableException, ConfigurationException {
+    private AppCrawlTester createNotPreparedTestSubject() throws DeviceNotAvailableException {
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
         Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
@@ -843,8 +842,9 @@ public final class AppCrawlTesterTest {
         when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("33"));
         IConfiguration configuration = new Configuration("name", "description");
-        configuration.setConfigurationObject(
-                AppCrawlTesterOptions.OBJECT_TYPE, new AppCrawlTesterOptions());
+        AppCrawlTesterOptions preparer = new AppCrawlTesterOptions();
+        preparer.setUp(mTestInfo);
+        configuration.setTargetPreparer(preparer);
         AppCrawlTester sut =
                 new AppCrawlTester(
                                 mTestUtils,
@@ -868,8 +868,9 @@ public final class AppCrawlTesterTest {
         when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("33"));
         IConfiguration configuration = new Configuration("name", "description");
-        configuration.setConfigurationObject(
-                AppCrawlTesterOptions.OBJECT_TYPE, new AppCrawlTesterOptions());
+        AppCrawlTesterOptions preparer = new AppCrawlTesterOptions();
+        preparer.setUp(mTestInfo);
+        configuration.setTargetPreparer(preparer);
         AppCrawlTester sut =
                 new AppCrawlTester(
                                 mTestUtils,
