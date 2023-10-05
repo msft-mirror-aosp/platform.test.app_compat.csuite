@@ -15,10 +15,10 @@
 -->
 <configuration description="Crawl's an app after installing WebView">
     <object type="APP_CRAWL_TESTER_OPTIONS" class="com.android.csuite.core.AppCrawlTesterOptions" >
-        <option name="install-apk" value="app://{package}"/>
-        <option name="install-arg" value="-g"/>
+        <option name="subject-package-name" value="{package}"/>
+        <option name="subject-apk-path" value="app://{package}"/>
+        <option name="subject-apk-install-arg" value="-g"/>
         <option name="ui-automator-mode" value="true"/>
-        <option name="package-name" value="{package}"/>
     </object>
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />

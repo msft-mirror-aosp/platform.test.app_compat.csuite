@@ -15,8 +15,8 @@
 -->
 <configuration description="C-Suite Crawler test configuration">
     <object type="APP_CRAWL_TESTER_OPTIONS" class="com.android.csuite.core.AppCrawlTesterOptions" >
-        <option name="package-name" value="{package}"/>
-        <option name="repack-apk" value="app://{package}"/>
+        <option name="subject-package-name" value="{package}"/>
+        <option name="subject-apk-path" value="app://{package}"/>
         <option name="ui-automator-mode" value="false"/>
     </object>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />

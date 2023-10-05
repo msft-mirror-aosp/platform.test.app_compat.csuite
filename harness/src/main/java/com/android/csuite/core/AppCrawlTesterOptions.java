@@ -26,9 +26,6 @@ public class AppCrawlTesterOptions {
 
     public static final String OBJECT_TYPE = "APP_CRAWL_TESTER_OPTIONS";
 
-    @Option(name = "package-name", description = "Package name of testing app.")
-    private String mPackageName;
-
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
 
@@ -46,30 +43,28 @@ public class AppCrawlTesterOptions {
                             + " in test log files.")
     private boolean mCollectGmsVersion;
 
-    @Option(
-            name = "repack-apk",
-            mandatory = false,
-            description =
-                    "Path to an apk file or a directory containing apk files of a single"
-                            + " package to repack and install in Espresso mode")
-    private File mRepackApk;
+    @Option(name = "subject-package-name", description = "Package name of the app being crawled.")
+    private String mSubjectPackageName;
 
     @Option(
-            name = "install-apk",
-            mandatory = false,
+            name = "subject-apk-path",
             description =
-                    "The path to an apk file or a directory of apk files to be installed on the"
-                            + " device. In Ui-automator mode, this includes both the target apk to"
-                            + " install and any dependencies. In Espresso mode this can include"
-                            + " additional libraries or dependencies.")
-    private List<File> mInstallApkPaths = new ArrayList<>();
+                    "The path to the apk files of the subject package being tested. Optional in"
+                            + " ui-automator mode and required in Espresso mode")
+    private File mSubjectApkPath;
+
+    @Option(name = "subject-apk-install-arg", description = "Adb install arg for the subject apk.")
+    private List<String> mSubjectApkInstallArgs = new ArrayList<>();
 
     @Option(
-            name = "install-arg",
+            name = "extra-apk-path",
             description =
-                    "Arguments for the 'adb install-multiple' package installation command for"
-                            + " UI-automator mode.")
-    private List<String> mInstallArgs = new ArrayList<>();
+                    "The paths to extra apks to be installed before test. Split apks of a single"
+                            + " package should be included in one directory path.")
+    private List<File> mExtraApkPaths = new ArrayList<>();
+
+    @Option(name = "extra-apk-install-arg", description = "Adb install arg for extra apka.")
+    private List<String> mExtraApkInstallArgs = new ArrayList<>();
 
     @Option(
             name = "crawl-controller-endpoint",
@@ -125,13 +120,13 @@ public class AppCrawlTesterOptions {
     private boolean mGrantExternalStoragePermission = false;
 
     /** Returns the config value for the package name to crawl. */
-    String getPackageName() {
-        return mPackageName;
+    String getSubjectPackageName() {
+        return mSubjectPackageName;
     }
 
     /** Sets the package name to crawl. */
-    AppCrawlTesterOptions setPackageName(String packageName) {
-        this.mPackageName = packageName;
+    AppCrawlTesterOptions setSubjectPackageName(String subjectPackageName) {
+        this.mSubjectPackageName = subjectPackageName;
         return this;
     }
 
@@ -168,36 +163,47 @@ public class AppCrawlTesterOptions {
         return this;
     }
 
-    /** Returns the config value for the repacked APK file path. */
-    File getRepackApk() {
-        return mRepackApk;
+    /** Returns the config value for the subject APK path. */
+    File getSubjectApkPath() {
+        return mSubjectApkPath;
     }
 
-    /** Sets the repacked APK file path. */
-    AppCrawlTesterOptions setRepackApk(File repackApk) {
-        this.mRepackApk = repackApk;
+    /** Sets the subject APK path. */
+    AppCrawlTesterOptions setSubjectApkPath(File subjectApkPath) {
+        this.mSubjectApkPath = subjectApkPath;
         return this;
     }
 
-    /** Returns the config value for the list of APK paths for installation. */
-    List<File> getInstallApkPaths() {
-        return mInstallApkPaths;
+    /** Returns the config value for the list of extra APK paths for installation. */
+    List<File> getExtraApkPaths() {
+        return mExtraApkPaths;
     }
 
-    /** Sets the list of APK paths for installation. */
-    AppCrawlTesterOptions setInstallApkPaths(List<File> installApkPaths) {
-        this.mInstallApkPaths = installApkPaths;
+    /** Sets the list of extra APK paths for installation before test. */
+    AppCrawlTesterOptions setExtraApkPaths(List<File> extraApkPaths) {
+        this.mExtraApkPaths = extraApkPaths;
         return this;
     }
 
-    /** Returns the config value for the list of installation arguments. */
-    List<String> getInstallArgs() {
-        return mInstallArgs;
+    /** Returns the config value for the list of installation arguments for the subject APK. */
+    List<String> getSubjectApkInstallArgs() {
+        return mSubjectApkInstallArgs;
     }
 
-    /** Sets the list of installation arguments. */
-    AppCrawlTesterOptions setInstallArgs(List<String> installArgs) {
-        this.mInstallArgs = installArgs;
+    /** Sets the list of installation arguments for the subject APK. */
+    AppCrawlTesterOptions setSubjectApkInstallArgs(List<String> subjectApkInstallArgs) {
+        this.mSubjectApkInstallArgs = subjectApkInstallArgs;
+        return this;
+    }
+
+    /** Returns the config value for the list of installation arguments for the extra APKs. */
+    List<String> getExtraApkInstallArgs() {
+        return mExtraApkInstallArgs;
+    }
+
+    /** Sets the list of installation arguments for the extra APKs. */
+    AppCrawlTesterOptions setExtraApkInstallArgs(List<String> extraApkInstallArgs) {
+        this.mExtraApkInstallArgs = extraApkInstallArgs;
         return this;
     }
 
