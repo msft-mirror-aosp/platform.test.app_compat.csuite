@@ -87,10 +87,10 @@ public class AppCrawlTesterOptions {
     private boolean mUiAutomatorMode = true;
 
     @Option(
-            name = "timeout-sec",
+            name = "crawl-duration-sec",
             mandatory = false,
-            description = "The timeout for the crawl test.")
-    private int mTimeoutSec = 60;
+            description = "The max duration timeout for the crawler in seconds.")
+    private int mCrawlDurationSec = 60;
 
     @Option(
             name = "robo-script-file",
@@ -223,14 +223,14 @@ public class AppCrawlTesterOptions {
         return this;
     }
 
-    /** Returns the config value for the timeout duration in seconds. */
-    int getTimeoutSec() {
-        return mTimeoutSec;
+    /** Returns the config value for the crawler duration timeout in seconds. */
+    int getCrawlDurationSec() {
+        return mCrawlDurationSec;
     }
 
-    /** Sets the timeout duration in seconds. */
-    AppCrawlTesterOptions setTimeoutSec(int timeoutSec) {
-        this.mTimeoutSec = timeoutSec;
+    /** Sets the crawler duration timeout in seconds. */
+    AppCrawlTesterOptions setCrawlDurationSec(int crawlDurationSec) {
+        this.mCrawlDurationSec = crawlDurationSec;
         return this;
     }
 
