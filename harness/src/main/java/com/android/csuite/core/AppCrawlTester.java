@@ -423,7 +423,7 @@ public final class AppCrawlTester {
                 getConfigOptions().getSubjectPackageName(), commandResult.get());
     }
 
-    /** Copys the step screenshots into test outputs for easier access. */
+    /** Copies the step screenshots into test outputs for easier access. */
     private void collectCrawlStepScreenshots(boolean isUtpClient) {
         if (mOutput == null) {
             CLog.e("Output directory is not created yet. Skipping collecting step screenshots.");
