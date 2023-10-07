@@ -25,11 +25,10 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
+import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
-import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
-import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -213,7 +212,7 @@ public final class AppCrawlTesterTest {
     @Test
     public void runTest_crawlerExceptionIsThrown_throws() throws Exception {
         AppCrawlTester sut =
-                createNotPreparedTestSubject()
+                createPreparedTestSubject()
                         .setEspressoMode(true)
                         .setSubjectApkPath(convertToFile(createApkPathWithSplitApks()));
         Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
@@ -440,13 +439,10 @@ public final class AppCrawlTesterTest {
     }
 
     @Test
-    public void startCrawl_preparerNotRun_throwsException() throws Exception {
-        AppCrawlTester sut =
-                createNotPreparedTestSubject()
-                        .setEspressoMode(true)
-                        .setSubjectApkPath(convertToFile(createApkPathWithSplitApks()));
-
-        assertThrows(AppCrawlTester.CrawlerException.class, () -> sut.startCrawl());
+    public void newCrawlTesterInstance_preparerNotRun_throwsException() throws Exception {
+        assertThrows(
+                AppCrawlTester.CrawlerException.class,
+                () -> new AppCrawlTester(mTestUtils, () -> mRunUtil, mFileSystem, mApkInstaller));
     }
 
     @Test
@@ -831,34 +827,13 @@ public final class AppCrawlTesterTest {
                 AppCrawlTesterHostPreparer.CREDENTIAL_JSON_OPTION,
                 Files.createDirectories(mFileSystem.getPath("/cred.json")).toString());
         preparer.setUp(mTestInfo);
-    }
-
-    private AppCrawlTester createNotPreparedTestSubject() throws DeviceNotAvailableException {
-        Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
-                .thenReturn(createSuccessfulCommandResult());
-        Mockito.when(mDevice.getSerialNumber()).thenReturn("serial");
-        when(mDevice.executeShellV2Command(Mockito.startsWith("echo ${EPOCHREALTIME")))
-                .thenReturn(createSuccessfulCommandResultWithStdout("1"));
-        when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
-                .thenReturn(createSuccessfulCommandResultWithStdout("33"));
-        IConfiguration configuration = new Configuration("name", "description");
-        AppCrawlTesterOptions preparer = new AppCrawlTesterOptions();
-        preparer.setUp(mTestInfo);
-        configuration.setTargetPreparer(preparer);
-        AppCrawlTester sut =
-                new AppCrawlTester(
-                                mTestUtils,
-                                () -> mRunUtil,
-                                mFileSystem,
-                                configuration,
-                                mApkInstaller)
-                        .setSubjectPackageName(PACKAGE_NAME);
-        return sut;
+        String tempPathStr = AppCrawlTesterHostPreparer.getTempDirPath(mTestInfo);
+        Files.createDirectories(mFileSystem.getPath(tempPathStr));
     }
 
     private AppCrawlTester createPreparedTestSubject()
             throws IOException, ConfigurationException, TargetSetupError,
-                    DeviceNotAvailableException {
+                    DeviceNotAvailableException, CrawlerException {
         simulatePreparerWasExecutedSuccessfully();
         Mockito.when(mRunUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
@@ -867,17 +842,10 @@ public final class AppCrawlTesterTest {
                 .thenReturn(createSuccessfulCommandResultWithStdout("1"));
         when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("33"));
-        IConfiguration configuration = new Configuration("name", "description");
         AppCrawlTesterOptions preparer = new AppCrawlTesterOptions();
-        preparer.setUp(mTestInfo);
-        configuration.setTargetPreparer(preparer);
+        preparer.dump(mTestInfo, mFileSystem);
         AppCrawlTester sut =
-                new AppCrawlTester(
-                                mTestUtils,
-                                () -> mRunUtil,
-                                mFileSystem,
-                                configuration,
-                                mApkInstaller)
+                new AppCrawlTester(mTestUtils, () -> mRunUtil, mFileSystem, mApkInstaller)
                         .setSubjectPackageName(PACKAGE_NAME);
         return sut;
     }

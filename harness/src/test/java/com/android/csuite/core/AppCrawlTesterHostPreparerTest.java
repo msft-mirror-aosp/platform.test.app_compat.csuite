@@ -15,6 +15,11 @@
  */
 package com.android.csuite.core;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
+
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
@@ -26,12 +31,7 @@ import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.common.jimfs.Jimfs;
-
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThrows;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,18 +52,18 @@ public final class AppCrawlTesterHostPreparerTest {
     IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
 
     @Test
-    public void getSdkPath_wasSet_returnsPath() {
+    public void getTempDirPath_wasSet_returnsPath() {
         Path path = Path.of("some");
-        AppCrawlTesterHostPreparer.setSdkPath(mTestInfo, path);
+        AppCrawlTesterHostPreparer.setTempDirPath(mTestInfo, path);
 
-        String result = AppCrawlTesterHostPreparer.getSdkPath(mTestInfo);
+        String result = AppCrawlTesterHostPreparer.getTempDirPath(mTestInfo);
 
         assertThat(result).isEqualTo(path.toString());
     }
 
     @Test
-    public void getSdkPath_wasNotSet_returnsNull() {
-        String result = AppCrawlTesterHostPreparer.getSdkPath(mTestInfo);
+    public void getTempDirPath_wasNotSet_returnsNull() {
+        String result = AppCrawlTesterHostPreparer.getTempDirPath(mTestInfo);
 
         assertNull(result);
     }

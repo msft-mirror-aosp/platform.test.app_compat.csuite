@@ -18,14 +18,13 @@ package com.android.webview.tests;
 
 import com.android.csuite.core.AppCrawlTester;
 import com.android.csuite.core.AppCrawlTester.CrawlerException;
-import com.android.csuite.core.DeviceJUnit4ClassRunner;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
-import com.android.tradefed.config.IConfiguration;
-import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.webview.lib.WebviewPackage;
 import com.android.webview.lib.WebviewUtils;
@@ -34,6 +33,7 @@ import org.json.JSONException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -41,13 +41,13 @@ import java.io.IOException;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigurationReceiver {
+public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
+    @Rule public TestLogData mLogData = new TestLogData();
 
     private WebviewUtils mWebviewUtils;
     private WebviewPackage mPreInstalledWebview;
     private AppCrawlTester mCrawler;
     private AppCrawlTester mCrawlerVerify;
-    private IConfiguration mConfiguration;
 
     @Option(name = "webview-version-to-test", description = "Version of Webview to test.")
     private String mWebviewVersionToTest;
@@ -61,7 +61,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     private String mPackageName;
 
     @Before
-    public void setUp() throws DeviceNotAvailableException {
+    public void setUp() throws DeviceNotAvailableException, CrawlerException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
         Assert.assertTrue(
                 "Either the --release-channel or --webview-version-to-test arguments "
@@ -71,12 +71,12 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         // Only save apk on the verification run.
         // Only record screen on the webview run.
         mCrawler =
-                AppCrawlTester.newInstance(mConfiguration)
+                AppCrawlTester.newInstance(getTestInformation(), mLogData)
                         .setSaveApkWhen(TestUtils.TakeEffectWhen.NEVER)
                         .setRecordScreen(true)
                         .setNoThrowOnFailure(true);
         mCrawlerVerify =
-                AppCrawlTester.newInstance(mConfiguration)
+                AppCrawlTester.newInstance(getTestInformation(), mLogData)
                         .setSaveApkWhen(TestUtils.TakeEffectWhen.ON_PASS)
                         .setRecordScreen(false)
                         .setNoThrowOnFailure(true);
@@ -120,10 +120,5 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     @After
     public void tearDown() throws DeviceNotAvailableException {
         mWebviewUtils.printWebviewVersion();
-    }
-
-    @Override
-    public void setConfiguration(IConfiguration configuration) {
-        mConfiguration = configuration;
     }
 }

@@ -15,20 +15,32 @@
  */
 package com.android.csuite.core;
 
+import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.invoker.TestInformation;
-import com.android.tradefed.log.ITestLogger;
-import com.android.tradefed.result.ITestLoggerReceiver;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.targetprep.TargetSetupError;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 /** A class for receiving and storing option values for the AppCrawlTester class. */
-public class AppCrawlTesterOptions implements ITargetPreparer, ITestLoggerReceiver {
-    private ITestLogger mTestLogger;
-    private TestInformation mTestInfo;
+public class AppCrawlTesterOptions implements ITargetPreparer, Serializable {
 
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -299,21 +311,74 @@ public class AppCrawlTesterOptions implements ITargetPreparer, ITestLoggerReceiv
 
     /** {@inheritDoc} */
     @Override
-    public void setUp(TestInformation testInfo) {
-        mTestInfo = testInfo;
+    public void setUp(TestInformation testInfo) throws TargetSetupError {
+        try {
+            dump(testInfo, FileSystems.getDefault());
+        } catch (IOException e) {
+            throw new TargetSetupError(
+                    "Failed to dump options", e, testInfo.getDevice().getDeviceDescriptor());
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void setTestLogger(ITestLogger testLogger) {
-        mTestLogger = testLogger;
+    public void tearDown(TestInformation testInfo, Throwable e) {
+        cleanUpDump(testInfo);
     }
 
-    TestInformation getTestInfo() {
-        return mTestInfo;
+    private void cleanUpDump(TestInformation testInfo) {
+        String tmpPathStr = AppCrawlTesterHostPreparer.getTempDirPath(testInfo);
+        if (tmpPathStr == null) {
+            return;
+        }
+        Path objFile = Path.of(tmpPathStr).resolve(GetObjFileName(testInfo));
+        if (!Files.exists(objFile)) {
+            return;
+        }
+        try {
+            Files.delete(objFile);
+        } catch (IOException e2) {
+            CLog.w("Failed to delete %s: %s", objFile, e2);
+        }
     }
 
-    ITestLogger getTestLogger() {
-        return mTestLogger;
+    @VisibleForTesting
+    void dump(TestInformation testInfo, FileSystem fileSystem) throws IOException {
+        String tmpPathStr = AppCrawlTesterHostPreparer.getTempDirPath(testInfo);
+        Preconditions.checkNotNull(tmpPathStr, "Temp dir not found.");
+        Preconditions.checkArgument(
+                Files.exists(fileSystem.getPath(tmpPathStr)), "Temp dir not exist.");
+        Path objFile = fileSystem.getPath(tmpPathStr).resolve(GetObjFileName(testInfo));
+        Files.createFile(objFile);
+
+        try (OutputStream fos = Files.newOutputStream(objFile);
+                ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(this);
+        }
+    }
+
+    /** Loads the option object from test information. */
+    public static AppCrawlTesterOptions load(TestInformation testInfo, FileSystem fileSystem)
+            throws CrawlerException {
+        if (!AppCrawlTesterHostPreparer.isReady(testInfo)) {
+            throw new CrawlerException("");
+        }
+        String tmpPathStr = AppCrawlTesterHostPreparer.getTempDirPath(testInfo);
+        Preconditions.checkNotNull(
+                tmpPathStr, "Temp dir not found, crawl host preparer likely not run.");
+        Path dump = fileSystem.getPath(tmpPathStr).resolve(GetObjFileName(testInfo));
+
+        try {
+            try (InputStream fis = Files.newInputStream(dump);
+                    ObjectInputStream ois = new ObjectInputStream(fis)) {
+                return (AppCrawlTesterOptions) ois.readObject();
+            }
+        } catch (ClassNotFoundException | IOException e) {
+            throw new CrawlerException(e);
+        }
+    }
+
+    private static String GetObjFileName(TestInformation testInfo) {
+        return testInfo.hashCode() + ".dump";
     }
 }
