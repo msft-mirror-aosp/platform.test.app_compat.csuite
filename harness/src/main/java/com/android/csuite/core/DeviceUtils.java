@@ -634,6 +634,26 @@ public class DeviceUtils {
      * @throws IOException when failed to dump or read the dropbox protos.
      */
     public List<DropboxEntry> getDropboxEntries(Set<String> tags) throws IOException {
+        CommandResult resHelp =
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                1L * 60 * 1000,
+                                "sh",
+                                "-c",
+                                String.format(
+                                        "adb -s %s shell dumpsys dropbox --help",
+                                        mDevice.getSerialNumber()));
+        if (resHelp.getStatus() != CommandStatus.SUCCESS) {
+            throw new IOException("Dropbox dump help command failed: " + resHelp);
+        }
+        if (!resHelp.getStdout().contains("--proto")) {
+            // If dumping proto format is not supported such as in Android 10, the command will
+            // still succeed with exit code 0 and output strings instead of protobuf bytes,
+            // causing parse error. In this case we fallback to dumping dropbox --print option.
+            return getDropboxEntriesFromStdout(tags);
+        }
+
         List<DropboxEntry> entries = new ArrayList<>();
 
         for (String tag : tags) {
@@ -643,24 +663,30 @@ public class DeviceUtils {
                     mRunUtilProvider
                             .get()
                             .runTimedCmd(
-                                    12L * 1000,
+                                    4L * 60 * 1000,
                                     "sh",
                                     "-c",
                                     String.format(
                                             "adb -s %s shell dumpsys dropbox --proto %s > %s",
                                             mDevice.getSerialNumber(), tag, dumpFile));
-
             if (res.getStatus() != CommandStatus.SUCCESS) {
                 throw new IOException("Dropbox dump command failed: " + res);
             }
 
+            if (Files.size(dumpFile) == 0) {
+                CLog.d("Skipping empty proto " + dumpFile);
+                continue;
+            }
+
+            CLog.d("Parsing proto for tag %s. Size: %s", tag, Files.size(dumpFile));
             DropBoxManagerServiceDumpProto proto;
             try {
                 proto = DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
             } catch (InvalidProtocolBufferException e) {
-                // If dumping proto format is not supported such as in Android 10, the command will
-                // still succeed with exit code 0 and output strings instead of protobuf bytes,
-                // causing parse error. In this case we fallback to dumping dropbox --print option.
+                CLog.e(
+                        "Falling back to stdout dropbox dump due to unexpected proto parse error:"
+                                + " %s",
+                        e);
                 return getDropboxEntriesFromStdout(tags);
             }
             Files.delete(dumpFile);
@@ -746,7 +772,7 @@ public class DeviceUtils {
                 mRunUtilProvider
                         .get()
                         .runTimedCmd(
-                                6000,
+                                4L * 60 * 1000,
                                 "sh",
                                 "-c",
                                 String.format(
@@ -775,7 +801,7 @@ public class DeviceUtils {
                 mRunUtilProvider
                         .get()
                         .runTimedCmd(
-                                6000,
+                                4L * 60 * 1000,
                                 "sh",
                                 "-c",
                                 String.format(
