@@ -52,19 +52,16 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
 
     @Option(
             name = SDK_TAR_OPTION,
-            mandatory = true,
             description = "The path to a tar file that contains the Android SDK.")
     private File mSdkTar;
 
     @Option(
             name = CRAWLER_BIN_OPTION,
-            mandatory = true,
             description = "Path to the directory containing the required crawler binary files.")
     private File mCrawlerBin;
 
     @Option(
             name = CREDENTIAL_JSON_OPTION,
-            mandatory = true,
             description = "The credential json file to access the crawler server.")
     private File mCredential;
 
@@ -121,6 +118,16 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
         return getPathFromBuildInfo(testInfo, CREDENTIAL_PATH_KEY);
     }
 
+    private boolean isEnabled() {
+        if (mSdkTar == null && mCrawlerBin == null && mCredential == null) {
+            return false;
+        }
+        if (mSdkTar != null && mCrawlerBin != null && mCredential != null) {
+            return true;
+        }
+        throw new AssertionError("All option values should be provided.");
+    }
+
     /**
      * Checks whether the preparer has successfully executed.
      *
@@ -153,6 +160,10 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
     @Override
     public void setUp(TestInformation testInfo)
             throws TargetSetupError, DeviceNotAvailableException {
+        if (!isEnabled()) {
+            return;
+        }
+
         IRunUtil runUtil = mRunUtilProvider.get();
 
         Path tempDirPath;
@@ -209,6 +220,9 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
 
     @Override
     public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
+        if (!isEnabled()) {
+            return;
+        }
         try {
             cleanUp(mFileSystem.getPath(getSdkPath(testInfo)));
         } catch (IOException ioException) {
