@@ -638,7 +638,7 @@ public class DeviceUtils {
                     mRunUtilProvider
                             .get()
                             .runTimedCmd(
-                                    6000,
+                                    12L * 1000,
                                     "sh",
                                     "-c",
                                     String.format(
