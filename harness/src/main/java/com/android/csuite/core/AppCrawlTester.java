@@ -18,7 +18,7 @@ package com.android.csuite.core;
 
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
-import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.csuite.core.DropboxEntryCrashDetector.DropboxEntry;
 import com.android.csuite.core.TestUtils.RoboscriptSignal;
 import com.android.csuite.core.TestUtils.TestUtilsException;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -281,11 +281,8 @@ public final class AppCrawlTester {
             List<DropboxEntry> crashEntries =
                     mTestUtils
                             .getDeviceUtils()
-                            .getDropboxEntries(
-                                    DeviceUtils.DROPBOX_APP_CRASH_TAGS,
-                                    mConfigOptions.getSubjectPackageName(),
-                                    startTime,
-                                    endTime);
+                            .getCrashEntriesFromDropbox(
+                                    mConfigOptions.getSubjectPackageName(), startTime, endTime);
             String dropboxCrashLog =
                     mTestUtils.compileTestFailureMessage(
                             mConfigOptions.getSubjectPackageName(),
