@@ -186,7 +186,7 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
                     e,
                     testInfo.getDevice().getDeviceDescriptor());
         }
-        String cmd = "tar -xvzf " + mSdkTar.getPath() + " -C " + sdkPath.toString();
+        String cmd = "tar -xzf " + mSdkTar.getPath() + " -C " + sdkPath.toString();
         CLog.i("Decompressing Android SDK to " + sdkPath.toString());
         CommandResult res = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, cmd.split(" "));
         if (!res.getStatus().equals(CommandStatus.SUCCESS)) {
