@@ -28,11 +28,14 @@ import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -44,6 +47,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** A package crash detector based on dropbox entries. */
 public class DropboxEntryCrashDetector {
@@ -65,26 +69,29 @@ public class DropboxEntryCrashDetector {
                     "\\b(Process|Cmdline|Package|Cmd line):("
                             + " *)([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
 
-    private final TempFileSupplier mTempFileSupplier;
+    private final TempDirectorySupplier mTempDirectorySupplier;
     private final RunUtilProvider mRunUtilProvider;
     private final ITestDevice mDevice;
+    @VisibleForTesting static final String FILE_OUTPUT_NAME = "file-output.txt";
+    @VisibleForTesting static final String PRINT_OUTPUT_NAME = "print-output.txt";
+    @VisibleForTesting static final String DROPBOX_TAR_NAME = "dropbox.tar.gz";
 
     /** Get an instance of a dropbox entry based crash detector */
     public static DropboxEntryCrashDetector getInstance(ITestDevice device) {
         return new DropboxEntryCrashDetector(
                 device,
                 () -> RunUtil.getDefault(),
-                () -> Files.createTempFile(TestUtils.class.getName(), ".tmp"));
+                () -> Files.createTempDirectory(TestUtils.class.getName()));
     }
 
     @VisibleForTesting
     DropboxEntryCrashDetector(
             ITestDevice device,
             RunUtilProvider runUtilProvider,
-            TempFileSupplier tempFileSupplier) {
+            TempDirectorySupplier tempDirectorySupplier) {
         mDevice = device;
         mRunUtilProvider = runUtilProvider;
-        mTempFileSupplier = tempFileSupplier;
+        mTempDirectorySupplier = tempDirectorySupplier;
     }
 
     /**
@@ -103,105 +110,40 @@ public class DropboxEntryCrashDetector {
             DeviceTimestamp startTime,
             DeviceTimestamp endTime)
             throws IOException {
-        return getDropboxEntriesFromProtoDump(tags, packageName, startTime, endTime);
-    }
+        // Will first attempt the adb pull method as it's most reliable and fast among all the
+        // methods.
+        List<DropboxEntry> entries = null;
 
-    /**
-     * Gets dropbox entries from the device filtered by the provided tags.
-     *
-     * @param tags Dropbox tags to query.
-     * @return A list of dropbox entries.
-     * @throws IOException when failed to dump or read the dropbox protos.
-     */
-    @VisibleForTesting
-    List<DropboxEntry> getDropboxEntriesFromProtoDump(Set<String> tags) throws IOException {
-        CommandResult resHelp =
-                mRunUtilProvider
-                        .get()
-                        .runTimedCmd(
-                                1L * 60 * 1000,
-                                "sh",
-                                "-c",
-                                String.format(
-                                        "adb -s %s shell dumpsys dropbox --help",
-                                        mDevice.getSerialNumber()));
-        if (resHelp.getStatus() != CommandStatus.SUCCESS) {
-            throw new IOException("Dropbox dump help command failed: " + resHelp);
-        }
-        if (!resHelp.getStdout().contains("--proto")) {
-            // If dumping proto format is not supported such as in Android 10, the command will
-            // still succeed with exit code 0 and output strings instead of protobuf bytes,
-            // causing parse error. In this case we fallback to dumping dropbox --print option.
-            return getDropboxEntriesFromStdout(tags);
+        try {
+            entries = getDropboxEntriesFromProtoDump(tags);
+        } catch (IOException e) {
+            // This method could fail when the data of dropbox is too large and the proto will
+            // be truncated causing parse error.
+            CLog.e(
+                    "Falling back to adb pull method. Failed to get dropbox entries from proto"
+                            + " dump: "
+                            + e);
         }
 
-        List<DropboxEntry> entries = new ArrayList<>();
-
-        for (String tag : tags) {
-            Path dumpFile = mTempFileSupplier.get();
+        if (entries == null) {
             try {
-                CommandResult res =
-                        mRunUtilProvider
-                                .get()
-                                .runTimedCmd(
-                                        4L * 60 * 1000,
-                                        "sh",
-                                        "-c",
-                                        String.format(
-                                                "adb -s %s shell dumpsys dropbox --proto %s > %s",
-                                                mDevice.getSerialNumber(), tag, dumpFile));
-                if (res.getStatus() != CommandStatus.SUCCESS) {
-                    throw new IOException("Dropbox dump command failed: " + res);
-                }
-
-                if (Files.size(dumpFile) == 0) {
-                    CLog.d("Skipping empty proto " + dumpFile);
-                    continue;
-                }
-
-                CLog.d("Parsing proto for tag %s. Size: %s", tag, Files.size(dumpFile));
-                DropBoxManagerServiceDumpProto proto;
-                try {
-                    proto = DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
-                } catch (InvalidProtocolBufferException e) {
-                    CLog.e(
-                            "Falling back to stdout dropbox dump due to unexpected proto parse"
-                                    + " error: %s",
-                            e);
-                    return getDropboxEntriesFromStdout(tags);
-                }
-                for (Entry entry : proto.getEntriesList()) {
-                    entries.add(
-                            new DropboxEntry(
-                                    entry.getTimeMs(), tag, entry.getData().toStringUtf8()));
-                }
-            } finally {
-                Files.delete(dumpFile);
+                entries = getDropboxEntriesFromAdbPull(tags, startTime, endTime);
+            } catch (IOException e) {
+                // This method relies on a few compress and decompress tools on the host and the
+                // device. It could fail if they aren't available.
+                CLog.e(
+                        "Falling back to text dump method. Failed to get dropbox entries from adb"
+                                + " pull: "
+                                + e);
             }
         }
-        return entries.stream()
-                .sorted(Comparator.comparing(DropboxEntry::getTime))
-                .collect(Collectors.toList());
-    }
 
-    /**
-     * Gets dropbox entries from the device filtered by the provided tags.
-     *
-     * @param tags Dropbox tags to query.
-     * @param packageName package name for filtering the entries. Can be null.
-     * @param startTime entry start timestamp to filter the results. Can be null.
-     * @param endTime entry end timestamp to filter the results. Can be null.
-     * @return A list of dropbox entries.
-     * @throws IOException when failed to dump or read the dropbox protos.
-     */
-    @VisibleForTesting
-    List<DropboxEntry> getDropboxEntriesFromProtoDump(
-            Set<String> tags,
-            String packageName,
-            DeviceTimestamp startTime,
-            DeviceTimestamp endTime)
-            throws IOException {
-        return getDropboxEntriesFromProtoDump(tags).stream()
+        if (entries == null) {
+            entries = getDropboxEntriesFromStdout();
+        }
+
+        return entries.stream()
+                .filter(entry -> tags.contains(entry.getTag()))
                 .filter(
                         entry ->
                                 ((startTime == null || entry.getTime() >= startTime.get())
@@ -245,13 +187,218 @@ public class DropboxEntryCrashDetector {
     }
 
     @VisibleForTesting
-    List<DropboxEntry> getDropboxEntriesFromStdout(Set<String> tags) throws IOException {
+    List<DropboxEntry> getDropboxEntriesFromAdbPull(
+            Set<String> tags, DeviceTimestamp startTime, DeviceTimestamp endTime)
+            throws IOException {
+        List<DropboxEntry> entries = new ArrayList<>();
+
+        CommandResult resLs =
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                1L * 60 * 1000,
+                                "sh",
+                                "-c",
+                                String.format(
+                                        "adb -s %s shell ls /data/system/dropbox/",
+                                        mDevice.getSerialNumber()));
+        if (resLs.getStatus() != CommandStatus.SUCCESS) {
+            throw new IOException("tar command failed: " + resLs);
+        }
+        List<String> compressList = new ArrayList<>();
+        for (String line : resLs.getStdout().split("\\s+")) {
+            if (line.isEmpty()) {
+                continue;
+            }
+            Path path = Path.of("/data/system/dropbox/").resolve(line);
+            EntryFile entryFile = new EntryFile(path);
+            if (tags.contains(entryFile.getTag())
+                    && entryFile.getTime() >= startTime.get()
+                    && entryFile.getTime() <= endTime.get()) {
+                compressList.add(path.toString());
+            }
+        }
+
+        if (compressList.isEmpty()) {
+            return entries;
+        }
+
+        CommandResult resTar =
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                1L * 60 * 1000,
+                                "sh",
+                                "-c",
+                                String.format(
+                                        "adb -s %s shell tar -czf /data/local/tmp/%s %s",
+                                        mDevice.getSerialNumber(),
+                                        DROPBOX_TAR_NAME,
+                                        String.join(" ", compressList)));
+        if (resTar.getStatus() != CommandStatus.SUCCESS) {
+            throw new IOException("tar command failed: " + resTar);
+        }
+
+        Path tmpDir = mTempDirectorySupplier.get();
+        try {
+            CommandResult resPull =
+                    mRunUtilProvider
+                            .get()
+                            .runTimedCmd(
+                                    1L * 60 * 1000,
+                                    "sh",
+                                    "-c",
+                                    String.format(
+                                            "adb -s %s pull /data/local/tmp/%s %s",
+                                            mDevice.getSerialNumber(), DROPBOX_TAR_NAME, tmpDir));
+            if (resPull.getStatus() != CommandStatus.SUCCESS) {
+                throw new IOException("Adb pull command failed: " + resPull);
+            }
+
+            mRunUtilProvider
+                    .get()
+                    .runTimedCmd(
+                            1L * 60 * 1000,
+                            "sh",
+                            "-c",
+                            String.format(
+                                    "adb -s %s shell rm -rf /data/local/tmp/%s",
+                                    mDevice.getSerialNumber(), DROPBOX_TAR_NAME));
+
+            CommandResult resUntar =
+                    mRunUtilProvider
+                            .get()
+                            .runTimedCmd(
+                                    1L * 60 * 1000,
+                                    "tar",
+                                    "-xzf",
+                                    tmpDir.resolve(DROPBOX_TAR_NAME).toString(),
+                                    "-C",
+                                    tmpDir.toString());
+            if (resUntar.getStatus() != CommandStatus.SUCCESS) {
+                throw new IOException("Decompress command failed: " + resUntar);
+            }
+
+            Path dropboxDir = tmpDir.resolve("data/system/dropbox/");
+            try (Stream<Path> originalEntryFiles = Files.list(dropboxDir)) {
+                for (Path path : originalEntryFiles.collect(Collectors.toList())) {
+                    EntryFile entryFile = new EntryFile(path);
+
+                    String data = null;
+                    switch (entryFile.getExtension()) {
+                        case "txt.gz":
+                            CommandResult resRead =
+                                    mRunUtilProvider
+                                            .get()
+                                            .runTimedCmd(
+                                                    1L * 60 * 1000,
+                                                    "gunzip",
+                                                    "-c",
+                                                    path.toString());
+                            if (resRead.getStatus() != CommandStatus.SUCCESS) {
+                                throw new IOException("Decompress command failed: " + resRead);
+                            }
+                            data = resRead.getStdout();
+                            break;
+                        case "txt":
+                            data = Files.readString(path, StandardCharsets.UTF_8);
+                            break;
+                        case "lost":
+                        case "dat.gz":
+                        default:
+                            // Ignore
+                    }
+                    if (data == null) {
+                        continue;
+                    }
+                    entries.add(new DropboxEntry(entryFile.getTime(), entryFile.getTag(), data));
+                }
+            }
+
+        } finally {
+            deleteDirectory(tmpDir);
+        }
+
+        return entries;
+    }
+
+    /**
+     * Gets dropbox entries from the device filtered by the provided tags.
+     *
+     * @param tags Dropbox tags to query.
+     * @return A list of dropbox entries.
+     * @throws IOException when failed to dump or read the dropbox protos.
+     */
+    @VisibleForTesting
+    List<DropboxEntry> getDropboxEntriesFromProtoDump(Set<String> tags) throws IOException {
+        CommandResult resHelp =
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                1L * 60 * 1000,
+                                "sh",
+                                "-c",
+                                String.format(
+                                        "adb -s %s shell dumpsys dropbox --help",
+                                        mDevice.getSerialNumber()));
+        if (resHelp.getStatus() != CommandStatus.SUCCESS) {
+            throw new IOException("Dropbox dump help command failed: " + resHelp);
+        }
+        if (!resHelp.getStdout().contains("--proto")) {
+            throw new IOException(
+                    "The current device doesn't support dumping dropbox entries in proto format.");
+        }
+
+        List<DropboxEntry> entries = new ArrayList<>();
+
+        Path tmpDir = mTempDirectorySupplier.get();
+        try {
+            for (String tag : tags) {
+                Path dumpFile = getProtoDumpFilePath(tmpDir, tag);
+                CommandResult res =
+                        mRunUtilProvider
+                                .get()
+                                .runTimedCmd(
+                                        4L * 60 * 1000,
+                                        "sh",
+                                        "-c",
+                                        String.format(
+                                                "adb -s %s shell dumpsys dropbox --proto %s > %s",
+                                                mDevice.getSerialNumber(), tag, dumpFile));
+                if (res.getStatus() != CommandStatus.SUCCESS) {
+                    throw new IOException("Dropbox dump command failed: " + res);
+                }
+
+                if (Files.size(dumpFile) == 0) {
+                    CLog.d("Skipping empty proto " + dumpFile);
+                    continue;
+                }
+
+                CLog.d("Parsing proto for tag %s. Size: %s", tag, Files.size(dumpFile));
+                DropBoxManagerServiceDumpProto proto =
+                        DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
+                for (Entry entry : proto.getEntriesList()) {
+                    entries.add(
+                            new DropboxEntry(
+                                    entry.getTimeMs(), tag, entry.getData().toStringUtf8()));
+                }
+            }
+        } finally {
+            deleteDirectory(tmpDir);
+        }
+        return entries.stream()
+                .sorted(Comparator.comparing(DropboxEntry::getTime))
+                .collect(Collectors.toList());
+    }
+
+    @VisibleForTesting
+    List<DropboxEntry> getDropboxEntriesFromStdout() throws IOException {
         HashMap<String, DropboxEntry> entries = new HashMap<>();
 
         // The first step is to read the entry names and timestamps from the --file dump option
         // output because the --print dump option does not contain timestamps.
         CommandResult res;
-        Path fileDumpFile = mTempFileSupplier.get();
+        Path tmpDir = mTempDirectorySupplier.get();
         try {
             res =
                     mRunUtilProvider
@@ -262,13 +409,14 @@ public class DropboxEntryCrashDetector {
                                     "-c",
                                     String.format(
                                             "adb -s %s shell dumpsys dropbox --file  > %s",
-                                            mDevice.getSerialNumber(), fileDumpFile));
+                                            mDevice.getSerialNumber(),
+                                            tmpDir.resolve(FILE_OUTPUT_NAME)));
             if (res.getStatus() != CommandStatus.SUCCESS) {
                 throw new IOException("Dropbox dump command failed: " + res);
             }
 
             String lastEntryName = null;
-            for (String line : Files.readAllLines(fileDumpFile)) {
+            for (String line : Files.readAllLines(tmpDir.resolve(FILE_OUTPUT_NAME))) {
                 if (DropboxEntry.isDropboxEntryName(line)) {
                     lastEntryName = line.trim();
                     entries.put(lastEntryName, DropboxEntry.fromEntryName(line));
@@ -276,15 +424,11 @@ public class DropboxEntryCrashDetector {
                     entries.get(lastEntryName).parseTimeFromFilePath(line);
                 }
             }
-        } finally {
-            Files.delete(fileDumpFile);
-        }
 
-        // Then we get the entry data from the --print dump output. Entry names parsed from the
-        // --print dump output are verified against the entry names from the --file dump output to
-        // ensure correctness.
-        Path printDumpFile = mTempFileSupplier.get();
-        try {
+            // Then we get the entry data from the --print dump output. Entry names parsed from the
+            // --print dump output are verified against the entry names from the --file dump output
+            // to
+            // ensure correctness.
             res =
                     mRunUtilProvider
                             .get()
@@ -294,13 +438,14 @@ public class DropboxEntryCrashDetector {
                                     "-c",
                                     String.format(
                                             "adb -s %s shell dumpsys dropbox --print > %s",
-                                            mDevice.getSerialNumber(), printDumpFile));
+                                            mDevice.getSerialNumber(),
+                                            tmpDir.resolve(PRINT_OUTPUT_NAME)));
             if (res.getStatus() != CommandStatus.SUCCESS) {
                 throw new IOException("Dropbox dump command failed: " + res);
             }
 
-            String lastEntryName = null;
-            for (String line : Files.readAllLines(printDumpFile)) {
+            lastEntryName = null;
+            for (String line : Files.readAllLines(tmpDir.resolve(PRINT_OUTPUT_NAME))) {
                 if (DropboxEntry.isDropboxEntryName(line)) {
                     lastEntryName = line.trim();
                 }
@@ -311,12 +456,34 @@ public class DropboxEntryCrashDetector {
                 }
             }
         } finally {
-            Files.delete(printDumpFile);
+            deleteDirectory(tmpDir);
         }
 
-        return entries.values().stream()
-                .filter(entry -> tags.contains(entry.getTag()))
-                .collect(Collectors.toList());
+        return new ArrayList<>(entries.values());
+    }
+
+    private void deleteDirectory(Path directory) throws IOException {
+        Files.walkFileTree(
+                directory,
+                new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                            throws IOException {
+                        Files.delete(file);
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+                            throws IOException {
+                        if (exc == null) {
+                            Files.delete(dir);
+                            return FileVisitResult.CONTINUE;
+                        } else {
+                            throw exc;
+                        }
+                    }
+                });
     }
 
     /** A class that stores the information of a dropbox entry. */
@@ -397,13 +564,53 @@ public class DropboxEntryCrashDetector {
         }
     }
 
+    private static class EntryFile {
+        private String mTag;
+        private long mTime;
+        private String mExtension;
+
+        private EntryFile(Path path) throws IOException {
+            String fileName = path.getFileName().toString();
+            int idxAt = fileName.indexOf('@');
+            int idxDot = fileName.indexOf('.');
+            if (idxAt <= 0 || idxDot <= 0) {
+                throw new IOException("Unrecognized dropbox entry file name " + path);
+            }
+            mTag = fileName.substring(0, idxAt);
+            try {
+                mTime = Long.parseLong(fileName.substring(idxAt + 1, idxDot));
+            } catch (NumberFormatException e) {
+                throw new IOException(e);
+            }
+
+            mExtension = fileName.substring(idxDot + 1);
+        }
+
+        private String getTag() {
+            return mTag;
+        }
+
+        private long getTime() {
+            return mTime;
+        }
+
+        private String getExtension() {
+            return mExtension;
+        }
+    }
+
     @VisibleForTesting
     interface RunUtilProvider {
         IRunUtil get();
     }
 
     @VisibleForTesting
-    interface TempFileSupplier {
+    interface TempDirectorySupplier {
         Path get() throws IOException;
+    }
+
+    @VisibleForTesting
+    static Path getProtoDumpFilePath(Path dir, String tag) {
+        return dir.resolve(tag + ".proto");
     }
 }

@@ -36,11 +36,10 @@ import com.google.protobuf.ByteString;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -261,12 +260,139 @@ public class DropboxEntryCrashDetectorTest {
     }
 
     @Test
+    public void getDropboxEntriesFromAdbPull_noEntriesWithinTimeRange_returnsEmpty()
+            throws Exception {
+        DropboxEntryCrashDetector sut = createSubjectUnderTest();
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("ls /data/system/dropbox")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("tag@1.txt"));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("shell tar")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("pull /data/local/tmp")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("tar"),
+                        Mockito.eq("-xzf"),
+                        Mockito.any(),
+                        Mockito.any(),
+                        Mockito.any()))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+
+        List<DropboxEntry> entries =
+                sut.getDropboxEntriesFromAdbPull(
+                        Set.of("tag"), new DeviceTimestamp(2), new DeviceTimestamp(3));
+
+        assertThat(entries).isEmpty();
+    }
+
+    @Test
+    public void getDropboxEntriesFromAdbPull_noEntriesUnderTag_returnsEmpty() throws Exception {
+        DropboxEntryCrashDetector sut = createSubjectUnderTest();
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("ls /data/system/dropbox")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("tag2@2.txt"));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("shell tar")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("pull /data/local/tmp")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("tar"),
+                        Mockito.eq("-xzf"),
+                        Mockito.any(),
+                        Mockito.any(),
+                        Mockito.any()))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+
+        List<DropboxEntry> entries =
+                sut.getDropboxEntriesFromAdbPull(
+                        Set.of("tag1"), new DeviceTimestamp(1), new DeviceTimestamp(3));
+
+        assertThat(entries).isEmpty();
+    }
+
+    @Test
+    public void getDropboxEntriesFromAdbPull_entryMatched_returnsEntry() throws Exception {
+        String tag = "tag";
+        long time = 2;
+        String data = "content";
+        Path tmpDir = mFileSystem.getPath("tmp");
+        Files.createDirectories(tmpDir);
+        Path dumpFile = tmpDir.resolve("data/system/dropbox/" + tag + "@" + time + ".txt");
+        Files.createDirectories(dumpFile.getParent());
+        Files.createFile(dumpFile);
+        Files.writeString(dumpFile, data);
+        DropboxEntryCrashDetector sut = createSubjectUnderTestWithTempDirectory(tmpDir);
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("ls /data/system/dropbox")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(tag + "@" + time + ".txt"));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("shell tar")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("pull /data/local/tmp")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("tar"),
+                        Mockito.eq("-xzf"),
+                        Mockito.any(),
+                        Mockito.any(),
+                        Mockito.any()))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+
+        List<DropboxEntry> entries =
+                sut.getDropboxEntriesFromAdbPull(
+                        Set.of(tag), new DeviceTimestamp(time - 1), new DeviceTimestamp(time + 1));
+
+        assertThat(entries).hasSize(1);
+        assertThat(entries.get(0).getTag()).isEqualTo(tag);
+        assertThat(entries.get(0).getTime()).isEqualTo(time);
+        assertThat(entries.get(0).getData()).isEqualTo(data);
+    }
+
+    @Test
     public void
             getDropboxEntriesFromProtoDump_containsEntriesOutsideTimeRange_onlyReturnsNewEntries()
                     throws Exception {
         DropboxEntryCrashDetector sut = Mockito.spy(createSubjectUnderTest());
         DeviceTimestamp startTime = new DeviceTimestamp(1);
         DeviceTimestamp endTime = new DeviceTimestamp(3);
+        Mockito.doThrow(new IOException())
+                .when(sut)
+                .getDropboxEntriesFromAdbPull(Mockito.any(), Mockito.any(), Mockito.any());
         Mockito.doAnswer(
                         inv ->
                                 List.of(
@@ -302,7 +428,7 @@ public class DropboxEntryCrashDetectorTest {
 
         String result =
                 sut
-                        .getDropboxEntriesFromProtoDump(
+                        .getDropboxEntries(
                                 DropboxEntryCrashDetector.DROPBOX_APP_CRASH_TAGS,
                                 TEST_PACKAGE_NAME,
                                 startTime,
@@ -318,10 +444,13 @@ public class DropboxEntryCrashDetectorTest {
 
     @Test
     public void
-            getDropboxEntriesFromProtoDumpcontainsOtherProcessEntries_onlyReturnsPackageEntries()
+            getDropboxEntriesFromProtoDump_containsOtherProcessEntries_onlyReturnsPackageEntries()
                     throws Exception {
         DropboxEntryCrashDetector sut = Mockito.spy(createSubjectUnderTest());
         DeviceTimestamp startTime = new DeviceTimestamp(1);
+        Mockito.doThrow(new IOException())
+                .when(sut)
+                .getDropboxEntriesFromAdbPull(Mockito.any(), Mockito.any(), Mockito.any());
         Mockito.doAnswer(
                         inv ->
                                 List.of(
@@ -348,7 +477,7 @@ public class DropboxEntryCrashDetectorTest {
 
         String result =
                 sut
-                        .getDropboxEntriesFromProtoDump(
+                        .getDropboxEntries(
                                 DropboxEntryCrashDetector.DROPBOX_APP_CRASH_TAGS,
                                 TEST_PACKAGE_NAME,
                                 startTime,
@@ -363,7 +492,12 @@ public class DropboxEntryCrashDetectorTest {
 
     @Test
     public void getDropboxEntriesFromProtoDump_noEntries_returnsEmptyList() throws Exception {
-        DropboxEntryCrashDetector sut = createSubjectUnderTest();
+        String tag = "tag";
+        Path tmpDir = mFileSystem.getPath("tmp");
+        Files.createDirectories(tmpDir);
+        Path dumpFile = DropboxEntryCrashDetector.getProtoDumpFilePath(tmpDir, tag);
+        Files.createFile(dumpFile);
+        DropboxEntryCrashDetector sut = createSubjectUnderTestWithTempDirectory(tmpDir);
         when(mRunUtil.runTimedCmd(
                         Mockito.anyLong(),
                         Mockito.eq("sh"),
@@ -377,7 +511,7 @@ public class DropboxEntryCrashDetectorTest {
                         Mockito.contains("dumpsys dropbox --proto")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
 
-        List<DropboxEntry> result = sut.getDropboxEntriesFromProtoDump(Set.of(""));
+        List<DropboxEntry> result = sut.getDropboxEntriesFromProtoDump(Set.of(tag));
 
         assertThat(result).isEmpty();
     }
@@ -390,10 +524,13 @@ public class DropboxEntryCrashDetectorTest {
                         Mockito.eq("-c"),
                         Mockito.contains("dumpsys dropbox --help")))
                 .thenReturn(createSuccessfulCommandResultWithStdout("--proto"));
-        Path dumpFile = Files.createTempFile(mFileSystem.getPath("/"), "dropbox", ".proto");
         long time = 123;
         String data = "abc";
         String tag = "tag";
+        Path tmpDir = mFileSystem.getPath("tmp");
+        Files.createDirectories(tmpDir);
+        Path dumpFile = DropboxEntryCrashDetector.getProtoDumpFilePath(tmpDir, tag);
+        Files.createFile(dumpFile);
         DropBoxManagerServiceDumpProto proto =
                 DropBoxManagerServiceDumpProto.newBuilder()
                         .addEntries(
@@ -402,7 +539,7 @@ public class DropboxEntryCrashDetectorTest {
                                         .setData(ByteString.copyFromUtf8(data)))
                         .build();
         Files.write(dumpFile, proto.toByteArray());
-        DropboxEntryCrashDetector sut = createSubjectUnderTestWithTempFile(dumpFile);
+        DropboxEntryCrashDetector sut = createSubjectUnderTestWithTempDirectory(tmpDir);
         when(mRunUtil.runTimedCmd(
                         Mockito.anyLong(),
                         Mockito.eq("sh"),
@@ -431,8 +568,13 @@ public class DropboxEntryCrashDetectorTest {
                         Mockito.eq("-c"),
                         Mockito.contains("dumpsys dropbox --print")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
-        Path fileDumpFile = Files.createTempFile(mFileSystem.getPath("/"), "file", ".dump");
-        Path printDumpFile = Files.createTempFile(mFileSystem.getPath("/"), "print", ".dump");
+
+        Path tmpDir = mFileSystem.getPath("tmp");
+        Files.createDirectories(tmpDir);
+        Path fileDumpFile = tmpDir.resolve(DropboxEntryCrashDetector.FILE_OUTPUT_NAME);
+        Files.createFile(fileDumpFile);
+        Path printDumpFile = tmpDir.resolve(DropboxEntryCrashDetector.PRINT_OUTPUT_NAME);
+        Files.createFile(printDumpFile);
         String fileResult =
                 "Drop box contents: 351 entries\n"
                         + "Max entries: 1000\n"
@@ -502,9 +644,18 @@ public class DropboxEntryCrashDetectorTest {
         Files.write(fileDumpFile, fileResult.getBytes());
         Files.write(printDumpFile, printResult.getBytes());
         DropboxEntryCrashDetector sut =
-                createSubjectUnderTestWithTempFile(fileDumpFile, printDumpFile);
+                Mockito.spy(createSubjectUnderTestWithTempDirectory(tmpDir));
+        Mockito.doThrow(new IOException())
+                .when(sut)
+                .getDropboxEntriesFromAdbPull(Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.doThrow(new IOException()).when(sut).getDropboxEntriesFromProtoDump(Mockito.any());
 
-        List<DropboxEntry> result = sut.getDropboxEntriesFromStdout(Set.of("system_server_wtf"));
+        List<DropboxEntry> result =
+                sut.getDropboxEntries(
+                        Set.of("system_server_wtf"),
+                        "system_server",
+                        new DeviceTimestamp(Long.MIN_VALUE),
+                        new DeviceTimestamp(Long.MAX_VALUE));
 
         assertThat(result.get(0).getTime()).isEqualTo(1662351441269L);
         assertThat(result.get(0).getData()).contains("Sending non-protected broadcast");
@@ -512,10 +663,9 @@ public class DropboxEntryCrashDetectorTest {
         assertThat(result.size()).isEqualTo(1);
     }
 
-    private DropboxEntryCrashDetector createSubjectUnderTestWithTempFile(Path... tempFiles) {
+    private DropboxEntryCrashDetector createSubjectUnderTestWithTempDirectory(Path dir) {
         when(mDevice.getSerialNumber()).thenReturn("SERIAL");
-        Iterator<Path> iter = Arrays.asList(tempFiles).iterator();
-        return new DropboxEntryCrashDetector(mDevice, () -> mRunUtil, () -> iter.next());
+        return new DropboxEntryCrashDetector(mDevice, () -> mRunUtil, () -> dir);
     }
 
     private DropboxEntryCrashDetector createSubjectUnderTest() throws DeviceNotAvailableException {
