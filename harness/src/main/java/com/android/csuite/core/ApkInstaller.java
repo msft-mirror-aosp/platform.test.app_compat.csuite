@@ -158,17 +158,19 @@ public final class ApkInstaller {
         CLog.d("Uninstalling all installed packages.");
 
         StringBuilder errorMessage = new StringBuilder();
-        mInstalledPackages.forEach(
-                installedPackage -> {
-                    String[] cmd = createUninstallCommand(installedPackage, mDeviceSerial);
-                    CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, cmd);
-                    if (res.getStatus() != CommandStatus.SUCCESS) {
-                        errorMessage.append(
-                                String.format(
-                                        "Failed to uninstall package %s. Reason: %s.\n",
-                                        installedPackage, res.toString()));
-                    }
-                });
+        mInstalledPackages.stream()
+                .distinct()
+                .forEach(
+                        installedPackage -> {
+                            String[] cmd = createUninstallCommand(installedPackage, mDeviceSerial);
+                            CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, cmd);
+                            if (res.getStatus() != CommandStatus.SUCCESS) {
+                                errorMessage.append(
+                                        String.format(
+                                                "Failed to uninstall package %s. Reason: %s.\n",
+                                                installedPackage, res.toString()));
+                            }
+                        });
 
         if (errorMessage.length() > 0) {
             throw new ApkInstallerException(errorMessage.toString());
@@ -262,30 +264,6 @@ public final class ApkInstaller {
          */
         private ApkInstallerException(Throwable cause) {
             super(cause);
-        }
-    }
-
-    /** Grants additional permissions for installed apps. */
-    public void grantExternalStoragePermissions(String packageName) {
-        ArrayList<String> cmd = new ArrayList<>();
-        cmd.addAll(
-                Arrays.asList(
-                        "adb",
-                        "-s",
-                        mDeviceSerial,
-                        "shell",
-                        "appops",
-                        "set",
-                        packageName,
-                        "MANAGE_EXTERNAL_STORAGE",
-                        "allow"));
-        CommandResult cmdResult =
-                mRunUtil.runTimedCmd(sCommandTimeOut, cmd.toArray(new String[cmd.size()]));
-        if (cmdResult.getStatus() != CommandStatus.SUCCESS) {
-            CLog.d(
-                    "Granting MANAGE_EXTERNAL_STORAGE permissions for package %s was unsuccessful."
-                            + " Reason: %s.",
-                    packageName, cmdResult.toString());
         }
     }
 
