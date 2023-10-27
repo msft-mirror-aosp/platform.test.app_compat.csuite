@@ -20,6 +20,8 @@ import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationReceiver;
+import com.android.tradefed.config.Option;
+import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -83,6 +85,19 @@ public final class ModuleGenerator
                 IConfigurationReceiver,
                 ITargetPreparer {
     @VisibleForTesting static final String MODULE_FILE_NAME_EXTENSION = ".config";
+
+    @VisibleForTesting
+    static final String OPTION_PRESERVE_EXISTING_MODULES = "preserve-existing-modules";
+
+    @Option(
+            name = OPTION_PRESERVE_EXISTING_MODULES,
+            description =
+                    "Whether to preserve non-generated modules existing in the csuite jar build. By"
+                        + " default, these modules will be deleted before test to prevent confusion"
+                        + " with the generated modules unless this option is set true.",
+            importance = Importance.NEVER)
+    private boolean mPreserveExistingModules = false;
+
     private static final Collection<IRemoteTest> NOT_SPLITTABLE = null;
 
     private final TestDirectoryProvider mTestDirectoryProvider;
@@ -128,6 +143,9 @@ public final class ModuleGenerator
                 .filter(path -> path.toString().endsWith(MODULE_FILE_NAME_EXTENSION))
                 .filter(
                         path -> {
+                            if (!mPreserveExistingModules) {
+                                return true;
+                            }
                             try {
                                 return Files.readString(path).contains(GENERATED_MODULE_NOTE);
                             } catch (IOException ioException) {
