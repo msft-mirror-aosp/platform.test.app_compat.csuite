@@ -23,6 +23,7 @@ import static org.testng.Assert.assertThrows;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
@@ -71,16 +72,33 @@ public final class ModuleGeneratorTest {
     }
 
     @Test
-    public void tearDown_nonGeneratedModuleFilesExist_doesNotDelete() throws Exception {
+    public void tearDown_preserveNonGeneratedModules_doesNotDelete() throws Exception {
         Path testsDir = createTestsDir();
         Path nonGeneratedModule =
                 Files.createFile(
                         testsDir.resolve("b" + ModuleGenerator.MODULE_FILE_NAME_EXTENSION));
-        ModuleGenerator generator = new GeneratorBuilder().setTestsDir(testsDir).build();
+        ModuleGenerator sut = new GeneratorBuilder().setTestsDir(testsDir).build();
+        OptionSetter option = new OptionSetter(sut);
+        option.setOptionValue(ModuleGenerator.OPTION_PRESERVE_EXISTING_MODULES, "true");
 
-        generator.tearDown(createTestInfo(), NO_EXCEPTION);
+        sut.tearDown(createTestInfo(), NO_EXCEPTION);
 
         assertThatListDirectory(testsDir).containsExactly(nonGeneratedModule);
+    }
+
+    @Test
+    public void tearDown_doesNotPreserveNonGeneratedModules_delete() throws Exception {
+        Path testsDir = createTestsDir();
+        Path nonGeneratedModule =
+                Files.createFile(
+                        testsDir.resolve("b" + ModuleGenerator.MODULE_FILE_NAME_EXTENSION));
+        ModuleGenerator sut = new GeneratorBuilder().setTestsDir(testsDir).build();
+        OptionSetter option = new OptionSetter(sut);
+        option.setOptionValue(ModuleGenerator.OPTION_PRESERVE_EXISTING_MODULES, "false");
+
+        sut.tearDown(createTestInfo(), NO_EXCEPTION);
+
+        assertThatListDirectory(testsDir).doesNotContain(nonGeneratedModule);
     }
 
     @Test
