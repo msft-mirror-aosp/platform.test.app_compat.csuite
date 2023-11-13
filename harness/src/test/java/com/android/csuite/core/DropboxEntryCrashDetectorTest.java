@@ -54,6 +54,17 @@ public class DropboxEntryCrashDetectorTest {
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
 
     @Test
+    public void isDropboxEntryFromPackageProcess_notStartOfLine_returnsFalse() throws Exception {
+        String dropboxEntryData = "\nPackage: gms.package\ncallingPackage: com.app.package \n";
+        String packageName = "com.app.package";
+        DropboxEntryCrashDetector sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
     public void isDropboxEntryFromPackageProcess_cmdlineMatched_returnsTrue() throws Exception {
         String dropboxEntryData = "Cmd line: com.app.package";
         String packageName = "com.app.package";
