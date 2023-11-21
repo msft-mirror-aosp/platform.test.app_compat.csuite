@@ -30,8 +30,25 @@ import java.util.stream.Stream;
 
 /** A module info provider that accepts package names and files that contains package names. */
 public final class PackageModuleInfoProvider implements ModuleInfoProvider {
+
+    @VisibleForTesting static final String ALT_PACKAGE_OPTION = "alt-package";
     @VisibleForTesting static final String PACKAGE_OPTION = "package";
     @VisibleForTesting static final String PACKAGE_PLACEHOLDER = "{package}";
+    @VisibleForTesting static final String USE_ALT_PACKAGE_OPTION = "use-alt-package";
+
+    @Option(
+            name = USE_ALT_PACKAGE_OPTION,
+            description = "Use --alt-package to specify app package names.",
+            importance = Importance.NEVER)
+    private boolean mUseAltPackage = false;
+
+    @Option(
+            name = ALT_PACKAGE_OPTION,
+            description =
+                    "App package names. This is an alternative of '--package' in case of a name"
+                            + " conflict of options.",
+            importance = Importance.NEVER)
+    private final Set<String> mAltPackages = new HashSet<>();
 
     @Option(
             name = PACKAGE_OPTION,
@@ -43,8 +60,9 @@ public final class PackageModuleInfoProvider implements ModuleInfoProvider {
     public Stream<ModuleInfoProvider.ModuleInfo> get(IConfiguration configuration)
             throws IOException {
         ModuleTemplate moduleTemplate = ModuleTemplate.loadFrom(configuration);
+        Set<String> packages = mUseAltPackage ? mAltPackages : mPackages;
 
-        return mPackages.stream()
+        return packages.stream()
                 .distinct()
                 .map(
                         packageName ->
