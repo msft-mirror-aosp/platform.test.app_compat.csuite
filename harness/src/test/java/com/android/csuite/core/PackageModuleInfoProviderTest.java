@@ -37,15 +37,16 @@ import java.util.stream.Stream;
 
 @RunWith(JUnit4.class)
 public final class PackageModuleInfoProviderTest {
+    private static final String PACKAGE_NAME_1 = "a";
+    private static final String PACKAGE_NAME_2 = "b";
+
     @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
     @Test
     public void get_templateContainsPlaceholders_replacesPlaceholdersInOutput() throws Exception {
-        String content = "hello placeholder%s%s world";
-        String packageName1 = "a";
-        String packageName2 = "b";
+        final String content = "hello placeholder%s%s world";
         PackageModuleInfoProvider provider =
-                new ProviderBuilder().addPackage(packageName1).addPackage(packageName2).build();
+                new ProviderBuilder().addPackage(PACKAGE_NAME_1).addPackage(PACKAGE_NAME_2).build();
         IConfiguration config =
                 createIConfigWithTemplate(
                         String.format(
@@ -57,36 +58,90 @@ public final class PackageModuleInfoProviderTest {
 
         assertThat(collectModuleContentStrings(modulesInfo))
                 .containsExactly(
-                        String.format(content, packageName1, packageName1),
-                        String.format(content, packageName2, packageName2));
+                        String.format(content, PACKAGE_NAME_1, PACKAGE_NAME_1),
+                        String.format(content, PACKAGE_NAME_2, PACKAGE_NAME_2));
     }
 
     @Test
     public void get_containsDuplicatedPackageNames_ignoreDuplicates() throws Exception {
-        String packageName1 = "a";
-        String packageName2 = "b";
         PackageModuleInfoProvider provider =
                 new ProviderBuilder()
-                        .addPackage(packageName1)
-                        .addPackage(packageName1)
-                        .addPackage(packageName2)
+                        .addPackage(PACKAGE_NAME_1)
+                        .addPackage(PACKAGE_NAME_1)
+                        .addPackage(PACKAGE_NAME_2)
                         .build();
 
         Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
-        assertThat(collectModuleNames(modulesInfo)).containsExactly(packageName1, packageName2);
+        assertThat(collectModuleNames(modulesInfo)).containsExactly(PACKAGE_NAME_1, PACKAGE_NAME_2);
+    }
+
+    @Test
+    public void get_containsDuplicatedAltPackageNamesAndUseAlt_ignoreDuplicates() throws Exception {
+        PackageModuleInfoProvider provider =
+                new ProviderBuilder()
+                        .setUseAltPackage(true)
+                        .addAltPackage(PACKAGE_NAME_1)
+                        .addAltPackage(PACKAGE_NAME_1)
+                        .addAltPackage(PACKAGE_NAME_2)
+                        .build();
+
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
+
+        assertThat(collectModuleNames(modulesInfo)).containsExactly(PACKAGE_NAME_1, PACKAGE_NAME_2);
     }
 
     @Test
     public void get_packageNamesProvided_returnsPackageNames() throws Exception {
-        String packageName1 = "a";
-        String packageName2 = "b";
         PackageModuleInfoProvider provider =
-                new ProviderBuilder().addPackage(packageName1).addPackage(packageName2).build();
+                new ProviderBuilder().addPackage(PACKAGE_NAME_1).addPackage(PACKAGE_NAME_2).build();
 
         Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
 
-        assertThat(collectModuleNames(modulesInfo)).containsExactly(packageName1, packageName2);
+        assertThat(collectModuleNames(modulesInfo)).containsExactly(PACKAGE_NAME_1, PACKAGE_NAME_2);
+    }
+
+    @Test
+    public void get_bothPackageNamesAndAltPackageNamesProvidedAndUseAlt_returnsAltPackageNames()
+            throws Exception {
+        PackageModuleInfoProvider provider =
+                new ProviderBuilder()
+                        .setUseAltPackage(true)
+                        .addPackage(PACKAGE_NAME_1)
+                        .addAltPackage(PACKAGE_NAME_2)
+                        .build();
+
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
+
+        assertThat(collectModuleNames(modulesInfo)).containsExactly(PACKAGE_NAME_2);
+    }
+
+    @Test
+    public void get_bothPackageNamesAndAltPackageNamesProvided_returnsPackageNames()
+            throws Exception {
+        PackageModuleInfoProvider provider =
+                new ProviderBuilder()
+                        .addPackage(PACKAGE_NAME_1)
+                        .addAltPackage(PACKAGE_NAME_2)
+                        .build();
+
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
+
+        assertThat(collectModuleNames(modulesInfo)).containsExactly(PACKAGE_NAME_1);
+    }
+
+    @Test
+    public void get_altPackageNamesProvidedAndUseAlt_returnsAltPackageNames() throws Exception {
+        PackageModuleInfoProvider provider =
+                new ProviderBuilder()
+                        .setUseAltPackage(true)
+                        .addAltPackage(PACKAGE_NAME_1)
+                        .addAltPackage(PACKAGE_NAME_2)
+                        .build();
+
+        Stream<ModuleInfoProvider.ModuleInfo> modulesInfo = provider.get(createIConfig());
+
+        assertThat(collectModuleNames(modulesInfo)).containsExactly(PACKAGE_NAME_1, PACKAGE_NAME_2);
     }
 
     private List<String> collectModuleContentStrings(
@@ -102,16 +157,35 @@ public final class PackageModuleInfoProviderTest {
 
     private static final class ProviderBuilder {
         private final Set<String> mPackages = new HashSet<>();
+        private final Set<String> mAltPackages = new HashSet<>();
+        private boolean mUseAltPackage = false;
 
         ProviderBuilder addPackage(String packageName) {
             mPackages.add(packageName);
             return this;
         }
 
-        PackageModuleInfoProvider build() throws Exception {
-            PackageModuleInfoProvider provider = new PackageModuleInfoProvider();
+        ProviderBuilder addAltPackage(String packageName) {
+            mAltPackages.add(packageName);
+            return this;
+        }
 
+        ProviderBuilder setUseAltPackage(boolean useAltPackage) {
+            this.mUseAltPackage = useAltPackage;
+            return this;
+        }
+
+        PackageModuleInfoProvider build() throws Exception {
+            // Creates a new instance for each build() call.
+            PackageModuleInfoProvider provider = new PackageModuleInfoProvider();
             OptionSetter optionSetter = new OptionSetter(provider);
+            if (mUseAltPackage) {
+                optionSetter.setOptionValue(
+                        PackageModuleInfoProvider.USE_ALT_PACKAGE_OPTION, "true");
+            }
+            for (String p : mAltPackages) {
+                optionSetter.setOptionValue(PackageModuleInfoProvider.ALT_PACKAGE_OPTION, p);
+            }
             for (String p : mPackages) {
                 optionSetter.setOptionValue(PackageModuleInfoProvider.PACKAGE_OPTION, p);
             }
