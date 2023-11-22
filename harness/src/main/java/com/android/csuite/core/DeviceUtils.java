@@ -76,7 +76,7 @@ public class DeviceUtils {
     // "Package:".
     private static final Pattern DROPBOX_PACKAGE_NAME_PATTERN =
             Pattern.compile(
-                    "(Process|Cmdline|Package|Cmd line):("
+                    "\\b(Process|Cmdline|Package|Cmd line):("
                             + " *)([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
 
     @VisibleForTesting
