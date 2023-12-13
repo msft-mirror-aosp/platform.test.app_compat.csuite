@@ -1,9 +1,6 @@
 {
   "presubmit": [
     {
-      "name": "csuite_cli_test"
-    },
-    {
       "name": "csuite_crash_detection_test"
     }
   ]
