@@ -289,12 +289,8 @@ func getAllOutputPaths(params android.TestingBuildParams) android.WritablePaths 
 	if params.ImplicitOutput != nil {
 		paths = append(paths, params.ImplicitOutput)
 	}
-	if params.SymlinkOutput != nil {
-		paths = append(paths, params.SymlinkOutput)
-	}
 	paths = append(paths, params.Outputs...)
 	paths = append(paths, params.ImplicitOutputs...)
-	paths = append(paths, params.SymlinkOutputs...)
 
 	return paths
 }
