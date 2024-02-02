@@ -13,11 +13,12 @@
 // limitations under the License.
 
 package {
+    default_team: "trendy_team_app_compat",
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 csuite_test {
     name: "drm-app-launch",
     test_plan_include: "plan.xml",
-    test_config_template: "template.xml"
+    test_config_template: "template.xml",
 }
