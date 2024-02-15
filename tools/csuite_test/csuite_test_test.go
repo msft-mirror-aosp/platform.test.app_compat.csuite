@@ -120,7 +120,7 @@ func TestValidBpMissingPlanIncludeGeneratesPlanXmlWithoutPlaceholders(t *testing
 	`)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
-	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if strings.Contains(content, "{") || strings.Contains(content, "}") {
 		t.Errorf("The generated plan name contains a placeholder: %s", content)
 	}
@@ -135,7 +135,7 @@ func TestGeneratedTestPlanContainsPlanName(t *testing.T) {
 	`)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
-	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "plan_name") {
 		t.Errorf("The plan name is missing from the generated plan: %s", content)
 	}
@@ -150,7 +150,7 @@ func TestGeneratedTestPlanContainsTemplatePath(t *testing.T) {
 	`)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
-	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "config/plan_name/config_template.xml.template") {
 		t.Errorf("The template path is missing from the generated plan: %s", content)
 	}
@@ -166,7 +166,7 @@ func TestGeneratedTestPlanContainsExtraTemplatePath(t *testing.T) {
 	`)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
-	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "config/plan_name/extra.xml.template") {
 		t.Errorf("The extra template path is missing from the generated plan: %s", content)
 	}
@@ -184,7 +184,7 @@ func TestGeneratedTestPlanDoesNotContainExtraTemplatePath(t *testing.T) {
 	`)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
-	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if strings.Contains(content, "extra-templates") {
 		t.Errorf("The extra-templates param should not be included in the generated plan: %s", content)
 	}
@@ -225,7 +225,7 @@ func TestGeneratedTestPlanContainsPlanInclude(t *testing.T) {
 	`)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
-	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
+	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, `"includes/plan_name.xml"`) {
 		t.Errorf("The plan include path is missing from the generated plan: %s", content)
 	}
@@ -289,12 +289,8 @@ func getAllOutputPaths(params android.TestingBuildParams) android.WritablePaths 
 	if params.ImplicitOutput != nil {
 		paths = append(paths, params.ImplicitOutput)
 	}
-	if params.SymlinkOutput != nil {
-		paths = append(paths, params.SymlinkOutput)
-	}
 	paths = append(paths, params.Outputs...)
 	paths = append(paths, params.ImplicitOutputs...)
-	paths = append(paths, params.SymlinkOutputs...)
 
 	return paths
 }

@@ -37,9 +37,9 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -50,18 +50,18 @@ public class TestUtils {
     private final TestArtifactReceiver mTestArtifactReceiver;
     private final DeviceUtils mDeviceUtils;
     private static final int MAX_CRASH_SNIPPET_LINES = 60;
-    // Pattern for finding a package name following one of the tags such as "Process:" or
-    // "Package:".
-    private static final Pattern DROPBOX_PACKAGE_NAME_PATTERN =
-            Pattern.compile(
-                    "(Process|Cmdline|Package|Cmd line):("
-                            + " *)([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
 
     public enum TakeEffectWhen {
         NEVER,
         ON_FAIL,
         ON_PASS,
         ALWAYS,
+    }
+
+    public enum RoboscriptSignal {
+        SUCCESS,
+        UNKNOWN,
+        FAIL
     }
 
     public static TestUtils getInstance(TestInformation testInformation, TestLogData testLogData) {
@@ -93,7 +93,6 @@ public class TestUtils {
      * Take a screenshot on the device and save it to the test result artifacts.
      *
      * @param prefix The file name prefix.
-     * @throws DeviceNotAvailableException
      */
     public void collectScreenshot(String prefix) throws DeviceNotAvailableException {
         try (InputStreamSource screenSource = mTestInformation.getDevice().getScreenshot()) {
@@ -110,23 +109,48 @@ public class TestUtils {
      *
      * @param job A job to run while recording the screen.
      * @param prefix The file name prefix.
-     * @throws DeviceNotAvailableException
+     * @throws DeviceNotAvailableException when device is lost
      */
     public void collectScreenRecord(
             DeviceUtils.RunnableThrowingDeviceNotAvailable job, String prefix)
             throws DeviceNotAvailableException {
+        collectScreenRecord(job, prefix, null);
+    }
+
+    /**
+     * Record the device screen while running a task and save the video file to the test result
+     * artifacts.
+     *
+     * @param job A job to run while recording the screen.
+     * @param prefix The file name prefix
+     * @param videoStartTimeConsumer A consumer function that accepts the video start time on the
+     *     device. Can be null.
+     * @throws DeviceNotAvailableException when the device is lost
+     */
+    public void collectScreenRecord(
+            DeviceUtils.RunnableThrowingDeviceNotAvailable job,
+            String prefix,
+            Consumer<DeviceUtils.DeviceTimestamp> videoStartTimeConsumer)
+            throws DeviceNotAvailableException {
         mDeviceUtils.runWithScreenRecording(
                 job,
-                video -> {
-                    if (video != null) {
+                (video, videoStartTimeOnDevice) -> {
+                    if (video != null && videoStartTimeOnDevice != null) {
+                        if (videoStartTimeConsumer != null) {
+                            videoStartTimeConsumer.accept(videoStartTimeOnDevice);
+                        }
                         mTestArtifactReceiver.addTestArtifact(
                                 prefix
                                         + "_screenrecord_"
-                                        + mTestInformation.getDevice().getSerialNumber(),
+                                        + mTestInformation.getDevice().getSerialNumber()
+                                        + "_("
+                                        + videoStartTimeOnDevice.getFormatted(
+                                                "yyyy-MM-dd_HH.mm.ss_SSS")
+                                        + ")",
                                 LogDataType.MP4,
                                 video);
                     } else {
-                        CLog.e("Failed to get screen recording.");
+                        CLog.e("Failed to collect screen recording artifacts.");
                     }
                 });
     }
@@ -166,7 +190,6 @@ public class TestUtils {
      * Collect the GMS version name and version code, and save them as test result artifacts.
      *
      * @param prefix The file name prefix.
-     * @throws DeviceNotAvailableException
      */
     public void collectGmsVersion(String prefix) throws DeviceNotAvailableException {
         String gmsVersionCode = mDeviceUtils.getPackageVersionCode(GMS_PACKAGE_NAME);
@@ -177,11 +200,11 @@ public class TestUtils {
         // be parsing the output file name to get the version information.
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[GMS_versionCode=%s]", prefix, gmsVersionCode),
-                LogDataType.TEXT,
+                LogDataType.HOST_LOG,
                 gmsVersionCode.getBytes());
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[GMS_versionName=%s]", prefix, gmsVersionName),
-                LogDataType.TEXT,
+                LogDataType.HOST_LOG,
                 gmsVersionName.getBytes());
     }
 
@@ -190,7 +213,6 @@ public class TestUtils {
      * artifacts.
      *
      * @param packageName The package name.
-     * @throws DeviceNotAvailableException
      */
     public void collectAppVersion(String packageName) throws DeviceNotAvailableException {
         String versionCode = mDeviceUtils.getPackageVersionCode(packageName);
@@ -201,11 +223,11 @@ public class TestUtils {
         // be parsing the output file name to get the version information.
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[versionCode=%s]", packageName, versionCode),
-                LogDataType.TEXT,
+                LogDataType.HOST_LOG,
                 versionCode.getBytes());
         mTestArtifactReceiver.addTestArtifact(
                 String.format("%s_[versionName=%s]", packageName, versionName),
-                LogDataType.TEXT,
+                LogDataType.HOST_LOG,
                 versionName.getBytes());
     }
 
@@ -223,87 +245,115 @@ public class TestUtils {
     public String getDropboxPackageCrashLog(
             String packageName, DeviceTimestamp startTimeOnDevice, boolean saveToFile)
             throws IOException {
-        BiFunction<String, Integer, String> truncate =
-                (text, maxLines) -> {
-                    String[] lines = text.split("\\r?\\n");
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < maxLines && i < lines.length; i++) {
-                        sb.append(lines[i]);
-                        sb.append('\n');
-                    }
-                    if (lines.length > maxLines) {
-                        sb.append("... ");
-                        sb.append(lines.length - maxLines);
-                        sb.append(" more lines truncated ...\n");
-                    }
-                    return sb.toString();
-                };
+        List<DropboxEntry> crashEntries =
+                mDeviceUtils.getDropboxEntries(
+                        DeviceUtils.DROPBOX_APP_CRASH_TAGS, packageName, startTimeOnDevice, null);
+        return compileTestFailureMessage(packageName, crashEntries, saveToFile, null);
+    }
 
-        List<DropboxEntry> entries =
-                mDeviceUtils.getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS).stream()
-                        .filter(entry -> (entry.getTime() >= startTimeOnDevice.get()))
-                        .filter(
-                                entry ->
-                                        isDropboxEntryFromPackageProcess(
-                                                entry.getData(), packageName))
-                        .collect(Collectors.toList());
-
+    /**
+     * Compiles an error message from device's dropbox crash entries.
+     *
+     * @param packageName The package name of an app.
+     * @param entries Dropbox entries that indicate the package crashed.
+     * @param saveToFile whether to save the package's full dropbox crash logs to a test output
+     *     file.
+     * @param screenRecordStartTime The screen record start time on the device, which is used to
+     *     calculate the video time where the crashes happened. Can be null.
+     * @return A string of crash log if crash was found; null otherwise.
+     * @throws IOException unexpected IOException
+     */
+    public String compileTestFailureMessage(
+            String packageName,
+            List<DropboxEntry> entries,
+            boolean saveToFile,
+            DeviceTimestamp screenRecordStartTime)
+            throws IOException {
         if (entries.size() == 0) {
             return null;
         }
 
-        String fullText =
-                entries.stream()
-                        .map(
-                                entry ->
-                                        String.format(
-                                                "Dropbox tag: %s\n%s",
-                                                entry.getTag(), entry.getData()))
-                        .collect(Collectors.joining("\n============\n"));
-        String truncatedText =
-                entries.stream()
-                        .map(
-                                entry ->
-                                        String.format(
-                                                "Dropbox tag: %s\n%s",
-                                                entry.getTag(),
-                                                truncate.apply(
-                                                        entry.getData(), MAX_CRASH_SNIPPET_LINES)))
-                        .collect(Collectors.joining("\n============\n"));
+        BiFunction<String, Integer, String> truncateFunction =
+                (text, maxLines) -> {
+                    String[] lines = text.split("\\r?\\n");
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < maxLines && i < lines.length; i++) {
+                        sb.append(lines[i]).append('\n');
+                    }
+                    if (lines.length > maxLines) {
+                        sb.append("... ")
+                                .append(lines.length - maxLines)
+                                .append(" more lines truncated ...\n");
+                    }
+                    return sb.toString();
+                };
 
-        mTestArtifactReceiver.addTestArtifact(
-                String.format("%s_dropbox_entries", packageName),
-                LogDataType.TEXT,
-                fullText.getBytes());
-        return truncatedText;
+        StringBuilder fullText = new StringBuilder();
+        StringBuilder truncatedText = new StringBuilder();
+
+        for (int i = 0; i < entries.size(); i++) {
+            DropboxEntry entry = entries.get(i);
+            String entryHeader =
+                    String.format(
+                            "\n============ Dropbox Entry (%s of %s) ============\n",
+                            i + 1, entries.size());
+            String videoTimeInfo =
+                    screenRecordStartTime == null
+                            ? ""
+                            : "Time in screen record video: "
+                                    + convertToMinuteSecond(
+                                            entry.getTime() - screenRecordStartTime.get())
+                                    + "\n";
+
+            String fullEntry = entryHeader + videoTimeInfo + entry;
+            String truncatedEntry = truncateFunction.apply(fullEntry, MAX_CRASH_SNIPPET_LINES);
+
+            fullText.append(fullEntry);
+            truncatedText.append(truncatedEntry);
+        }
+
+        String videoCrashTimeMessage =
+                screenRecordStartTime == null
+                        ? ""
+                        : String.format(
+                                "A screen recording video is available. The crashes happened"
+                                        + " at around the following video time: [%s]\n",
+                                entries.stream()
+                                        .map(entry -> entry.getTime() - screenRecordStartTime.get())
+                                        .sorted()
+                                        .map(videoTime -> convertToMinuteSecond(videoTime))
+                                        .collect(Collectors.joining(", ")));
+        String summary =
+                String.format(
+                        "Found a total of %s dropbox entries indicating the package %s may have run"
+                                + " into an issue. Types of entries include: [%s].\n%sEntries:\n",
+                        entries.size(),
+                        packageName,
+                        entries.stream()
+                                .map(DropboxEntry::getTag)
+                                .distinct()
+                                .collect(Collectors.joining(", ")),
+                        videoCrashTimeMessage);
+
+        if (saveToFile) {
+            mTestArtifactReceiver.addTestArtifact(
+                    String.format("%s_dropbox_entries", packageName),
+                    LogDataType.HOST_LOG,
+                    (summary + fullText).getBytes());
+        }
+
+        return summary + truncatedText;
     }
 
-    @VisibleForTesting
-    boolean isDropboxEntryFromPackageProcess(String entryData, String packageName) {
-        Matcher m = DROPBOX_PACKAGE_NAME_PATTERN.matcher(entryData);
+    private String convertToMinuteSecond(long milliseconds) {
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(milliseconds);
+        long seconds =
+                TimeUnit.MILLISECONDS.toSeconds(milliseconds) - TimeUnit.MINUTES.toSeconds(minutes);
 
-        boolean matched = false;
-        while (m.find()) {
-            matched = true;
-            if (m.group(3).equals(packageName)) {
-                return true;
-            }
-        }
+        String formattedMinutes = String.format("%02d", minutes);
+        String formattedSeconds = String.format("%02d", seconds);
 
-        if (matched) {
-            return false;
-        }
-
-        // If the process name is not identified, fall back to checking if the package name is
-        // present in the entry. This is because the process name detection logic above does not
-        // guarantee to identify the process name.
-        return Pattern.compile(
-                        String.format(
-                                // Pattern for checking whether a given package name exists.
-                                "(.*(?:[^a-zA-Z0-9_\\.]+)|^)%s((?:[^a-zA-Z0-9_\\.]+).*|$)",
-                                packageName.replaceAll("\\.", "\\\\.")))
-                .matcher(entryData)
-                .find();
+        return formattedMinutes + ":" + formattedSeconds;
     }
 
     /**

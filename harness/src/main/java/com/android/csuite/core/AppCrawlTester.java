@@ -17,6 +17,8 @@
 package com.android.csuite.core;
 
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
+import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.csuite.core.TestUtils.RoboscriptSignal;
 import com.android.csuite.core.TestUtils.TestUtilsException;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
@@ -37,6 +39,7 @@ import org.junit.Assert;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -44,7 +47,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -67,6 +73,7 @@ public final class AppCrawlTester {
     private Path mCrawlGuidanceProtoFile;
     private Path mLoginConfigDir;
     private FileSystem mFileSystem;
+    private DeviceTimestamp mScreenRecordStartTime;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -142,12 +149,24 @@ public final class AppCrawlTester {
         } catch (CrawlerException e) {
             crawlerException = e;
         }
+        DeviceTimestamp endTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
         ArrayList<String> failureMessages = new ArrayList<>();
 
         try {
+
+            List<DropboxEntry> crashEntries =
+                    mTestUtils
+                            .getDeviceUtils()
+                            .getDropboxEntries(
+                                    DeviceUtils.DROPBOX_APP_CRASH_TAGS,
+                                    mPackageName,
+                                    startTime,
+                                    endTime);
             String dropboxCrashLog =
-                    mTestUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
+                    mTestUtils.compileTestFailureMessage(
+                            mPackageName, crashEntries, true, mScreenRecordStartTime);
+
             if (dropboxCrashLog != null) {
                 // Put dropbox crash log on the top of the failure messages.
                 failureMessages.add(dropboxCrashLog);
@@ -160,11 +179,12 @@ public final class AppCrawlTester {
             failureMessages.add(crawlerException.getMessage());
         }
 
-        Assert.assertTrue(
-                String.join(
-                        "\n============\n",
-                        failureMessages.toArray(new String[failureMessages.size()])),
-                failureMessages.isEmpty());
+        if (!failureMessages.isEmpty()) {
+            Assert.fail(
+                    String.join(
+                            "\n============\n",
+                            failureMessages.toArray(new String[failureMessages.size()])));
+        }
     }
 
     /**
@@ -240,7 +260,8 @@ public final class AppCrawlTester {
                     () -> {
                         commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
                     },
-                    mPackageName);
+                    mPackageName,
+                    deviceTime -> mScreenRecordStartTime = deviceTime);
         } else {
             commandResult.set(runUtil.runTimedCmd(commandTimeout, command.get()));
         }
@@ -252,6 +273,7 @@ public final class AppCrawlTester {
 
         collectOutputZip();
         collectCrawlStepScreenshots(isUtpClient);
+        createCrawlerRoboscriptSignal(isUtpClient);
 
         if (!commandResult.get().getStatus().equals(CommandStatus.SUCCESS)
                 || commandResult.get().getStdout().contains("Unknown options:")) {
@@ -268,10 +290,7 @@ public final class AppCrawlTester {
             return;
         }
 
-        Path subDir =
-                isUtpClient
-                        ? mOutput.resolve("output").resolve("artifacts")
-                        : mOutput.resolve("app_firebase_test_lab");
+        Path subDir = getClientCrawlerOutputSubDir(isUtpClient);
         if (!Files.exists(subDir)) {
             CLog.e(
                     "The crawler output directory is not complete, skipping collecting step"
@@ -295,6 +314,114 @@ public final class AppCrawlTester {
         } catch (IOException e) {
             CLog.e(e);
         }
+    }
+
+    /**
+     * Reads the crawler output and creates an artifact with the success signal for a Roboscript
+     * that has been executed by the crawler.
+     */
+    private void createCrawlerRoboscriptSignal(boolean isUtpClient) {
+        if (mOutput == null) {
+            CLog.e("Output directory is not created yet. Skipping collecting crawler signal.");
+            return;
+        }
+
+        Path subDir = getClientCrawlerOutputSubDir(isUtpClient);
+        if (!Files.exists(subDir)) {
+            CLog.e(
+                    "The crawler output directory is not complete, skipping collecting crawler"
+                            + " signal.");
+            return;
+        }
+
+        try (Stream<Path> files = Files.list(subDir)) {
+            Optional<Path> roboOutputFile =
+                    files.filter(
+                                    path ->
+                                            path.getFileName()
+                                                    .toString()
+                                                    .toLowerCase()
+                                                    .endsWith("crawl_outputs.txt"))
+                            .findFirst();
+            if (roboOutputFile.isPresent()) {
+                generateRoboscriptSignalFile(roboOutputFile.get(), mPackageName);
+            }
+        } catch (IOException e) {
+            CLog.e(e);
+        }
+    }
+
+    /**
+     * Generates an artifact text file with a name indicating whether the Roboscript was successful.
+     *
+     * @param roboOutputFile - the file containing the Robo crawler output.
+     * @param packageName - the android package name of the app for which the signal file is being
+     *     generated.
+     */
+    private void generateRoboscriptSignalFile(Path roboOutputFile, String packageName) {
+        try {
+            File signalFile =
+                    Files.createTempFile(
+                                    packageName
+                                            + "_roboscript_"
+                                            + getRoboscriptSignal(Optional.of(roboOutputFile))
+                                                    .toString()
+                                                    .toLowerCase(),
+                                    ".txt")
+                            .toFile();
+            mTestUtils
+                    .getTestArtifactReceiver()
+                    .addTestArtifact(signalFile.getName(), LogDataType.HOST_LOG, signalFile);
+        } catch (IOException e) {
+            CLog.e(e);
+        }
+    }
+
+    /**
+     * Computes whether the Robosript was successful based on the output file, and returns the
+     * success signal.
+     *
+     * @param roboOutput
+     * @return Roboscript success signal
+     */
+    public RoboscriptSignal getRoboscriptSignal(Optional<Path> roboOutput) {
+        if (!roboOutput.isPresent()) {
+            return RoboscriptSignal.UNKNOWN;
+        }
+        Pattern totalActionsPattern =
+                Pattern.compile("(?:robo_script_execution(?:.|\\n)*)total_actions.\\s(\\d*)");
+        Pattern successfulActionsPattern =
+                Pattern.compile("(?:robo_script_execution(?:.|\\n)*)successful_actions.\\s(\\d*)");
+        final String outputFile;
+        try {
+            outputFile =
+                    String.join("", Files.readAllLines(roboOutput.get(), Charset.defaultCharset()));
+        } catch (IOException e) {
+            CLog.e(e);
+            return RoboscriptSignal.UNKNOWN;
+        }
+        int totalActions = 0;
+        int successfulActions = 0;
+        Matcher mTotal = totalActionsPattern.matcher(outputFile);
+        Matcher mSuccessful = successfulActionsPattern.matcher(outputFile);
+        if (mTotal.find() && mSuccessful.find()) {
+            totalActions = Integer.parseInt(mTotal.group(1));
+            successfulActions = Integer.parseInt(mSuccessful.group(1));
+            if (totalActions == 0) {
+                return RoboscriptSignal.FAIL;
+            }
+            return successfulActions / totalActions < 1
+                    ? RoboscriptSignal.FAIL
+                    : RoboscriptSignal.SUCCESS;
+        }
+        return RoboscriptSignal.UNKNOWN;
+    }
+
+    /** Based on the type of Robo client, resolves the Path for its output directory. */
+    private Path getClientCrawlerOutputSubDir(boolean isUtpClient) {
+        return isUtpClient
+                ? mOutput.resolve("output").resolve("artifacts")
+                : mOutput.resolve("app_firebase_test_lab");
     }
 
     /** Puts the zipped crawler output files into test output. */
@@ -360,23 +487,30 @@ public final class AppCrawlTester {
             Preconditions.checkNotNull(
                     mApkRoot, "Apk file path is required when not running in UIAutomator mode");
 
-            List<Path> apks;
             try {
-                apks =
-                        TestUtils.listApks(mApkRoot).stream()
-                                .filter(
-                                        path ->
-                                                path.getFileName()
-                                                        .toString()
-                                                        .toLowerCase()
-                                                        .endsWith(".apk"))
-                                .collect(Collectors.toList());
+                TestUtils.listApks(mApkRoot)
+                        .forEach(
+                                path -> {
+                                    String nameLowercase =
+                                            path.getFileName().toString().toLowerCase();
+                                    if (nameLowercase.endsWith(".apk")) {
+                                        cmd.add("--apks-to-crawl");
+                                        cmd.add(path.toString());
+                                    } else if (nameLowercase.endsWith(".obb")) {
+                                        cmd.add("--files-to-push");
+                                        cmd.add(
+                                                String.format(
+                                                        "%s=/sdcard/Android/obb/%s/%s",
+                                                        path.toString(),
+                                                        mPackageName,
+                                                        path.getFileName().toString()));
+                                    } else {
+                                        CLog.d("Skipping unrecognized file %s", path.toString());
+                                    }
+                                });
             } catch (TestUtilsException e) {
                 throw new CrawlerException(e);
             }
-
-            cmd.add("--apks-to-crawl");
-            cmd.add(apks.stream().map(Path::toString).collect(Collectors.joining(",")));
         }
 
         if (mRoboscriptFile != null) {
