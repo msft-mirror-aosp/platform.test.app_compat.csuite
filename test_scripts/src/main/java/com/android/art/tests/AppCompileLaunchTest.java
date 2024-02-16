@@ -307,7 +307,7 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
             deviceUtils.unfreezeRotation();
             mApkInstaller.uninstallAllInstalledPackages();
         } catch (ApkInstallerException | DeviceNotAvailableException e) {
-            CLog.e("Failed to tearDown the test for %", mPackageName);
+            CLog.e("Failed to tearDown the test for %s", mPackageName);
             // Do not throw to fail the test here as it's not compile related
             Assume.assumeNoException(e);
         }
