@@ -107,7 +107,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
 
     @Option(name = "package-name", description = "Package name of testing app.")
-    private String mPackageName;
+    protected String mPackageName;
 
     @Option(
             name = "app-launch-timeout-ms",
