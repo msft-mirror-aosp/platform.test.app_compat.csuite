@@ -23,6 +23,7 @@
 // artifact location instead of using the Soong 'location' feature.
 
 package {
+    default_team: "trendy_team_app_compat",
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
