@@ -13,10 +13,11 @@
 // limitations under the License.
 
 package {
+    default_team: "trendy_team_app_compat",
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 csuite_test {
-  name: "csuite-system-app-launch",
-  test_config_template: "template.xml"
+    name: "csuite-system-app-launch",
+    test_config_template: "template.xml",
 }
