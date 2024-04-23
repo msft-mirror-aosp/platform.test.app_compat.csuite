@@ -13,6 +13,7 @@
 // limitations under the License.
 
 package {
+    default_team: "trendy_team_app_compat",
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
@@ -20,5 +21,8 @@ csuite_test {
     name: "csuite-app-crawl",
     test_plan_include: "plan.xml",
     test_config_template: "ui-automator-crawl.xml",
-    extra_test_config_templates: ["espresso-crawl.xml", "pre-installed-crawl.xml"]
+    extra_test_config_templates: [
+        "espresso-crawl.xml",
+        "pre-installed-crawl.xml",
+    ],
 }
