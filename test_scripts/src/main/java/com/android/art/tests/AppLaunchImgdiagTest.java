@@ -48,18 +48,13 @@ public class AppLaunchImgdiagTest extends AppLaunchTest {
         String outFileName = String.format("imgdiag_%s_%s.txt", mPackageName, targetPid);
         String outFilePath = new File(mImgdiagOutPath, outFileName).getAbsolutePath();
 
-        String imgdiagCmd =
-                String.format(
-                        "imgdiag --zygote-diff-pid=`pidof zygote64` --image-diff-pid=%2$s"
-                                + " --output="
-                                + outFilePath
-                                + " --dump-dirty-objects --boot-image="
-                                + "/data/misc/apexdata/com.android.art/dalvik-cache/boot.art",
-                        mPackageName,
-                        targetPid);
+        String imgdiagCmd = getImgdiagRunCmd(targetPid, outFilePath);
         CommandResult res = getDevice().executeShellV2Command(imgdiagCmd);
         Assert.assertEquals(
-                "Failed to run imgdiag. " + res.toString(), CommandStatus.SUCCESS, res.getStatus());
+                String.format(
+                        "Failed to run imgdiag:\n%s\nResult:\n%s", imgdiagCmd, res.toString()),
+                CommandStatus.SUCCESS,
+                res.getStatus());
 
         File imgdiagFile = getDevice().pullFile(outFilePath);
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
@@ -68,5 +63,22 @@ public class AppLaunchImgdiagTest extends AppLaunchTest {
                 .addTestArtifact(outFileName, LogDataType.HOST_LOG, imgdiagFile);
 
         super.tearDown();
+    }
+
+    /**
+     * Constructs the command line string to run the `imgdiag` tool for gathering dirty image
+     * objects.
+     *
+     * @param targetPid The process ID of the target process to analyze.
+     * @param outFilePath The absolute file path on the device where the imgdiag data will be saved.
+     * @return The complete `imgdiag` command that can be run with `adb shell`.
+     */
+    public static String getImgdiagRunCmd(String targetPid, String outFilePath) {
+        return String.format(
+                "imgdiag --zygote-diff-pid=`pidof zygote64` --image-diff-pid=%s"
+                        + " --output=%s"
+                        + " --dump-dirty-objects --boot-image="
+                        + "/data/misc/apexdata/com.android.art/dalvik-cache/boot.art",
+                targetPid, outFilePath);
     }
 }
