@@ -18,6 +18,9 @@
     <option name="run-command" value="mkdir /data/local/tmp/imgdiag_out/"/>
     <option name="teardown-command" value="rm -r /data/local/tmp/imgdiag_out/"/>
   </target_preparer>
+  <target_preparer class="com.android.art.targetprep.AllProcessesImgdiag">
+    <option name="imgdiag-out-path" value="/data/local/tmp/imgdiag_out/"/>
+  </target_preparer>
   <target_preparer class="com.android.art.targetprep.AggregateImgdiagOutput">
     <option name="imgdiag-out-path" value="/data/local/tmp/imgdiag_out/"/>
   </target_preparer>
