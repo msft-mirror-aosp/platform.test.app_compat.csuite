@@ -22,6 +22,8 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.Assert;
 
 import java.io.BufferedReader;
@@ -41,7 +43,8 @@ public class WebviewUtils {
     }
 
     public WebviewPackage installWebview(String webviewVersion, String releaseChannel)
-            throws IOException, InterruptedException, DeviceNotAvailableException {
+            throws IOException, InterruptedException, DeviceNotAvailableException,
+                    JSONException {
         List<String> extraArgs = new ArrayList<>();
         if (webviewVersion == null
                 && Arrays.asList("beta", "stable").contains(releaseChannel.toLowerCase())) {
@@ -75,20 +78,22 @@ public class WebviewUtils {
     }
 
     private static String getNightlyBranchBuildVersion(String releaseChannel)
-            throws IOException, MalformedURLException {
-        final URL omahaProxyUrl = new URL("https://omahaproxy.appspot.com/all?os=webview");
+            throws IOException, JSONException, MalformedURLException {
+        final URL versionHistoryUrl = new URL(
+            "https://versionhistory.googleapis.com/v1/chrome/platforms/webview/channels/"
+            + releaseChannel.toLowerCase() + "/versions/");
+        StringBuilder json = new StringBuilder();
         try (BufferedReader bufferedReader =
                 new BufferedReader(
-                        new InputStreamReader(omahaProxyUrl.openConnection().getInputStream()))) {
-            String csvLine = null;
-            while ((csvLine = bufferedReader.readLine()) != null) {
-                String[] csvLineValues = csvLine.split(",");
-                if (csvLineValues[1].toLowerCase().equals(releaseChannel.toLowerCase())) {
-                    return csvLineValues[2];
-                }
+                        new InputStreamReader(versionHistoryUrl.openConnection().getInputStream()))) {
+            String jsonLine = null;
+            while ((jsonLine = bufferedReader.readLine()) != null) {
+                json.append(jsonLine);
             }
         }
-        return null;
+        String content = json.toString();
+        JSONObject object = new JSONObject(content);
+        return object.getJSONArray("versions").getJSONObject(0).getString("version");
     }
 
     public void uninstallWebview(
