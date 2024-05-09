@@ -41,26 +41,28 @@ public class AppLaunchImgdiagTest extends AppLaunchTest {
     public void tearDown() throws DeviceNotAvailableException, ApkInstallerException {
         String[] packagePids =
                 getDevice().executeShellCommand("pidof " + mPackageName).strip().split(" ");
-        Assert.assertEquals(1, packagePids.length);
-        String targetPid = packagePids[0].strip();
-        Assert.assertFalse(targetPid.isEmpty());
 
-        String outFileName = String.format("imgdiag_%s_%s.txt", mPackageName, targetPid);
-        String outFilePath = new File(mImgdiagOutPath, outFileName).getAbsolutePath();
+        for (String targetPid : packagePids) {
+            targetPid = targetPid.strip();
+            Assert.assertFalse(targetPid.isEmpty());
 
-        String imgdiagCmd = getImgdiagRunCmd(targetPid, outFilePath);
-        CommandResult res = getDevice().executeShellV2Command(imgdiagCmd);
-        Assert.assertEquals(
-                String.format(
-                        "Failed to run imgdiag:\n%s\nResult:\n%s", imgdiagCmd, res.toString()),
-                CommandStatus.SUCCESS,
-                res.getStatus());
+            String outFileName = String.format("imgdiag_%s_%s.txt", mPackageName, targetPid);
+            String outFilePath = new File(mImgdiagOutPath, outFileName).getAbsolutePath();
 
-        File imgdiagFile = getDevice().pullFile(outFilePath);
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
-        testUtils
-                .getTestArtifactReceiver()
-                .addTestArtifact(outFileName, LogDataType.HOST_LOG, imgdiagFile);
+            String imgdiagCmd = getImgdiagRunCmd(targetPid, outFilePath);
+            CommandResult res = getDevice().executeShellV2Command(imgdiagCmd);
+            Assert.assertEquals(
+                    String.format(
+                            "Failed to run imgdiag:\n%s\nResult:\n%s", imgdiagCmd, res.toString()),
+                    CommandStatus.SUCCESS,
+                    res.getStatus());
+
+            File imgdiagFile = getDevice().pullFile(outFilePath);
+            TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+            testUtils
+                    .getTestArtifactReceiver()
+                    .addTestArtifact(outFileName, LogDataType.HOST_LOG, imgdiagFile);
+        }
 
         super.tearDown();
     }
