@@ -30,6 +30,7 @@ import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import com.google.common.base.Preconditions;
 
+import org.json.JSONException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -210,7 +211,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
     @Test
     public void testAppCrawl()
             throws DeviceNotAvailableException, InterruptedException, ApkInstallerException,
-                    IOException {
+                    IOException, JSONException {
         AssertionError lastError = null;
         WebviewPackage lastWebviewInstalled =
                 mWebviewUtils.installWebview(mWebviewVersionToTest, mReleaseChannel);
