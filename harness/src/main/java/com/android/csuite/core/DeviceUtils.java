@@ -36,6 +36,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -67,6 +70,14 @@ public class DeviceUtils {
                     "data_app_crash");
 
     private static final String VIDEO_PATH_ON_DEVICE_TEMPLATE = "/sdcard/screenrecord_%s.mp4";
+    private static final DateTimeFormatter DROPBOX_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss_SSS");
+    // Pattern for finding a package name following one of the tags such as "Process:" or
+    // "Package:".
+    private static final Pattern DROPBOX_PACKAGE_NAME_PATTERN =
+            Pattern.compile(
+                    "\\b(Process|Cmdline|Package|Cmd line):("
+                            + " *)([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
 
     @VisibleForTesting
     static final int WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS = 10 * 1000;
@@ -113,6 +124,28 @@ public class DeviceUtils {
     }
 
     /**
+     * Grants additional permissions for installed an installed app
+     *
+     * <p>If the package is not installed or the command failed, there will be no error thrown
+     * beyond debug logging.
+     *
+     * @param packageName the package name to grant permission.
+     * @throws DeviceNotAvailableException
+     */
+    public void grantExternalStoragePermissions(String packageName)
+            throws DeviceNotAvailableException {
+        CommandResult cmdResult =
+                mDevice.executeShellV2Command(
+                        String.format("appops set %s MANAGE_EXTERNAL_STORAGE allow", packageName));
+        if (cmdResult.getStatus() != CommandStatus.SUCCESS) {
+            CLog.d(
+                    "Granting MANAGE_EXTERNAL_STORAGE permissions for package %s was unsuccessful."
+                            + " Reason: %s.",
+                    packageName, cmdResult.toString());
+        }
+    }
+
+    /**
      * Get the current device timestamp in milliseconds.
      *
      * @return The device time
@@ -139,6 +172,28 @@ public class DeviceUtils {
     }
 
     /**
+     * Get the device's build sdk level.
+     *
+     * @return The Sdk level, or -1 if failed to get it.
+     * @throws DeviceNotAvailableException When the device is lost during test
+     */
+    public int getSdkLevel() throws DeviceNotAvailableException {
+        CommandResult result = mDevice.executeShellV2Command("getprop ro.build.version.sdk");
+        if (result.getStatus() != CommandStatus.SUCCESS) {
+            CLog.e(
+                    "Failed to get device build sdk level: " + result,
+                    DeviceErrorIdentifier.DEVICE_UNEXPECTED_RESPONSE);
+            return -1;
+        }
+        try {
+            return Integer.parseInt(result.getStdout().trim());
+        } catch (NumberFormatException e) {
+            CLog.e("Cannot parse device build sdk level: " + result.getStdout());
+            return -1;
+        }
+    }
+
+    /**
      * Record the device screen while running a task.
      *
      * <p>This method will not throw exception when the screenrecord command failed unless the
@@ -157,22 +212,29 @@ public class DeviceUtils {
 
         // Start screen recording
         Process recordingProcess = null;
+        DeviceTimestamp recordingDeviceStartTime = null;
         try {
+            CLog.i("Starting screen recording at %s", videoPath);
             recordingProcess =
                     mRunUtilProvider
                             .get()
                             .runCmdInBackground(
                                     String.format(
-                                                    "adb -s %s shell screenrecord --time-limit 600"
-                                                            + " %s",
-                                                    mDevice.getSerialNumber(), videoPath)
+                                                    "adb -s %s shell screenrecord%s %s",
+                                                    mDevice.getSerialNumber(),
+                                                    getSdkLevel() >= 34 ? " --time-limit 600" : "",
+                                                    videoPath)
                                             .split("\\s+"));
         } catch (IOException ioException) {
             CLog.e("Exception is thrown when starting screen recording process: %s", ioException);
         }
 
         try {
-            long start = mClock.currentTimeMillis();
+            // Not exact video start time. The exact time can be found in the logcat but for
+            // simplicity we use shell command to get the current time as the approximate of
+            // the video start time.
+            recordingDeviceStartTime = currentTimeMillis();
+            long hostStartTime = mClock.currentTimeMillis();
             // Wait for the recording to start since it may take time for the device to start
             // recording
             while (recordingProcess != null) {
@@ -191,7 +253,7 @@ public class DeviceUtils {
                     throw new RuntimeException(e);
                 }
 
-                if (mClock.currentTimeMillis() - start
+                if (mClock.currentTimeMillis() - hostStartTime
                         > WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS) {
                     CLog.e(
                             "Screenrecord did not start within %s milliseconds.",
@@ -219,8 +281,19 @@ public class DeviceUtils {
                     recordingProcess.destroyForcibly();
                 }
             }
+
+            CommandResult sizeResult = mDevice.executeShellV2Command("ls -sh " + videoPath);
+            if (sizeResult != null && sizeResult.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d(
+                        "Completed screenrecord %s, video size: %s",
+                        videoPath, sizeResult.getStdout());
+            }
+            CommandResult hashResult = mDevice.executeShellV2Command("md5sum " + videoPath);
+            if (hashResult != null && hashResult.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d("Video file md5 sum: %s", hashResult.getStdout());
+            }
             // Try to pull, handle, and delete the video file from the device anyway.
-            handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
+            handler.handleScreenRecordFile(mDevice.pullFile(videoPath), recordingDeviceStartTime);
             mDevice.deleteFile(videoPath);
         }
     }
@@ -232,8 +305,9 @@ public class DeviceUtils {
          *
          * @param screenRecord The mp4 file located on the host. If screen record failed then the
          *     input could be null.
+         * @param recordingStartTime The device time when the screen record started..
          */
-        void handleScreenRecordFile(File screenRecord);
+        void handleScreenRecordFile(File screenRecord, DeviceTimestamp recordingStartTime);
     }
 
     /**
@@ -564,7 +638,7 @@ public class DeviceUtils {
                     mRunUtilProvider
                             .get()
                             .runTimedCmd(
-                                    6000,
+                                    12L * 1000,
                                     "sh",
                                     "-c",
                                     String.format(
@@ -591,8 +665,68 @@ public class DeviceUtils {
                         new DropboxEntry(entry.getTimeMs(), tag, entry.getData().toStringUtf8()));
             }
         }
+        return entries.stream()
+                .sorted(Comparator.comparing(DropboxEntry::getTime))
+                .collect(Collectors.toList());
+    }
 
-        return entries;
+    /**
+     * Gets dropbox entries from the device filtered by the provided tags.
+     *
+     * @param tags Dropbox tags to query.
+     * @param packageName package name for filtering the entries. Can be null.
+     * @param startTime entry start timestamp to filter the results. Can be null.
+     * @param endTime entry end timestamp to filter the results. Can be null.
+     * @return A list of dropbox entries.
+     * @throws IOException when failed to dump or read the dropbox protos.
+     */
+    public List<DropboxEntry> getDropboxEntries(
+            Set<String> tags,
+            String packageName,
+            DeviceTimestamp startTime,
+            DeviceTimestamp endTime)
+            throws IOException {
+        return getDropboxEntries(tags).stream()
+                .filter(
+                        entry ->
+                                ((startTime == null || entry.getTime() >= startTime.get())
+                                        && (endTime == null || entry.getTime() < endTime.get())))
+                .filter(
+                        entry ->
+                                packageName == null
+                                        || isDropboxEntryFromPackageProcess(
+                                                entry.getData(), packageName))
+                .collect(Collectors.toList());
+    }
+
+    /* Checks whether a dropbox entry is logged from the given package name. */
+    @VisibleForTesting
+    boolean isDropboxEntryFromPackageProcess(String entryData, String packageName) {
+        Matcher m = DROPBOX_PACKAGE_NAME_PATTERN.matcher(entryData);
+
+        boolean matched = false;
+        while (m.find()) {
+            matched = true;
+            if (m.group(3).equals(packageName)) {
+                return true;
+            }
+        }
+
+        // Package/process name is identified but not equal to the packageName provided
+        if (matched) {
+            return false;
+        }
+
+        // If the process name is not identified, fall back to checking if the package name is
+        // present in the entry. This is because the process name detection logic above does not
+        // guarantee to identify the process name.
+        return Pattern.compile(
+                        String.format(
+                                // Pattern for checking whether a given package name exists.
+                                "(.*(?:[^a-zA-Z0-9_\\.]+)|^)%s((?:[^a-zA-Z0-9_\\.]+).*|$)",
+                                packageName.replaceAll("\\.", "\\\\.")))
+                .matcher(entryData)
+                .find();
     }
 
     @VisibleForTesting
@@ -699,6 +833,19 @@ public class DeviceUtils {
             return mData.toString();
         }
 
+        @Override
+        public String toString() {
+            long time = getTime();
+            String formattedTime =
+                    DROPBOX_TIME_FORMATTER.format(
+                            Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()));
+            return String.format(
+                    "Dropbox entry tag: %s\n"
+                            + "Dropbox entry timestamp: %s\n"
+                            + "Dropbox entry time: %s\n%s",
+                    getTag(), time, formattedTime, getData());
+        }
+
         @VisibleForTesting
         DropboxEntry(long time, String tag, String data) {
             mTime = time;
@@ -776,9 +923,20 @@ public class DeviceUtils {
             mTimestamp = timestamp;
         }
 
-        /** Gets the timestamp on a device. */
+        /** Gets the time stamp on a device. */
         public long get() {
             return mTimestamp;
+        }
+
+        /**
+         * Gets the time stamp in formatted string
+         *
+         * @param format date format
+         * @return A formatted string representing the device time stamp
+         */
+        public String getFormatted(String format) {
+            return DateTimeFormatter.ofPattern(format)
+                    .format(Instant.ofEpochMilli(get()).atZone(ZoneId.systemDefault()));
         }
     }
 

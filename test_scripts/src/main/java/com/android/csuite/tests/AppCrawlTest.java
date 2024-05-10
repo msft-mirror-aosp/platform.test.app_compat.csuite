@@ -17,10 +17,13 @@
 package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller;
+import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
+import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
@@ -148,8 +151,16 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
             description = "When to save apk files to the test result artifacts.")
     private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
 
+    @Option(
+            name = "grant-external-storage",
+            mandatory = false,
+            description = "After an apks are installed, grant MANAGE_EXTERNAL_STORAGE permissions.")
+    private boolean mGrantExternalStoragePermission = false;
+
     @Before
-    public void setUp() throws ApkInstaller.ApkInstallerException, IOException {
+    public void setUp()
+            throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         mIsLastTestPass = false;
         mCrawler = AppCrawlTester.newInstance(mPackageName, getTestInformation(), mLogData);
         if (!mUiAutomatorMode) {
@@ -169,6 +180,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
         mApkInstaller.install(
                 mInstallApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
                 mInstallArgs);
+        if (mGrantExternalStoragePermission) {
+            deviceUtils.grantExternalStoragePermissions(mPackageName);
+        }
     }
 
     /** Helper method to fetch the path of optional File variables. */
@@ -193,21 +207,28 @@ public class AppCrawlTest extends BaseHostJUnit4Test {
     }
 
     @After
-    public void tearDown() throws DeviceNotAvailableException, ApkInstaller.ApkInstallerException {
+    public void tearDown() throws DeviceNotAvailableException {
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
 
         if (!mIsApkSaved) {
             mIsApkSaved =
                     testUtils.saveApks(
-                                    mSaveApkWhen, mIsLastTestPass, mPackageName, mInstallApkPaths)
-                            && testUtils.saveApks(
-                                    mSaveApkWhen,
-                                    mIsLastTestPass,
-                                    mPackageName,
-                                    Arrays.asList(mRepackApk));
+                            mSaveApkWhen, mIsLastTestPass, mPackageName, mInstallApkPaths);
+            if (mRepackApk != null) {
+                mIsApkSaved &=
+                        testUtils.saveApks(
+                                mSaveApkWhen,
+                                mIsLastTestPass,
+                                mPackageName,
+                                Arrays.asList(mRepackApk));
+            }
         }
 
-        mApkInstaller.uninstallAllInstalledPackages();
+        try {
+            mApkInstaller.uninstallAllInstalledPackages();
+        } catch (ApkInstallerException e) {
+            CLog.w("Uninstallation of installed apps failed during teardown: %s", e.getMessage());
+        }
         if (!mUiAutomatorMode) {
             getDevice().uninstallPackage(mPackageName);
         }

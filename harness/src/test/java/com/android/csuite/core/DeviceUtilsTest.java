@@ -27,6 +27,7 @@ import android.service.dropbox.DropBoxManagerServiceDumpProto;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceRuntimeException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.CommandResult;
@@ -39,6 +40,7 @@ import com.google.protobuf.ByteString;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 
@@ -51,6 +53,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 @RunWith(JUnit4.class)
 public final class DeviceUtilsTest {
@@ -58,6 +61,19 @@ public final class DeviceUtilsTest {
     private IRunUtil mRunUtil = Mockito.mock(IRunUtil.class);
     private final FileSystem mFileSystem =
             Jimfs.newFileSystem(com.google.common.jimfs.Configuration.unix());
+    private static final String TEST_PACKAGE_NAME = "package.name";
+
+    @Test
+    public void grantExternalStoragePermissions_commandFailed_doesNotThrow() throws Exception {
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        when(mDevice.executeShellV2Command(captor.capture()))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        sut.grantExternalStoragePermissions(TEST_PACKAGE_NAME);
+
+        assertThat(captor.getValue()).contains("MANAGE_EXTERNAL_STORAGE allow");
+    }
 
     @Test
     public void isPackageInstalled_packageIsInstalled_returnsTrue() throws Exception {
@@ -381,7 +397,7 @@ public final class DeviceUtilsTest {
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
-        sut.runWithScreenRecording(job, video -> {});
+        sut.runWithScreenRecording(job, (video, time) -> {});
 
         assertThat(executed.get()).isTrue();
     }
@@ -395,7 +411,7 @@ public final class DeviceUtilsTest {
         AtomicBoolean executed = new AtomicBoolean(false);
         DeviceUtils.RunnableThrowingDeviceNotAvailable job = () -> executed.set(true);
 
-        sut.runWithScreenRecording(job, video -> {});
+        sut.runWithScreenRecording(job, (video, time) -> {});
 
         assertThat(executed.get()).isTrue();
     }
@@ -415,9 +431,21 @@ public final class DeviceUtilsTest {
 
         assertThrows(
                 RuntimeException.class,
-                () -> sut.runWithScreenRecording(job, video -> handled.set(true)));
+                () -> sut.runWithScreenRecording(job, (video, time) -> handled.set(true)));
 
         assertThat(handled.get()).isTrue();
+    }
+
+    @Test
+    public void getSdkLevel_returnsSdkLevelInteger() throws DeviceNotAvailableException {
+        DeviceUtils sut = createSubjectUnderTest();
+        int sdkLevel = 30;
+        when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("" + sdkLevel));
+
+        int result = sut.getSdkLevel();
+
+        assertThat(result).isEqualTo(sdkLevel);
     }
 
     @Test
@@ -494,6 +522,301 @@ public final class DeviceUtilsTest {
         String result = sut.getPackageVersionCode("any");
 
         assertThat(result).isEqualTo("123");
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_cmdlineMatched_returnsTrue() throws Exception {
+        String dropboxEntryData = "Cmd line: com.app.package";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isTrue();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_processMatched_returnsTrue() throws Exception {
+        String dropboxEntryData = "Process: com.app.package";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isTrue();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_processMatchedInLines_returnsTrue()
+            throws Exception {
+        String dropboxEntryData = "line\nProcess: com.app.package\nline";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isTrue();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_processNameFollowedByOtherChar_returnsTrue()
+            throws Exception {
+        String dropboxEntryData = "line\nProcess: com.app.package, (time)\nline";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isTrue();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_processNameFollowedByDot_returnsFalse()
+            throws Exception {
+        String dropboxEntryData = "line\nProcess: com.app.package.sub, (time)\nline";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_processNameFollowedByColon_returnsTrue()
+            throws Exception {
+        String dropboxEntryData = "line\nProcess: com.app.package:sub, (time)\nline";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isTrue();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_processNameFollowedByUnderscore_returnsFalse()
+            throws Exception {
+        String dropboxEntryData = "line\nProcess: com.app.package_sub, (time)\nline";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_doesNotContainPackageName_returnsFalse()
+            throws Exception {
+        String dropboxEntryData = "line\n";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_packageNameWithUnderscorePrefix_returnsFalse()
+            throws Exception {
+        String dropboxEntryData = "line\na_com.app.package\n";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_packageNameWithUnderscorePostfix_returnsFalse()
+            throws Exception {
+        String dropboxEntryData = "line\ncom.app.package_a\n";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_packageNameWithDotPrefix_returnsFalse()
+            throws Exception {
+        String dropboxEntryData = "line\na.com.app.package\n";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_packageNameWithDotPostfix_returnsFalse()
+            throws Exception {
+        String dropboxEntryData = "line\ncom.app.package.a\n";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_packageNameWithColonPostfix_returnsTrue()
+            throws Exception {
+        String dropboxEntryData = "line\ncom.app.package:a\n";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isTrue();
+    }
+
+    @Test
+    public void
+            isDropboxEntryFromPackageProcess_packageNameWithAcceptiblePrefixAndPostfix_returnsTrue()
+                    throws Exception {
+        String dropboxEntryData = "line\ncom.app.package)\n";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isTrue();
+    }
+
+    @Test
+    public void
+            isDropboxEntryFromPackageProcess_wrongProcessNameWithCorrectPackageName_returnsFalse()
+                    throws Exception {
+        String dropboxEntryData = "line\nProcess: com.app.package_other\ncom.app.package";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isFalse();
+    }
+
+    @Test
+    public void isDropboxEntryFromPackageProcess_MultipleProcessNamesWithOneMatching_returnsTrue()
+            throws Exception {
+        String dropboxEntryData =
+                "line\n"
+                        + "Process: com.app.package_other\n"
+                        + "Process: com.app.package\n"
+                        + "Process: com.other";
+        String packageName = "com.app.package";
+        DeviceUtils sut = createSubjectUnderTest();
+
+        boolean res = sut.isDropboxEntryFromPackageProcess(dropboxEntryData, packageName);
+
+        assertThat(res).isTrue();
+    }
+
+    @Test
+    public void getDropboxEntries_containsEntriesOutsideTimeRange_onlyReturnsNewEntries()
+            throws Exception {
+        DeviceUtils sut = Mockito.spy(createSubjectUnderTest());
+        DeviceTimestamp startTime = new DeviceTimestamp(1);
+        DeviceTimestamp endTime = new DeviceTimestamp(3);
+        Mockito.doAnswer(
+                        inv ->
+                                List.of(
+                                        new DeviceUtils.DropboxEntry(
+                                                0,
+                                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                        .toArray(
+                                                                new String
+                                                                        [DeviceUtils
+                                                                                .DROPBOX_APP_CRASH_TAGS
+                                                                                .size()])[0],
+                                                TEST_PACKAGE_NAME + " entry1"),
+                                        new DeviceUtils.DropboxEntry(
+                                                2,
+                                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                        .toArray(
+                                                                new String
+                                                                        [DeviceUtils
+                                                                                .DROPBOX_APP_CRASH_TAGS
+                                                                                .size()])[0],
+                                                TEST_PACKAGE_NAME + " entry2"),
+                                        new DeviceUtils.DropboxEntry(
+                                                100,
+                                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                        .toArray(
+                                                                new String
+                                                                        [DeviceUtils
+                                                                                .DROPBOX_APP_CRASH_TAGS
+                                                                                .size()])[0],
+                                                TEST_PACKAGE_NAME + " entry3")))
+                .when(sut)
+                .getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS);
+
+        String result =
+                sut
+                        .getDropboxEntries(
+                                DeviceUtils.DROPBOX_APP_CRASH_TAGS,
+                                TEST_PACKAGE_NAME,
+                                startTime,
+                                endTime)
+                        .stream()
+                        .map(DropboxEntry::toString)
+                        .collect(Collectors.joining("\n"));
+
+        assertThat(result).doesNotContain("entry1");
+        assertThat(result).contains("entry2");
+        assertThat(result).doesNotContain("entry3");
+    }
+
+    @Test
+    public void getDropboxEntries_containsOtherProcessEntries_onlyReturnsPackageEntries()
+            throws Exception {
+        DeviceUtils sut = Mockito.spy(createSubjectUnderTest());
+        DeviceTimestamp startTime = new DeviceTimestamp(1);
+        Mockito.doAnswer(
+                        inv ->
+                                List.of(
+                                        new DeviceUtils.DropboxEntry(
+                                                2,
+                                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                        .toArray(
+                                                                new String
+                                                                        [DeviceUtils
+                                                                                .DROPBOX_APP_CRASH_TAGS
+                                                                                .size()])[0],
+                                                "other.package" + " entry1"),
+                                        new DeviceUtils.DropboxEntry(
+                                                2,
+                                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                        .toArray(
+                                                                new String
+                                                                        [DeviceUtils
+                                                                                .DROPBOX_APP_CRASH_TAGS
+                                                                                .size()])[0],
+                                                TEST_PACKAGE_NAME + " entry2")))
+                .when(sut)
+                .getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS);
+
+        String result =
+                sut
+                        .getDropboxEntries(
+                                DeviceUtils.DROPBOX_APP_CRASH_TAGS,
+                                TEST_PACKAGE_NAME,
+                                startTime,
+                                null)
+                        .stream()
+                        .map(DropboxEntry::toString)
+                        .collect(Collectors.joining("\n"));
+
+        assertThat(result).doesNotContain("entry1");
+        assertThat(result).contains("entry2");
     }
 
     @Test
@@ -642,8 +965,12 @@ public final class DeviceUtilsTest {
                 mDevice, fakeClock.getSleeper(), fakeClock, () -> mRunUtil, () -> iter.next());
     }
 
-    private DeviceUtils createSubjectUnderTest() {
+    private DeviceUtils createSubjectUnderTest() throws DeviceNotAvailableException {
         when(mDevice.getSerialNumber()).thenReturn("SERIAL");
+        when(mDevice.executeShellV2Command(Mockito.startsWith("echo ${EPOCHREALTIME")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("1"));
+        when(mDevice.executeShellV2Command(Mockito.eq("getprop ro.build.version.sdk")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("34"));
         FakeClock fakeClock = new FakeClock();
         return new DeviceUtils(
                 mDevice,

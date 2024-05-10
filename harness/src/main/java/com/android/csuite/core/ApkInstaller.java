@@ -20,7 +20,6 @@ import com.android.csuite.core.TestUtils.TestUtilsException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.AaptParser;
-import com.android.tradefed.util.AaptParser.AaptVersion;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
@@ -159,17 +158,19 @@ public final class ApkInstaller {
         CLog.d("Uninstalling all installed packages.");
 
         StringBuilder errorMessage = new StringBuilder();
-        mInstalledPackages.forEach(
-                installedPackage -> {
-                    String[] cmd = createUninstallCommand(installedPackage, mDeviceSerial);
-                    CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, cmd);
-                    if (res.getStatus() != CommandStatus.SUCCESS) {
-                        errorMessage.append(
-                                String.format(
-                                        "Failed to uninstall package %s. Reason: %s.\n",
-                                        installedPackage, res.toString()));
-                    }
-                });
+        mInstalledPackages.stream()
+                .distinct()
+                .forEach(
+                        installedPackage -> {
+                            String[] cmd = createUninstallCommand(installedPackage, mDeviceSerial);
+                            CommandResult res = mRunUtil.runTimedCmd(sCommandTimeOut, cmd);
+                            if (res.getStatus() != CommandStatus.SUCCESS) {
+                                errorMessage.append(
+                                        String.format(
+                                                "Failed to uninstall package %s. Reason: %s.\n",
+                                                installedPackage, res.toString()));
+                            }
+                        });
 
         if (errorMessage.length() > 0) {
             throw new ApkInstallerException(errorMessage.toString());
@@ -198,17 +199,15 @@ public final class ApkInstaller {
                 .filter(path -> path.toString().toLowerCase().endsWith(".obb"))
                 .forEach(
                         path -> {
+                            String dest =
+                                    "/sdcard/Android/obb/" + packageName + "/" + path.getFileName();
                             cmds.add(
                                     new String[] {
-                                        "adb",
-                                        "-s",
-                                        deviceSerial,
-                                        "push",
-                                        path.toString(),
-                                        "/sdcard/Android/obb/"
-                                                + packageName
-                                                + "/"
-                                                + path.getFileName()
+                                        "adb", "-s", deviceSerial, "shell", "rm", "-f", dest
+                                    });
+                            cmds.add(
+                                    new String[] {
+                                        "adb", "-s", deviceSerial, "push", path.toString(), dest
                                     });
                         });
 
@@ -221,6 +220,7 @@ public final class ApkInstaller {
                         deviceSerial,
                         "shell",
                         "mkdir",
+                        "-p",
                         "/sdcard/Android/obb/" + packageName
                     });
         }
@@ -270,13 +270,13 @@ public final class ApkInstaller {
     private static final class AaptPackageNameParser implements PackageNameParser {
         @Override
         public String parsePackageName(Path apkFile) throws IOException {
-            String packageName =
-                    AaptParser.parse(apkFile.toFile(), AaptVersion.AAPT2).getPackageName();
-            if (packageName == null) {
+            AaptParser parseResult =
+                    AaptParser.parse(apkFile.toFile(), AaptParser.AaptVersion.AAPT2);
+            if (parseResult == null || parseResult.getPackageName() == null) {
                 throw new IOException(
                         String.format("Failed to parse package name with AAPT for %s", apkFile));
             }
-            return packageName;
+            return parseResult.getPackageName();
         }
     }
 

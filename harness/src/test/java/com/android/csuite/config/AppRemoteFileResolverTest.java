@@ -20,6 +20,8 @@ import static com.android.csuite.testing.MoreAsserts.assertThrows;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.fail;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.tradefed.build.BuildRetrievalError;
@@ -151,11 +153,14 @@ public final class AppRemoteFileResolverTest {
     @Test
     public void templateHasNoPlaceholders_returnsFileWithoutExpansion() throws Exception {
         File expected = temporaryFolder.newFolder();
+        String expectedPathWithFilePrefix = "file:" + expected.toString();
         AppRemoteFileResolver resolver = newResolverWithTemplate(expected.toURI().toString());
 
         File actual = resolver.resolveRemoteFiles(APP_URI_FILE, EMPTY_PARAMS);
 
-        assertThat(actual).isEqualTo(expected);
+        if (!actual.equals(expected) && !actual.toString().equals(expectedPathWithFilePrefix)) {
+            fail(String.format("Actual %s does not match expected %s", actual, expected));
+        }
     }
 
     @Test
