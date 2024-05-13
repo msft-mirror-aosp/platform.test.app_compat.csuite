@@ -76,8 +76,10 @@ public class AppLaunchImgdiagTest extends AppLaunchTest {
      * @return The complete `imgdiag` command that can be run with `adb shell`.
      */
     public static String getImgdiagRunCmd(String targetPid, String outFilePath) {
+        // There may be more than one process with "zygote64" name when a new app
+        // is forked. Use `pgrep -f zygote64 -o` to get the oldest process.
         return String.format(
-                "imgdiag --zygote-diff-pid=`pidof zygote64` --image-diff-pid=%s"
+                "imgdiag --zygote-diff-pid=`pgrep -f zygote64 -o` --image-diff-pid=%s"
                         + " --output=%s"
                         + " --dump-dirty-objects --boot-image="
                         + "/data/misc/apexdata/com.android.art/dalvik-cache/boot.art",
