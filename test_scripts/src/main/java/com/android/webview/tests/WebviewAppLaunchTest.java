@@ -30,6 +30,7 @@ import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.RunUtil;
 
+import org.json.JSONException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -108,7 +109,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
     @Test
     public void testAppLaunch()
             throws DeviceNotAvailableException, InterruptedException, ApkInstallerException,
-                    IOException {
+                    IOException, JSONException {
         AssertionError lastError = null;
         WebviewPackage lastWebviewInstalled =
                 mWebviewUtils.installWebview(mWebviewVersionToTest, mReleaseChannel);
