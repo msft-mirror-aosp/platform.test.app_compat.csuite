@@ -18,19 +18,25 @@ package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
+import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle;
+import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle.BlankScreen;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
+import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.csuite.core.DeviceUtils.RunnableThrowingDeviceNotAvailable;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -39,11 +45,15 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import javax.imageio.ImageIO;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -97,12 +107,19 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     private TestUtils.TakeEffectWhen mSaveApkWhen = TestUtils.TakeEffectWhen.NEVER;
 
     @Option(name = "package-name", description = "Package name of testing app.")
-    private String mPackageName;
+    protected String mPackageName;
 
     @Option(
             name = "app-launch-timeout-ms",
             description = "Time to wait for app to launch in msecs.")
     private int mAppLaunchTimeoutMs = 15000;
+
+    @Option(
+            name = "blank-screen-same-color-area-threshold",
+            description =
+                    "Percentage of the screen which, if occupied by a same-color rectangle "
+                            + "area, indicates that the app has reached a blank screen.")
+    private double mBlankScreenSameColorThreshold = -1;
 
     @Before
     public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
@@ -128,18 +145,95 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testAppCrash() throws DeviceNotAvailableException {
+    public void testAppCrash() throws DeviceNotAvailableException, IOException {
+        CLog.d("Launching package: %s.", mPackageName);
+
+        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
         TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
+
+        try {
+            if (!deviceUtils.isPackageInstalled(mPackageName)) {
+                Assert.fail(
+                        "Package "
+                                + mPackageName
+                                + " is not installed on the device. Aborting the test.");
+            }
+        } catch (DeviceUtilsException e) {
+            Assert.fail("Failed to check the installed package list: " + e.getMessage());
+        }
+
+        AtomicReference<DeviceTimestamp> startTime = new AtomicReference<>();
+        AtomicReference<DeviceTimestamp> videoStartTime = new AtomicReference<>();
+
+        RunnableThrowingDeviceNotAvailable launchJob =
+                () -> {
+                    startTime.set(deviceUtils.currentTimeMillis());
+                    try {
+                        deviceUtils.launchPackage(mPackageName);
+                    } catch (DeviceUtilsException e) {
+                        Assert.fail(
+                                "Failed to launch package " + mPackageName + ": " + e.getMessage());
+                    }
+
+                    CLog.d(
+                            "Waiting %s milliseconds for the app to launch fully.",
+                            mAppLaunchTimeoutMs);
+                    RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
+                };
 
         if (mRecordScreen) {
             testUtils.collectScreenRecord(
-                    () -> {
-                        launchPackageAndCheckForCrash();
-                    },
-                    mPackageName);
+                    launchJob,
+                    mPackageName,
+                    videoStartTimeOnDevice -> videoStartTime.set(videoStartTimeOnDevice));
         } else {
-            launchPackageAndCheckForCrash();
+            launchJob.run();
         }
+
+        CLog.d("Completed launching package: %s", mPackageName);
+        DeviceTimestamp endTime = deviceUtils.currentTimeMillis();
+
+        try {
+            List<DropboxEntry> crashEntries =
+                    deviceUtils.getDropboxEntries(
+                            DeviceUtils.DROPBOX_APP_CRASH_TAGS,
+                            mPackageName,
+                            startTime.get(),
+                            endTime);
+            String crashLog =
+                    testUtils.compileTestFailureMessage(
+                            mPackageName, crashEntries, true, videoStartTime.get());
+            if (crashLog != null) {
+                Assert.fail(crashLog);
+            }
+        } catch (IOException e) {
+            Assert.fail("Error while getting dropbox crash log: " + e);
+        }
+
+        if (mBlankScreenSameColorThreshold > 0) {
+            BufferedImage screen;
+            try (InputStreamSource screenShot =
+                    testUtils.getTestInformation().getDevice().getScreenshot()) {
+                Preconditions.checkNotNull(screenShot);
+                screen = ImageIO.read(screenShot.createInputStream());
+            }
+            BlankScreen blankScreen =
+                    BlankScreenDetectorWithSameColorRectangle.getBlankScreen(screen);
+            double blankScreenPercent = blankScreen.getBlankScreenPercent();
+            if (blankScreenPercent > mBlankScreenSameColorThreshold) {
+                BlankScreenDetectorWithSameColorRectangle.saveBlankScreenArtifact(
+                        mPackageName,
+                        blankScreen,
+                        testUtils.getTestArtifactReceiver(),
+                        testUtils.getTestInformation().getDevice().getSerialNumber());
+                Assert.fail(
+                        String.format(
+                                "Blank screen detected with same-color rectangle area percentage of"
+                                        + " %.2f%%",
+                                blankScreenPercent * 100));
+            }
+        }
+
         mIsLastTestPass = true;
     }
 
@@ -161,42 +255,5 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
         deviceUtils.unfreezeRotation();
 
         mApkInstaller.uninstallAllInstalledPackages();
-    }
-
-    private void launchPackageAndCheckForCrash() throws DeviceNotAvailableException {
-        CLog.d("Launching package: %s.", mPackageName);
-
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
-
-        try {
-            if (!deviceUtils.isPackageInstalled(mPackageName)) {
-                Assert.fail(
-                        "Package "
-                                + mPackageName
-                                + " is not installed on the device. Aborting the test.");
-            }
-        } catch (DeviceUtilsException e) {
-            Assert.fail("Failed to check the installed package list: " + e.getMessage());
-        }
-
-        DeviceTimestamp startTime = deviceUtils.currentTimeMillis();
-        try {
-            deviceUtils.launchPackage(mPackageName);
-        } catch (DeviceUtilsException e) {
-            Assert.fail("Failed to launch package " + mPackageName + ": " + e.getMessage());
-        }
-
-        CLog.d("Waiting %s milliseconds for the app to launch fully.", mAppLaunchTimeoutMs);
-        RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
-
-        CLog.d("Completed launching package: %s", mPackageName);
-
-        try {
-            String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
-            Assert.assertNull(crashLog, crashLog);
-        } catch (IOException e) {
-            Assert.fail("Error while getting dropbox crash log: " + e);
-        }
     }
 }

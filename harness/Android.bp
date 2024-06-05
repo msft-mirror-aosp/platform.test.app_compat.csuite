@@ -13,6 +13,7 @@
 // limitations under the License.
 
 package {
+    default_team: "trendy_team_app_compat",
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
@@ -31,7 +32,7 @@ java_library_host {
         "compatibility-tradefed",
         "platformprotos",
         "libprotobuf-java-lite",
-    ]
+    ],
 }
 
 java_test_host {
@@ -52,4 +53,18 @@ java_test_host {
     test_options: {
         unit_test: true,
     },
+    data: [
+        ":app-screens",
+    ],
+}
+
+filegroup {
+    name: "app-screens",
+    srcs: [
+        "src/test/resources/BlankScreenWithFullScreen.png",
+        "src/test/resources/BlankScreenWithNavBars.png",
+        "src/test/resources/BlankScreenWithWhiteScreen.png",
+        "src/test/resources/NotBlankScreen.png",
+    ],
+    path: "src/test/resources/",
 }

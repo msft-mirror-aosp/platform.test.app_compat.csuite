@@ -26,8 +26,10 @@ import stat
 import subprocess
 import sys
 import tempfile
-from typing import Sequence, Text
 import zipfile
+from importlib import resources
+from typing import Sequence
+
 import csuite_test
 
 # Export symbols to reduce the number of imports tests have to list.
@@ -52,8 +54,10 @@ class CSuiteHarness(contextlib.AbstractContextManager):
     self._suite_dir = pathlib.Path(tempfile.mkdtemp(prefix='csuite'))
     logging.debug('Created harness directory: %s', self._suite_dir)
 
-    with zipfile.ZipFile(_get_standalone_zip_path(), 'r') as f:
-      f.extractall(self._suite_dir)
+    with resources.files('testdata').joinpath(
+        'csuite-standalone.zip').open('rb') as data:
+      with zipfile.ZipFile(data, 'r') as f:
+        f.extractall(self._suite_dir)
 
     # Add owner-execute permission on scripts since zip does not preserve them.
     self._launcher_binary = self._suite_dir.joinpath(
@@ -71,7 +75,7 @@ class CSuiteHarness(contextlib.AbstractContextManager):
     shutil.rmtree(self._suite_dir, ignore_errors=True)
 
 
-  def run_and_wait(self, flags: Sequence[Text]) -> subprocess.CompletedProcess:
+  def run_and_wait(self, flags: Sequence[str]) -> subprocess.CompletedProcess:
     """Starts the Tradefed launcher and waits for it to complete."""
 
     env = os.environ.copy()
@@ -130,15 +134,19 @@ class PackageRepository(contextlib.AbstractContextManager):
     """Returns the path to the repository's root directory."""
     return self._root_dir
 
-  def add_package_apks(self, package_name: Text,
-                       apk_paths: Sequence[pathlib.Path]):
+  def add_package_apks(self, package_name: str, apks: Sequence[str]):
     """Adds the provided package APKs to the repository."""
     apk_dir = self._root_dir.joinpath(package_name)
 
     # Raises if the directory already exists.
     apk_dir.mkdir()
-    for f in apk_paths:
-      shutil.copy(f, apk_dir)
+    for apk in apks:
+      apk = apk + '.apk'
+      with (
+        resources.files('testdata').joinpath(apk).open('rb') as data,
+        open(os.path.join(apk_dir, apk), 'wb') as file,
+      ):
+        shutil.copyfileobj(data, file)
 
 
 class Adb:
@@ -150,7 +158,7 @@ class Adb:
 
   def __init__(self,
                adb_binary_path: pathlib.Path = None,
-               device_serial: Text = None):
+               device_serial: str = None):
     self._args = [adb_binary_path or 'adb']
 
     device_serial = device_serial or get_device_serial()
@@ -158,7 +166,7 @@ class Adb:
       self._args.extend(['-s', device_serial])
 
   def shell(self,
-            args: Sequence[Text],
+            args: Sequence[str],
             check: bool = None) -> subprocess.CompletedProcess:
     """Runs an adb shell command and waits for it to complete.
 
@@ -177,16 +185,16 @@ class Adb:
     return self.run(['shell'] + args, check)
 
   def run(self,
-          args: Sequence[Text],
+          args: Sequence[str],
           check: bool = None) -> subprocess.CompletedProcess:
     """Runs an adb command and waits for it to complete."""
     return _run_command(self._args + args, check=check)
 
-  def uninstall(self, package_name: Text, check: bool = None):
+  def uninstall(self, package_name: str, check: bool = None):
     """Uninstalls the specified package."""
     self.run(['uninstall', package_name], check=check)
 
-  def list_packages(self) -> Sequence[Text]:
+  def list_packages(self) -> Sequence[str]:
     """Lists packages installed on the device."""
     p = self.shell(['pm', 'list', 'packages'])
     return [l.split(':')[1] for l in p.stdout.splitlines()]
@@ -216,37 +224,11 @@ def _add_owner_exec_permission(path: pathlib.Path):
   path.chmod(path.stat().st_mode | stat.S_IEXEC)
 
 
-def get_test_app_apks(app_module_name: Text) -> Sequence[pathlib.Path]:
-  """Returns a test app's apk file paths."""
-  return [_get_test_file(app_module_name + '.apk')]
-
-
-def _get_standalone_zip_path():
-  """Returns the suite standalone zip file's path."""
-  return _get_test_file('csuite-standalone.zip')
-
-
-def _get_test_file(name: Text) -> pathlib.Path:
-  test_dir = _get_test_dir()
-  test_file = test_dir.joinpath(name)
-
-  if not test_file.exists():
-    raise RuntimeError(f'Unable to find the file `{name}` in the test '
-                       'execution dir `{test_dir}`; are you missing a data '
-                       'dependency in the build module?')
-
-  return test_file
-
-
-def _shlex_join(split_command: Sequence[Text]) -> Text:
+def _shlex_join(split_command: Sequence[str]) -> str:
   """Concatenate tokens and return a shell-escaped string."""
   # This is an alternative to shlex.join that doesn't exist in Python versions
   # < 3.8.
   return ' '.join(shlex.quote(t) for t in split_command)
-
-
-def _get_test_dir() -> pathlib.Path:
-  return pathlib.Path(__file__).parent
 
 
 def main():
