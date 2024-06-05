@@ -55,7 +55,7 @@ public class AllProcessesImgdiag implements ITestLoggerReceiver, ITargetPreparer
         String zygoteChildren =
                 testInformation
                         .getDevice()
-                        .executeShellCommand("ps --ppid `pidof zygote64` -o pid,args");
+                        .executeShellCommand("ps --ppid `pgrep -f zygote64 -o` -o pid,args");
 
         // Skip "PID ARGS" header.
         for (String line : zygoteChildren.lines().skip(1).toList()) {
