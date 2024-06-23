@@ -17,10 +17,12 @@
 package com.android.art.targetprep;
 
 import com.android.art.tests.AppLaunchImgdiagTest;
+import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.ITestLogger;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestLoggerReceiver;
 import com.android.tradefed.result.LogDataType;
@@ -59,6 +61,8 @@ public class AllProcessesImgdiag implements ITestLoggerReceiver, ITargetPreparer
 
         // Skip "PID ARGS" header.
         for (String line : zygoteChildren.lines().skip(1).toList()) {
+            CLog.logAndDisplay(LogLevel.DEBUG, "Running imgdiag for %s", line);
+
             String[] vals = line.strip().split("\\s+");
             Assert.assertEquals(2, vals.length);
 
