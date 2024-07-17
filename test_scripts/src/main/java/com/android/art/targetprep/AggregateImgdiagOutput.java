@@ -295,20 +295,26 @@ public class AggregateImgdiagOutput implements ITestLoggerReceiver, ITargetPrepa
         }
     }
 
+    static boolean isArtModuleObject(String dexLocation) {
+        return dexLocation.startsWith("/apex/com.android.art/");
+    }
+
+    static boolean isPrimitiveArray(String dexLocation) {
+        return dexLocation.startsWith("primitive");
+    }
+
     static Map<String, List<String>> splitByDexLocation(List<String> objects) {
         Map<String, List<String>> res = new HashMap<String, List<String>>();
         res.put("art", new ArrayList<String>());
         res.put("framework", new ArrayList<String>());
-        for (String obj : objects) {
-            if (obj.charAt(0) == '/') {
-                String[] pathAndObj = obj.split(" ", 2);
-                if (pathAndObj[0].startsWith("/apex/com.android.art/")) {
-                    res.get("art").add(pathAndObj[1]);
-                } else {
-                    res.get("framework").add(pathAndObj[1]);
-                }
+        for (String entry : objects) {
+            String[] pathAndObj = entry.split(" ", 2);
+            String dexLocation = pathAndObj[0];
+            String obj = pathAndObj[1];
+
+            if (isArtModuleObject(dexLocation) || isPrimitiveArray(dexLocation)) {
+                res.get("art").add(obj);
             } else {
-                // Objects without dex location go in framework dirty-image-objects by default.
                 res.get("framework").add(obj);
             }
         }
