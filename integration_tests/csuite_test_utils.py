@@ -101,10 +101,10 @@ class CSuiteHarness(contextlib.AbstractContextManager):
     env['LOCAL_MODE'] = "1"
     # Set the environment variable that TradeFed requires to find test modules.
     env['ANDROID_TARGET_OUT_TESTCASES'] = self._testcases_dir
-    jdk17_path = '/jdk/jdk17/linux-x86'
-    if os.path.isdir(jdk17_path):
-      env['JAVA_HOME'] = jdk17_path
-      java_path = jdk17_path + '/bin'
+    jdk21_path = '/jdk/jdk21/linux-x86'
+    if os.path.isdir(jdk21_path):
+      env['JAVA_HOME'] = jdk21_path
+      java_path = jdk21_path + '/bin'
       env['PATH'] = java_path + ':' + env['PATH']
 
     return _run_command([self._launcher_binary] + flags, env=env)
