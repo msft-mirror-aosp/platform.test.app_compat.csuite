@@ -69,8 +69,7 @@ class CrashDetectionTest(csuite_test_utils.TestCase):
     self.adb.uninstall(test_app_package, check=False)
     self.assert_package_not_installed(test_app_package)
 
-    self.repo.add_package_apks(
-        test_app_package, csuite_test_utils.get_test_app_apks(test_app_module))
+    self.repo.add_package_apks(test_app_package, [test_app_module])
 
     file_resolver_class = 'com.android.csuite.config.AppRemoteFileResolver'
 
