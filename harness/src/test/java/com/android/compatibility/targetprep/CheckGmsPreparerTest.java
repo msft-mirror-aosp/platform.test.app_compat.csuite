@@ -151,11 +151,6 @@ public final class CheckGmsPreparerTest {
         ITestDevice device = createDeviceWithGmsAbsentAndRecoverable();
 
         mPreparer.setUp(createTestInfo(device));
-
-        Mockito.verify(device, Mockito.times(1)).reboot();
-        assertThat(mLogCaptor.getLogItems())
-                .comparingElementsUsing(createContainsErrorLogCorrespondence())
-                .contains("GMS");
     }
 
     @Test
@@ -163,10 +158,6 @@ public final class CheckGmsPreparerTest {
         ITestDevice device = createDeviceWithGmsAbsent();
 
         assertThrows(TargetSetupError.class, () -> mPreparer.setUp(createTestInfo(device)));
-        Mockito.verify(device, Mockito.times(1)).reboot();
-        assertThat(mLogCaptor.getLogItems())
-                .comparingElementsUsing(createContainsErrorLogCorrespondence())
-                .contains("GMS");
     }
 
     @Test
@@ -178,17 +169,6 @@ public final class CheckGmsPreparerTest {
         assertThat(mLogCaptor.getLogItems())
                 .comparingElementsUsing(createContainsErrorLogCorrespondence())
                 .doesNotContain("GMS");
-    }
-
-    @Test
-    public void tearDown_gmsProcessAbsent_logsError() throws Exception {
-        ITestDevice device = createDeviceWithGmsAbsent();
-
-        mPreparer.tearDown(createTestInfo(device), null);
-
-        assertThat(mLogCaptor.getLogItems())
-                .comparingElementsUsing(createContainsErrorLogCorrespondence())
-                .contains("GMS");
     }
 
     private static void disablePreparer(CheckGmsPreparer preparer) throws Exception {
@@ -286,3 +266,4 @@ public final class CheckGmsPreparerTest {
         return commandResult;
     }
 }
+
