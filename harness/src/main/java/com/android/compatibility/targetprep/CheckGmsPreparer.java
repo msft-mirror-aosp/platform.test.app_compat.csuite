@@ -81,10 +81,8 @@ public final class CheckGmsPreparer implements ITargetPreparer {
     /** {@inheritDoc} */
     @Override
     public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
-        if (!mEnable || isGmsRunning(testInfo)) {
-            return;
+        if (mEnable && !isGmsRunning(testInfo)) {
+            CLog.e("Did not detect a running GMS process on tearDown");
         }
-
-        CLog.e("Did not detect a running GMS process on tearDown");
     }
 }
