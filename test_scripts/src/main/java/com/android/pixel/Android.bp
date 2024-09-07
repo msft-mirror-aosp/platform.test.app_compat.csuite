@@ -20,8 +20,8 @@ android_test_helper_app {
     name: "PixelAppCompTests",
     compile_multilib: "both",
     libs: [
-        "android.test.base",
-        "android.test.runner",
+        "android.test.base.stubs.system",
+        "android.test.runner.stubs.system",
     ],
     static_libs: [
         "androidx.test.rules",
