@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.webview.tests;
+package com.android.webview.lib;
 
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
@@ -194,7 +194,10 @@ public class WebviewInstallerToolPreparer implements ITargetPreparer {
                     CommandStatus.SUCCESS);
 
         } catch (Exception ex) {
-            throw new TargetSetupError("Caught an exception during setup:\n" + ex);
+            throw new TargetSetupError(
+                    "Caught an exception during setup:\n" + ex,
+                    ex,
+                    testInfo.getDevice().getDeviceDescriptor());
         }
         setGcloudCliPath(testInfo, mGcloudCliDir);
         setWebviewInstallerToolPath(testInfo, mWebviewInstallerTool);
