@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.webview.tests;
+package com.android.webview.lib;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
@@ -43,8 +43,7 @@ public class WebviewUtils {
     }
 
     public WebviewPackage installWebview(String webviewVersion, String releaseChannel)
-            throws IOException, InterruptedException, DeviceNotAvailableException,
-                    JSONException {
+            throws IOException, DeviceNotAvailableException, JSONException {
         List<String> extraArgs = new ArrayList<>();
         if (webviewVersion == null
                 && Arrays.asList("beta", "stable").contains(releaseChannel.toLowerCase())) {
@@ -128,13 +127,14 @@ public class WebviewUtils {
         return WebviewPackage.buildFromDumpsys(dumpsys);
     }
 
+    /** Print webview version. */
     public void printWebviewVersion() throws DeviceNotAvailableException {
         WebviewPackage currentWebview = getCurrentWebviewPackage();
         printWebviewVersion(currentWebview);
     }
 
-    public void printWebviewVersion(WebviewPackage currentWebview)
-            throws DeviceNotAvailableException {
+    /** Print webview version. */
+    public void printWebviewVersion(WebviewPackage currentWebview) {
         CLog.i("Current webview implementation: %s", currentWebview.getPackageName());
         CLog.i("Current webview version: %s", currentWebview.getVersion());
     }

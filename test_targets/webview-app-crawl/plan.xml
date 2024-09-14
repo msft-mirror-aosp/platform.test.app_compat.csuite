@@ -14,6 +14,6 @@
      limitations under the License.
 -->
 <configuration description="WebView C-Suite Crawler Test Plan">
-  <target_preparer class="com.android.webview.tests.WebviewInstallerToolPreparer"/>
+  <target_preparer class="com.android.webview.lib.WebviewInstallerToolPreparer"/>
   <target_preparer class="com.android.csuite.core.AppCrawlTesterHostPreparer"/>
 </configuration>

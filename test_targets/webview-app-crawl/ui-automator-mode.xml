@@ -14,6 +14,11 @@
      limitations under the License.
 -->
 <configuration description="Crawl's an app after installing WebView">
+    <object type="APP_CRAWL_TESTER_OPTIONS" class="com.android.csuite.core.AppCrawlTesterOptions" >
+        <option name="install-apk" value="app://{package}"/>
+        <option name="install-arg" value="-g"/>
+        <option name="ui-automator-mode" value="true"/>
+    </object>
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
@@ -23,9 +28,6 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="set-option" value="package-name:{package}"/>
-        <option name="set-option" value="install-apk:app\://{package}"/>
-        <option name="set-option" value="ui-automator-mode:true"/>
-        <option name="set-option" value="install-arg:-g"/>
         <option name="class" value="com.android.webview.tests.WebviewAppCrawlTest" />
     </test>
 </configuration>
