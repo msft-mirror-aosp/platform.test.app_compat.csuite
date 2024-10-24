@@ -119,7 +119,7 @@ python_test_host {
 python_library_host {
     name: "csuite_crash_detection_test_data",
     pkg_path: "testdata",
-    data: [
+    device_common_data: [
         ":csuite_crash_on_launch_test_app",
         ":csuite_no_crash_test_app",
     ],
