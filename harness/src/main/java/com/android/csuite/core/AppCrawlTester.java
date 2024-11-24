@@ -318,6 +318,9 @@ public final class AppCrawlTester {
         // Minimum timeout 3 minutes plus crawl test timeout.
         long commandTimeout = 3L * 60 * 1000 + getOptions().getTimeoutSec() * 1000;
 
+        CLog.i(
+                "Starting to crawl the package %s with command %s",
+                mPackageName, String.join(" ", command.get()));
         // TODO(yuexima): When the obb_file option is supported in espresso mode, the timeout need
         // to be extended.
         if (getOptions().isRecordScreen()) {
