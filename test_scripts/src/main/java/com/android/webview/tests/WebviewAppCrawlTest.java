@@ -192,6 +192,13 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         setCrawlerOptions(mCrawler);
         setCrawlerOptions(mCrawlerVerify);
 
+        // Only save apk on the verification run.
+        mCrawler.getOptions().setSaveApkWhen(TestUtils.TakeEffectWhen.NEVER);
+        mCrawlerVerify.getOptions().setSaveApkWhen(TestUtils.TakeEffectWhen.ON_FAIL);
+        // Only record screen on the webview run.
+        mCrawler.getOptions().setRecordScreen(true);
+        mCrawlerVerify.getOptions().setRecordScreen(false);
+
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mWebviewUtils = new WebviewUtils(getTestInformation());
         mPreInstalledWebview = mWebviewUtils.getCurrentWebviewPackage();
