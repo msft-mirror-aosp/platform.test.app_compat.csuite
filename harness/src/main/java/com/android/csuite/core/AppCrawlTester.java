@@ -67,8 +67,7 @@ public final class AppCrawlTester {
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
     private ApkInstaller mApkInstaller;
-    private boolean mIsSetupComplete = false;
-    private boolean mIsTestExecuted = false;
+    private ExecutionStage mExecutionStage = new ExecutionStage();
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -203,11 +202,24 @@ public final class AppCrawlTester {
         if (getOptions().isGrantExternalStoragePermission()) {
             mTestUtils.getDeviceUtils().grantExternalStoragePermissions(mPackageName);
         }
-        mIsSetupComplete = true;
+        mExecutionStage.setSetupComplete(true);
     }
 
     /** Runs only the teardown step of the crawl test. */
     public void runTearDown() {
+        mTestUtils.saveApks(
+                getOptions().getSaveApkWhen(),
+                mExecutionStage.isTestPassed(),
+                mPackageName,
+                getOptions().getInstallApkPaths());
+        if (getOptions().getRepackApk() != null) {
+            mTestUtils.saveApks(
+                    getOptions().getSaveApkWhen(),
+                    mExecutionStage.isTestPassed(),
+                    mPackageName,
+                    Arrays.asList(getOptions().getRepackApk()));
+        }
+
         try {
             mApkInstaller.uninstallAllInstalledPackages();
         } catch (ApkInstallerException e) {
@@ -233,16 +245,16 @@ public final class AppCrawlTester {
      * @throws CrawlerException when unexpected happened during the execution.
      */
     public void runTest() throws DeviceNotAvailableException, CrawlerException {
-        if (!mIsSetupComplete) {
+        if (!mExecutionStage.isSetupComplete()) {
             throw new CrawlerException("Crawler setup has not run.");
         }
-        if (mIsTestExecuted) {
+        if (mExecutionStage.isTestExecuted()) {
             throw new CrawlerException(
                     "The crawler has already run. Multiple runs in the same "
                             + AppCrawlTester.class.getName()
                             + " instance are not supported.");
         }
-        mIsTestExecuted = true;
+        mExecutionStage.setTestExecuted(true);
 
         DeviceTimestamp startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
@@ -288,6 +300,8 @@ public final class AppCrawlTester {
                             "\n============\n",
                             failureMessages.toArray(new String[failureMessages.size()])));
         }
+
+        mExecutionStage.setTestPassed(true);
     }
 
     /**
@@ -742,6 +756,36 @@ public final class AppCrawlTester {
         }
 
         return cmd.toArray(new String[cmd.size()]);
+    }
+
+    private class ExecutionStage {
+        private boolean mIsSetupComplete = false;
+        private boolean mIsTestExecuted = false;
+        private boolean mIsTestPassed = false;
+
+        private boolean isSetupComplete() {
+            return mIsSetupComplete;
+        }
+
+        private void setSetupComplete(boolean isSetupComplete) {
+            mIsSetupComplete = isSetupComplete;
+        }
+
+        private boolean isTestExecuted() {
+            return mIsTestExecuted;
+        }
+
+        private void setTestExecuted(boolean misTestExecuted) {
+            mIsTestExecuted = misTestExecuted;
+        }
+
+        private boolean isTestPassed() {
+            return mIsTestPassed;
+        }
+
+        private void setTestPassed(boolean isTestPassed) {
+            mIsTestPassed = isTestPassed;
+        }
     }
 
     /** Cleans up the crawler output directory. */

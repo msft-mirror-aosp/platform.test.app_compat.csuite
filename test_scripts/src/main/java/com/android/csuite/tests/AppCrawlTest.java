@@ -37,7 +37,6 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /** A test that verifies that a single app can be successfully launched. */
@@ -49,8 +48,6 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     @Deprecated private static final int DEFAULT_TIMEOUT_SEC = 60;
 
     @Rule public TestLogData mLogData = new TestLogData();
-    private boolean mIsLastTestPass;
-    private boolean mIsApkSaved = false;
 
     private AppCrawlTester mCrawler;
     private IConfiguration mConfiguration;
@@ -169,7 +166,6 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     @Before
     public void setUp()
             throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
-        mIsLastTestPass = false;
         mCrawler =
                 AppCrawlTester.newInstance(
                         mPackageName, getTestInformation(), mLogData, mConfiguration);
@@ -207,30 +203,10 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     @Test
     public void testAppCrash() throws DeviceNotAvailableException, CrawlerException {
         mCrawler.runTest();
-        mIsLastTestPass = true;
     }
 
     @After
     public void tearDown() {
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
-
-        if (!mIsApkSaved) {
-            mIsApkSaved =
-                    testUtils.saveApks(
-                            mCrawler.getOptions().getSaveApkWhen(),
-                            mIsLastTestPass,
-                            mPackageName,
-                            mCrawler.getOptions().getInstallApkPaths());
-            if (mCrawler.getOptions().getRepackApk() != null) {
-                mIsApkSaved &=
-                        testUtils.saveApks(
-                                mCrawler.getOptions().getSaveApkWhen(),
-                                mIsLastTestPass,
-                                mPackageName,
-                                Arrays.asList(mCrawler.getOptions().getRepackApk()));
-            }
-        }
-
         mCrawler.runTearDown();
     }
 
