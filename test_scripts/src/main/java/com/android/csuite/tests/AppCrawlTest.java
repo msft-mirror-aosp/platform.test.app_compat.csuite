@@ -17,7 +17,6 @@
 package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller;
-import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
 import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.csuite.core.DeviceJUnit4ClassRunner;
@@ -26,7 +25,6 @@ import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
@@ -39,9 +37,7 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -52,10 +48,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     @Deprecated private static final int DEFAULT_TIMEOUT_SEC = 60;
 
     @Rule public TestLogData mLogData = new TestLogData();
-    private boolean mIsLastTestPass;
-    private boolean mIsApkSaved = false;
 
-    private ApkInstaller mApkInstaller;
     private AppCrawlTester mCrawler;
     private IConfiguration mConfiguration;
 
@@ -173,7 +166,6 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     @Before
     public void setUp()
             throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
-        mIsLastTestPass = false;
         mCrawler =
                 AppCrawlTester.newInstance(
                         mPackageName, getTestInformation(), mLogData, mConfiguration);
@@ -205,52 +197,16 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
             mCrawler.getOptions().setTimeoutSec(mTimeoutSec);
         }
 
-        mApkInstaller = ApkInstaller.getInstance(getDevice());
-        mApkInstaller.install(
-                mCrawler.getOptions().getInstallApkPaths().stream()
-                        .map(File::toPath)
-                        .collect(Collectors.toList()),
-                mCrawler.getOptions().getInstallArgs());
-
         mCrawler.runSetup();
     }
 
     @Test
     public void testAppCrash() throws DeviceNotAvailableException, CrawlerException {
         mCrawler.runTest();
-        mIsLastTestPass = true;
     }
 
     @After
-    public void tearDown() throws DeviceNotAvailableException {
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
-
-        if (!mIsApkSaved) {
-            mIsApkSaved =
-                    testUtils.saveApks(
-                            mCrawler.getOptions().getSaveApkWhen(),
-                            mIsLastTestPass,
-                            mPackageName,
-                            mCrawler.getOptions().getInstallApkPaths());
-            if (mCrawler.getOptions().getRepackApk() != null) {
-                mIsApkSaved &=
-                        testUtils.saveApks(
-                                mCrawler.getOptions().getSaveApkWhen(),
-                                mIsLastTestPass,
-                                mPackageName,
-                                Arrays.asList(mCrawler.getOptions().getRepackApk()));
-            }
-        }
-
-        try {
-            mApkInstaller.uninstallAllInstalledPackages();
-        } catch (ApkInstallerException e) {
-            CLog.w("Uninstallation of installed apps failed during teardown: %s", e.getMessage());
-        }
-        if (!mCrawler.getOptions().isUiAutomatorMode()) {
-            getDevice().uninstallPackage(mPackageName);
-        }
-
+    public void tearDown() {
         mCrawler.runTearDown();
     }
 
