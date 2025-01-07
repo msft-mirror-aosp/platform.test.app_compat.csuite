@@ -45,7 +45,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -193,16 +192,16 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         setCrawlerOptions(mCrawler);
         setCrawlerOptions(mCrawlerVerify);
 
+        // Only save apk on the verification run.
+        mCrawler.getOptions().setSaveApkWhen(TestUtils.TakeEffectWhen.NEVER);
+        mCrawlerVerify.getOptions().setSaveApkWhen(TestUtils.TakeEffectWhen.ON_FAIL);
+        // Only record screen on the webview run.
+        mCrawler.getOptions().setRecordScreen(true);
+        mCrawlerVerify.getOptions().setRecordScreen(false);
+
         mApkInstaller = ApkInstaller.getInstance(getDevice());
         mWebviewUtils = new WebviewUtils(getTestInformation());
         mPreInstalledWebview = mWebviewUtils.getCurrentWebviewPackage();
-
-        mApkInstaller = ApkInstaller.getInstance(getDevice());
-        mApkInstaller.install(
-                mCrawler.getOptions().getInstallApkPaths().stream()
-                        .map(File::toPath)
-                        .collect(Collectors.toList()),
-                mCrawler.getOptions().getInstallArgs());
 
         DeviceUtils.getInstance(getDevice()).freezeRotation();
         mWebviewUtils.printWebviewVersion();
@@ -260,10 +259,6 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
 
         mApkInstaller.uninstallAllInstalledPackages();
         mWebviewUtils.printWebviewVersion();
-
-        if (!mUiAutomatorMode) {
-            getDevice().uninstallPackage(mPackageName);
-        }
 
         mCrawler.runTearDown();
         mCrawlerVerify.runTearDown();

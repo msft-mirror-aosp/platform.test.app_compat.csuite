@@ -123,6 +123,11 @@ public class DeviceUtils {
         void run() throws DeviceNotAvailableException;
     }
 
+    /** Returns the stored ITestDevice instance. */
+    public ITestDevice getITestDevice() {
+        return mDevice;
+    }
+
     /**
      * Grants additional permissions for installed an installed app
      *
