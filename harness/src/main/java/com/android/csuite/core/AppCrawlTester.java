@@ -16,6 +16,7 @@
 
 package com.android.csuite.core;
 
+import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.csuite.core.TestUtils.RoboscriptSignal;
@@ -65,8 +66,8 @@ public final class AppCrawlTester {
     private FileSystem mFileSystem;
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
-    private boolean mIsSetupComplete = false;
-    private boolean mIsTestExecuted = false;
+    private ApkInstaller mApkInstaller;
+    private ExecutionStage mExecutionStage = new ExecutionStage();
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -158,8 +159,14 @@ public final class AppCrawlTester {
      *
      * @throws DeviceNotAvailableException when the device is lost.
      * @throws CrawlerException when unexpected happened.
+     * @throws IOException
+     * @throws ApkInstallerException
      */
-    public void run() throws DeviceNotAvailableException, CrawlerException {
+    public void run()
+            throws DeviceNotAvailableException,
+                    CrawlerException,
+                    ApkInstallerException,
+                    IOException {
         try {
             runSetup();
             runTest();
@@ -172,8 +179,10 @@ public final class AppCrawlTester {
      * Runs only the setup step of the crawl test.
      *
      * @throws DeviceNotAvailableException when the device is lost.
+     * @throws IOException when IO operations fail.
+     * @throws ApkInstallerException when APK installation fails.
      */
-    public void runSetup() throws DeviceNotAvailableException {
+    public void runSetup() throws DeviceNotAvailableException, ApkInstallerException, IOException {
         // For Espresso mode, checks that a path with the location of the apk to repackage was
         // provided
         if (!getOptions().isUiAutomatorMode()) {
@@ -182,15 +191,50 @@ public final class AppCrawlTester {
                     "Apk file path is required when not running in UIAutomator mode");
         }
 
+        mApkInstaller = ApkInstaller.getInstance(mTestUtils.getDeviceUtils().getITestDevice());
+        mApkInstaller.install(
+                getOptions().getInstallApkPaths().stream()
+                        .map(File::toPath)
+                        .collect(Collectors.toList()),
+                getOptions().getInstallArgs());
+
         // Grant external storage permission
         if (getOptions().isGrantExternalStoragePermission()) {
             mTestUtils.getDeviceUtils().grantExternalStoragePermissions(mPackageName);
         }
-        mIsSetupComplete = true;
+        mExecutionStage.setSetupComplete(true);
     }
 
     /** Runs only the teardown step of the crawl test. */
     public void runTearDown() {
+        mTestUtils.saveApks(
+                getOptions().getSaveApkWhen(),
+                mExecutionStage.isTestPassed(),
+                mPackageName,
+                getOptions().getInstallApkPaths());
+        if (getOptions().getRepackApk() != null) {
+            mTestUtils.saveApks(
+                    getOptions().getSaveApkWhen(),
+                    mExecutionStage.isTestPassed(),
+                    mPackageName,
+                    Arrays.asList(getOptions().getRepackApk()));
+        }
+
+        try {
+            mApkInstaller.uninstallAllInstalledPackages();
+        } catch (ApkInstallerException e) {
+            CLog.e("Uninstallation of installed apps failed during teardown: %s", e.getMessage());
+        }
+        if (!getOptions().isUiAutomatorMode()) {
+            try {
+                mTestUtils.getDeviceUtils().getITestDevice().uninstallPackage(mPackageName);
+            } catch (DeviceNotAvailableException e) {
+                CLog.e(
+                        "Uninstallation of installed apps failed during teardown: %s",
+                        e.getMessage());
+            }
+        }
+
         cleanUpOutputDir();
     }
 
@@ -201,16 +245,16 @@ public final class AppCrawlTester {
      * @throws CrawlerException when unexpected happened during the execution.
      */
     public void runTest() throws DeviceNotAvailableException, CrawlerException {
-        if (!mIsSetupComplete) {
+        if (!mExecutionStage.isSetupComplete()) {
             throw new CrawlerException("Crawler setup has not run.");
         }
-        if (mIsTestExecuted) {
+        if (mExecutionStage.isTestExecuted()) {
             throw new CrawlerException(
                     "The crawler has already run. Multiple runs in the same "
                             + AppCrawlTester.class.getName()
                             + " instance are not supported.");
         }
-        mIsTestExecuted = true;
+        mExecutionStage.setTestExecuted(true);
 
         DeviceTimestamp startTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
@@ -256,6 +300,8 @@ public final class AppCrawlTester {
                             "\n============\n",
                             failureMessages.toArray(new String[failureMessages.size()])));
         }
+
+        mExecutionStage.setTestPassed(true);
     }
 
     /**
@@ -710,6 +756,36 @@ public final class AppCrawlTester {
         }
 
         return cmd.toArray(new String[cmd.size()]);
+    }
+
+    private class ExecutionStage {
+        private boolean mIsSetupComplete = false;
+        private boolean mIsTestExecuted = false;
+        private boolean mIsTestPassed = false;
+
+        private boolean isSetupComplete() {
+            return mIsSetupComplete;
+        }
+
+        private void setSetupComplete(boolean isSetupComplete) {
+            mIsSetupComplete = isSetupComplete;
+        }
+
+        private boolean isTestExecuted() {
+            return mIsTestExecuted;
+        }
+
+        private void setTestExecuted(boolean misTestExecuted) {
+            mIsTestExecuted = misTestExecuted;
+        }
+
+        private boolean isTestPassed() {
+            return mIsTestPassed;
+        }
+
+        private void setTestPassed(boolean isTestPassed) {
+            mIsTestPassed = isTestPassed;
+        }
     }
 
     /** Cleans up the crawler output directory. */
