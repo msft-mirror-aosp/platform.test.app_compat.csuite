@@ -119,7 +119,7 @@ func TestValidBpMissingPlanIncludeGeneratesPlanXmlWithoutPlaceholders(t *testing
 		}
 	`)
 
-	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
+	module := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if strings.Contains(content, "{") || strings.Contains(content, "}") {
 		t.Errorf("The generated plan name contains a placeholder: %s", content)
@@ -134,7 +134,7 @@ func TestGeneratedTestPlanContainsPlanName(t *testing.T) {
 		}
 	`)
 
-	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
+	module := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "plan_name") {
 		t.Errorf("The plan name is missing from the generated plan: %s", content)
@@ -149,7 +149,7 @@ func TestGeneratedTestPlanContainsTemplatePath(t *testing.T) {
 		}
 	`)
 
-	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
+	module := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "config/plan_name/config_template.xml.template") {
 		t.Errorf("The template path is missing from the generated plan: %s", content)
@@ -165,7 +165,7 @@ func TestGeneratedTestPlanContainsExtraTemplatePath(t *testing.T) {
 		}
 	`)
 
-	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
+	module := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "config/plan_name/extra.xml.template") {
 		t.Errorf("The extra template path is missing from the generated plan: %s", content)
@@ -183,7 +183,7 @@ func TestGeneratedTestPlanDoesNotContainExtraTemplatePath(t *testing.T) {
 		}
 	`)
 
-	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
+	module := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if strings.Contains(content, "extra-templates") {
 		t.Errorf("The extra-templates param should not be included in the generated plan: %s", content)
@@ -198,7 +198,7 @@ func TestTemplateFileCopyRuleExists(t *testing.T) {
 		}
 	`)
 
-	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
+	params := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "config_template.xml", "config/plan_name/config_template.xml.template")
 }
 
@@ -211,7 +211,7 @@ func TestExtraTemplateFileCopyRuleExists(t *testing.T) {
 		}
 	`)
 
-	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
+	params := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "config_template.xml", "config/plan_name/extra.xml.template")
 }
 
@@ -224,7 +224,7 @@ func TestGeneratedTestPlanContainsPlanInclude(t *testing.T) {
 		}
 	`)
 
-	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
+	module := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, ctx, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, `"includes/plan_name.xml"`) {
 		t.Errorf("The plan include path is missing from the generated plan: %s", content)
@@ -240,7 +240,7 @@ func TestPlanIncludeFileCopyRuleExists(t *testing.T) {
 		}
 	`)
 
-	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
+	params := ctx.ModuleForTests(t, "plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "include.xml", "config/includes/plan_name.xml")
 }
 
