@@ -826,6 +826,12 @@ public final class DeviceUtilsTest {
                         Mockito.anyLong(),
                         Mockito.eq("sh"),
                         Mockito.eq("-c"),
+                        Mockito.contains("dumpsys dropbox --help")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("--proto"));
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
                         Mockito.contains("dumpsys dropbox --proto")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
 
@@ -836,6 +842,12 @@ public final class DeviceUtilsTest {
 
     @Test
     public void getDropboxEntries_entryExists_returnsEntry() throws Exception {
+        when(mRunUtil.runTimedCmd(
+                        Mockito.anyLong(),
+                        Mockito.eq("sh"),
+                        Mockito.eq("-c"),
+                        Mockito.contains("dumpsys dropbox --help")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("--proto"));
         Path dumpFile = Files.createTempFile(mFileSystem.getPath("/"), "dropbox", ".proto");
         long time = 123;
         String data = "abc";
