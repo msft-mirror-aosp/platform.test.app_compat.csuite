@@ -81,6 +81,63 @@ public final class AppCrawlTesterTest {
     }
 
     @Test
+    public void run_noThrowNotEnabled_throwsOnFail() throws Exception {
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()));
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
+        Mockito.doReturn("crash")
+                .when(mTestUtils)
+                .getDropboxPackageCrashLog(
+                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+
+        assertThrows(AssertionError.class, () -> sut.run());
+    }
+
+    @Test
+    public void run_noThrowEnabled_doesNotThrowOnFail() throws Exception {
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setUiAutomatorMode(false)
+                        .setRepackApk(convertToFile(createApkPathWithSplitApks()))
+                        .setNoThrowOnFailure(true);
+        Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
+                .when(mDeviceUtils)
+                .currentTimeMillis();
+        Mockito.doReturn("crash")
+                .when(mTestUtils)
+                .getDropboxPackageCrashLog(
+                        Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());
+
+        sut.run();
+
+        assertThat(sut.isTestPassed()).isFalse();
+    }
+
+    @Test
+    public void runSetup_noThrowNotEnabled_throwsOnFail() throws Exception {
+        AppCrawlTester sut =
+                createPreparedTestSubject().setInstallApkPaths(Arrays.asList(new File("invalid")));
+
+        assertThrows(AppCrawlTester.CrawlerException.class, () -> sut.runSetup());
+    }
+
+    @Test
+    public void runSetup_noThrowEnabled_doesNotThrowOnFail() throws Exception {
+        AppCrawlTester sut =
+                createPreparedTestSubject()
+                        .setInstallApkPaths(Arrays.asList(new File("invalid")))
+                        .setNoThrowOnFailure(true);
+
+        sut.runSetup();
+
+        assertThat(sut.isTestPassed()).isFalse();
+    }
+
+    @Test
     public void setOption_crawlerStarted_throws() throws Exception {
         AppCrawlTester sut = createPreparedTestSubject();
         sut.runSetup();

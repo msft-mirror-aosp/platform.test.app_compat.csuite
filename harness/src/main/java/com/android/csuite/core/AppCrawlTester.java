@@ -62,10 +62,11 @@ public final class AppCrawlTester {
     @VisibleForTesting Path mOutput;
     private final RunUtilProvider mRunUtilProvider;
     private final TestUtils mTestUtils;
-    private FileSystem mFileSystem;
+    private final FileSystem mFileSystem;
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
     private final ExecutionStage mExecutionStage = new ExecutionStage();
+    private boolean mNoThrowOnFailure = false;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -151,17 +152,14 @@ public final class AppCrawlTester {
      * <p>Test won't run if setup failed, and teardown will always run.
      *
      * @throws DeviceNotAvailableException when the device is lost.
-     * @throws CrawlerException when unexpected happened.
-     * @throws IOException
-     * @throws ApkInstallerException
+     * @throws CrawlerException when apk failed to install or unexpected happened.
      */
-    public void run()
-            throws DeviceNotAvailableException,
-                    CrawlerException,
-                    ApkInstallerException,
-                    IOException {
+    public void run() throws DeviceNotAvailableException, CrawlerException {
         try {
             runSetup();
+            if (!isSetupComplete()) {
+                CLog.i("Skipping test run as setup failed.");
+            }
             runTest();
         } finally {
             runTearDown();
@@ -172,10 +170,9 @@ public final class AppCrawlTester {
      * Runs only the setup step of the crawl test.
      *
      * @throws DeviceNotAvailableException when the device is lost.
-     * @throws IOException when IO operations fail.
-     * @throws ApkInstallerException when APK installation fails.
+     * @throws CrawlerException when APK installation fails.
      */
-    public void runSetup() throws DeviceNotAvailableException, ApkInstallerException, IOException {
+    public void runSetup() throws DeviceNotAvailableException, CrawlerException {
         Preconditions.checkNotNull(
                 getConfigOptions().getPackageName(), "Package name cannot be null");
         // For Espresso mode, checks that a path with the location of the apk to repackage was
@@ -186,12 +183,20 @@ public final class AppCrawlTester {
                     "Apk file path is required when not running in UIAutomator mode");
         }
 
-        ApkInstaller.getInstance(mTestUtils.getDeviceUtils().getITestDevice())
-                .install(
-                        getConfigOptions().getInstallApkPaths().stream()
-                                .map(File::toPath)
-                                .collect(Collectors.toList()),
-                        getConfigOptions().getInstallArgs());
+        try {
+            ApkInstaller.getInstance(mTestUtils.getDeviceUtils().getITestDevice())
+                    .install(
+                            getConfigOptions().getInstallApkPaths().stream()
+                                    .map(File::toPath)
+                                    .collect(Collectors.toList()),
+                            getConfigOptions().getInstallArgs());
+        } catch (ApkInstallerException | IOException e) {
+            if (!mNoThrowOnFailure) {
+                throw new CrawlerException(e);
+            }
+            mExecutionStage.addFailureMessage(e.getMessage());
+            return;
+        }
 
         // Grant external storage permission
         if (getConfigOptions().isGrantExternalStoragePermission()) {
@@ -258,7 +263,7 @@ public final class AppCrawlTester {
      */
     public void runTest() throws DeviceNotAvailableException, CrawlerException {
         if (!mExecutionStage.isSetupComplete()) {
-            throw new CrawlerException("Crawler setup has not run.");
+            throw new CrawlerException("Crawler setup has not run successfully.");
         }
         if (mExecutionStage.isTestExecuted()) {
             throw new CrawlerException(
@@ -307,8 +312,8 @@ public final class AppCrawlTester {
             mExecutionStage.addFailureMessage(crawlerException.getMessage());
         }
 
-        if (!mExecutionStage.isTestPassed()) {
-            Assert.fail(mExecutionStage.getFailureMessage());
+        if (!isTestPassed() && !mNoThrowOnFailure) {
+            Assert.fail(getFailureMessage());
         }
     }
 
@@ -803,6 +808,27 @@ public final class AppCrawlTester {
         return cmd.toArray(new String[cmd.size()]);
     }
 
+    /** Returns whether setup completed successfully. */
+    public boolean isSetupComplete() {
+        return mExecutionStage.isSetupComplete();
+    }
+
+    /** Returns whether the test passed. */
+    public boolean isTestPassed() {
+        return mExecutionStage.isTestPassed();
+    }
+
+    /** Returns the failure message. Will return empty string if no failure. */
+    public String getFailureMessage() {
+        return mExecutionStage.getFailureMessage();
+    }
+
+    /** Sets the crawler to not throw on failure. Failure includes setup and test failures. */
+    public AppCrawlTester setNoThrowOnFailure(boolean noThrowOnFailure) {
+        mNoThrowOnFailure = noThrowOnFailure;
+        return this;
+    }
+
     private void checkOptionSettable() {
         if (mExecutionStage.mIsSetupComplete) {
             throw new IllegalStateException("Changing options after test start is not allowed.");
@@ -937,7 +963,7 @@ public final class AppCrawlTester {
         }
 
         private boolean isTestPassed() {
-            return getFailureMessage().isBlank();
+            return isTestExecuted() && getFailureMessage().isBlank();
         }
 
         private void addFailureMessage(String msg) {

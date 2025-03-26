@@ -17,6 +17,7 @@
 package com.android.webview.tests;
 
 import com.android.csuite.core.AppCrawlTester;
+import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.csuite.core.DeviceJUnit4ClassRunner;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
@@ -70,13 +71,18 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
                         + "must be used",
                 mWebviewVersionToTest != null || mReleaseChannel != null);
 
-        mCrawler = AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration);
-        mCrawlerVerify = AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration);
-
         // Only save apk on the verification run.
         // Only record screen on the webview run.
-        mCrawler.setSaveApkWhen(TestUtils.TakeEffectWhen.NEVER).setRecordScreen(true);
-        mCrawlerVerify.setSaveApkWhen(TestUtils.TakeEffectWhen.ON_PASS).setRecordScreen(false);
+        mCrawler =
+                AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration)
+                        .setSaveApkWhen(TestUtils.TakeEffectWhen.NEVER)
+                        .setRecordScreen(true)
+                        .setNoThrowOnFailure(true);
+        mCrawlerVerify =
+                AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration)
+                        .setSaveApkWhen(TestUtils.TakeEffectWhen.ON_PASS)
+                        .setRecordScreen(false)
+                        .setNoThrowOnFailure(true);
 
         mWebviewUtils = new WebviewUtils(getTestInformation());
         mPreInstalledWebview = mWebviewUtils.getCurrentWebviewPackage();
@@ -88,28 +94,20 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     @Test
     public void testAppCrawl()
             throws DeviceNotAvailableException, IOException, CrawlerException, JSONException {
-        Throwable lastError = null;
         WebviewPackage lastWebviewInstalled =
                 mWebviewUtils.installWebview(mWebviewVersionToTest, mReleaseChannel);
-
-        try {
-            mCrawler.run();
-        } catch (Throwable e) {
-            lastError = e;
-        } finally {
-            mWebviewUtils.uninstallWebview(lastWebviewInstalled, mPreInstalledWebview);
-        }
+        mCrawler.run();
+        mWebviewUtils.uninstallWebview(lastWebviewInstalled, mPreInstalledWebview);
 
         // If the test doesn't fail, complete the test.
-        if (lastError == null) {
+        if (mCrawler.isTestPassed()) {
             return;
         }
 
         // If the test fails, try the app with the original webview version that comes with the
         // device.
-        try {
-            mCrawlerVerify.run();
-        } catch (Throwable newError) {
+        mCrawlerVerify.run();
+        if (!mCrawlerVerify.isTestPassed()) {
             CLog.w(
                     "Test on app %s failed both with and without the webview installation,"
                             + " ignoring the failure...",
@@ -119,8 +117,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         throw new AssertionError(
                 String.format(
                         "Package %s crashed since webview version %s",
-                        mPackageName, lastWebviewInstalled.getVersion()),
-                lastError);
+                        mPackageName, lastWebviewInstalled.getVersion()));
     }
 
     @After
