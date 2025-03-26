@@ -16,10 +16,7 @@
 
 package com.android.webview.tests;
 
-import com.android.csuite.core.ApkInstaller;
-import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.AppCrawlTester;
-import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.csuite.core.DeviceJUnit4ClassRunner;
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.TestUtils;
@@ -50,7 +47,6 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
 
     private WebviewUtils mWebviewUtils;
     private WebviewPackage mPreInstalledWebview;
-    private ApkInstaller mApkInstaller;
     private AppCrawlTester mCrawler;
     private AppCrawlTester mCrawlerVerify;
     private IConfiguration mConfiguration;
@@ -67,7 +63,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     private String mPackageName;
 
     @Before
-    public void setUp() throws DeviceNotAvailableException, ApkInstallerException, IOException {
+    public void setUp() throws DeviceNotAvailableException {
         Assert.assertNotNull("Package name cannot be null", mPackageName);
         Assert.assertTrue(
                 "Either the --release-channel or --webview-version-to-test arguments "
@@ -84,44 +80,40 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         mCrawler.getOptions().setRecordScreen(true);
         mCrawlerVerify.getOptions().setRecordScreen(false);
 
-        mApkInstaller = ApkInstaller.getInstance(getDevice());
         mWebviewUtils = new WebviewUtils(getTestInformation());
         mPreInstalledWebview = mWebviewUtils.getCurrentWebviewPackage();
 
         DeviceUtils.getInstance(getDevice()).freezeRotation();
         mWebviewUtils.printWebviewVersion();
-
-        mCrawler.runSetup();
-        mCrawlerVerify.runSetup();
     }
 
     @Test
     public void testAppCrawl()
             throws DeviceNotAvailableException, IOException, CrawlerException, JSONException {
-        AssertionError lastError = null;
+        Throwable lastError = null;
         WebviewPackage lastWebviewInstalled =
                 mWebviewUtils.installWebview(mWebviewVersionToTest, mReleaseChannel);
 
         try {
-            mCrawler.runTest();
-        } catch (AssertionError e) {
+            mCrawler.run();
+        } catch (Throwable e) {
             lastError = e;
         } finally {
             mWebviewUtils.uninstallWebview(lastWebviewInstalled, mPreInstalledWebview);
         }
 
-        // If the app doesn't crash, complete the test.
+        // If the test doesn't fail, complete the test.
         if (lastError == null) {
             return;
         }
 
-        // If the app crashes, try the app with the original webview version that comes with the
+        // If the test fails, try the app with the original webview version that comes with the
         // device.
         try {
-            mCrawlerVerify.runTest();
-        } catch (AssertionError newError) {
+            mCrawlerVerify.run();
+        } catch (Throwable newError) {
             CLog.w(
-                    "The app %s crashed both with and without the webview installation,"
+                    "Test on app %s failed both with and without the webview installation,"
                             + " ignoring the failure...",
                     mPackageName);
             return;
@@ -134,19 +126,8 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
     }
 
     @After
-    public void tearDown() throws DeviceNotAvailableException, ApkInstallerException {
-        TestUtils testUtils = TestUtils.getInstance(getTestInformation(), mLogData);
-        testUtils.collectScreenshot(mPackageName);
-
-        DeviceUtils deviceUtils = DeviceUtils.getInstance(getDevice());
-        deviceUtils.stopPackage(mPackageName);
-        deviceUtils.unfreezeRotation();
-
-        mApkInstaller.uninstallAllInstalledPackages();
+    public void tearDown() throws DeviceNotAvailableException {
         mWebviewUtils.printWebviewVersion();
-
-        mCrawler.runTearDown();
-        mCrawlerVerify.runTearDown();
     }
 
     @Override
