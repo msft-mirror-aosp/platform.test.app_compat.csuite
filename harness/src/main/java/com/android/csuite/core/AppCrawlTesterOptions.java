@@ -26,6 +26,9 @@ public class AppCrawlTesterOptions {
 
     public static final String OBJECT_TYPE = "APP_CRAWL_TESTER_OPTIONS";
 
+    @Option(name = "package-name", description = "Package name of testing app.")
+    private String mPackageName;
+
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
 
@@ -120,6 +123,17 @@ public class AppCrawlTesterOptions {
             mandatory = false,
             description = "After an apks are installed, grant MANAGE_EXTERNAL_STORAGE permissions.")
     private boolean mGrantExternalStoragePermission = false;
+
+    /** Returns the config value for the package name to crawl. */
+    public String getPackageName() {
+        return mPackageName;
+    }
+
+    /** Sets the package name to crawl. */
+    public AppCrawlTesterOptions setPackageName(String packageName) {
+        this.mPackageName = packageName;
+        return this;
+    }
 
     /** Returns the config value for whether to record the screen. */
     public boolean isRecordScreen() {

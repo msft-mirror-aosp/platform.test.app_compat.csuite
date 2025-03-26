@@ -100,6 +100,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
                             + " UI-automator mode.")
     private final List<String> mInstallArgs = new ArrayList<>();
 
+    @Deprecated
     @Option(name = "package-name", mandatory = true, description = "Package name of testing app.")
     private String mPackageName;
 
@@ -166,9 +167,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     @Before
     public void setUp()
             throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
-        mCrawler =
-                AppCrawlTester.newInstance(
-                        mPackageName, getTestInformation(), mLogData, mConfiguration);
+        mCrawler = AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration);
         if (mCrawlControllerEndpoint != null) {
             mCrawler.getOptions().setCrawlControllerEndpoint(mCrawlControllerEndpoint);
         }
@@ -195,6 +194,9 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
         }
         if (mTimeoutSec != DEFAULT_TIMEOUT_SEC) {
             mCrawler.getOptions().setTimeoutSec(mTimeoutSec);
+        }
+        if (mPackageName != null) {
+            mCrawler.getOptions().setPackageName(mPackageName);
         }
 
         mCrawler.runSetup();

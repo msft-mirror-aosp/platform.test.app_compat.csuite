@@ -748,8 +748,10 @@ public final class AppCrawlTesterTest {
         IConfiguration configuration = new Configuration("name", "description");
         configuration.setConfigurationObject(
                 AppCrawlTesterOptions.OBJECT_TYPE, new AppCrawlTesterOptions());
-        return new AppCrawlTester(
-                PACKAGE_NAME, mTestUtils, () -> mRunUtil, mFileSystem, configuration);
+        AppCrawlTester sut =
+                new AppCrawlTester(mTestUtils, () -> mRunUtil, mFileSystem, configuration);
+        sut.getOptions().setPackageName(PACKAGE_NAME);
+        return sut;
     }
 
     private AppCrawlTester createPreparedTestSubject()
@@ -766,8 +768,10 @@ public final class AppCrawlTesterTest {
         IConfiguration configuration = new Configuration("name", "description");
         configuration.setConfigurationObject(
                 AppCrawlTesterOptions.OBJECT_TYPE, new AppCrawlTesterOptions());
-        return new AppCrawlTester(
-                PACKAGE_NAME, mTestUtils, () -> mRunUtil, mFileSystem, configuration);
+        AppCrawlTester sut =
+                new AppCrawlTester(mTestUtils, () -> mRunUtil, mFileSystem, configuration);
+        sut.getOptions().setPackageName(PACKAGE_NAME);
+        return sut;
     }
 
     private TestUtils createTestUtils() throws DeviceNotAvailableException {

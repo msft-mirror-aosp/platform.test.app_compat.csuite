@@ -182,12 +182,8 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
                         + "must be used",
                 mWebviewVersionToTest != null || mReleaseChannel != null);
 
-        mCrawler =
-                AppCrawlTester.newInstance(
-                        mPackageName, getTestInformation(), mLogData, mConfiguration);
-        mCrawlerVerify =
-                AppCrawlTester.newInstance(
-                        mPackageName, getTestInformation(), mLogData, mConfiguration);
+        mCrawler = AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration);
+        mCrawlerVerify = AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration);
 
         setCrawlerOptions(mCrawler);
         setCrawlerOptions(mCrawlerVerify);

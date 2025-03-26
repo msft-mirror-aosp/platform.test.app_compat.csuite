@@ -15,13 +15,13 @@
 -->
 <configuration description="C-Suite Crawler test configuration">
     <object type="APP_CRAWL_TESTER_OPTIONS" class="com.android.csuite.core.AppCrawlTesterOptions" >
+        <option name="package-name" value="{package}"/>
         <option name="repack-apk" value="app://{package}"/>
         <option name="ui-automator-mode" value="false"/>
     </object>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer" />
     <test class="com.android.tradefed.testtype.HostTest" >
-        <option name="set-option" value="package-name:{package}"/>
         <option name="class" value="com.android.csuite.tests.AppCrawlTest" />
     </test>
 </configuration>
