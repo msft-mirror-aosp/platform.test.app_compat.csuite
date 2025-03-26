@@ -19,11 +19,7 @@
         <option name="ui-automator-mode" value="false"/>
     </object>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
-    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
-        <option name="run-command" value="input keyevent KEYCODE_MENU"/>
-        <option name="run-command" value="input keyevent KEYCODE_HOME"/>
-    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer" />
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="set-option" value="package-name:{package}"/>
         <option name="class" value="com.android.csuite.tests.AppCrawlTest" />
