@@ -139,42 +139,44 @@ public class DropboxEntryCrashDetector {
 
         for (String tag : tags) {
             Path dumpFile = mTempFileSupplier.get();
-
-            CommandResult res =
-                    mRunUtilProvider
-                            .get()
-                            .runTimedCmd(
-                                    4L * 60 * 1000,
-                                    "sh",
-                                    "-c",
-                                    String.format(
-                                            "adb -s %s shell dumpsys dropbox --proto %s > %s",
-                                            mDevice.getSerialNumber(), tag, dumpFile));
-            if (res.getStatus() != CommandStatus.SUCCESS) {
-                throw new IOException("Dropbox dump command failed: " + res);
-            }
-
-            if (Files.size(dumpFile) == 0) {
-                CLog.d("Skipping empty proto " + dumpFile);
-                continue;
-            }
-
-            CLog.d("Parsing proto for tag %s. Size: %s", tag, Files.size(dumpFile));
-            DropBoxManagerServiceDumpProto proto;
             try {
-                proto = DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
-            } catch (InvalidProtocolBufferException e) {
-                CLog.e(
-                        "Falling back to stdout dropbox dump due to unexpected proto parse error:"
-                                + " %s",
-                        e);
-                return getDropboxEntriesFromStdout(tags);
-            }
-            Files.delete(dumpFile);
+                CommandResult res =
+                        mRunUtilProvider
+                                .get()
+                                .runTimedCmd(
+                                        4L * 60 * 1000,
+                                        "sh",
+                                        "-c",
+                                        String.format(
+                                                "adb -s %s shell dumpsys dropbox --proto %s > %s",
+                                                mDevice.getSerialNumber(), tag, dumpFile));
+                if (res.getStatus() != CommandStatus.SUCCESS) {
+                    throw new IOException("Dropbox dump command failed: " + res);
+                }
 
-            for (Entry entry : proto.getEntriesList()) {
-                entries.add(
-                        new DropboxEntry(entry.getTimeMs(), tag, entry.getData().toStringUtf8()));
+                if (Files.size(dumpFile) == 0) {
+                    CLog.d("Skipping empty proto " + dumpFile);
+                    continue;
+                }
+
+                CLog.d("Parsing proto for tag %s. Size: %s", tag, Files.size(dumpFile));
+                DropBoxManagerServiceDumpProto proto;
+                try {
+                    proto = DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
+                } catch (InvalidProtocolBufferException e) {
+                    CLog.e(
+                            "Falling back to stdout dropbox dump due to unexpected proto parse"
+                                    + " error: %s",
+                            e);
+                    return getDropboxEntriesFromStdout(tags);
+                }
+                for (Entry entry : proto.getEntriesList()) {
+                    entries.add(
+                            new DropboxEntry(
+                                    entry.getTimeMs(), tag, entry.getData().toStringUtf8()));
+                }
+            } finally {
+                Files.delete(dumpFile);
             }
         }
         return entries.stream()
@@ -250,61 +252,67 @@ public class DropboxEntryCrashDetector {
         // output because the --print dump option does not contain timestamps.
         CommandResult res;
         Path fileDumpFile = mTempFileSupplier.get();
-        res =
-                mRunUtilProvider
-                        .get()
-                        .runTimedCmd(
-                                4L * 60 * 1000,
-                                "sh",
-                                "-c",
-                                String.format(
-                                        "adb -s %s shell dumpsys dropbox --file  > %s",
-                                        mDevice.getSerialNumber(), fileDumpFile));
-        if (res.getStatus() != CommandStatus.SUCCESS) {
-            throw new IOException("Dropbox dump command failed: " + res);
-        }
-
-        String lastEntryName = null;
-        for (String line : Files.readAllLines(fileDumpFile)) {
-            if (DropboxEntry.isDropboxEntryName(line)) {
-                lastEntryName = line.trim();
-                entries.put(lastEntryName, DropboxEntry.fromEntryName(line));
-            } else if (DropboxEntry.isDropboxFilePath(line) && lastEntryName != null) {
-                entries.get(lastEntryName).parseTimeFromFilePath(line);
+        try {
+            res =
+                    mRunUtilProvider
+                            .get()
+                            .runTimedCmd(
+                                    4L * 60 * 1000,
+                                    "sh",
+                                    "-c",
+                                    String.format(
+                                            "adb -s %s shell dumpsys dropbox --file  > %s",
+                                            mDevice.getSerialNumber(), fileDumpFile));
+            if (res.getStatus() != CommandStatus.SUCCESS) {
+                throw new IOException("Dropbox dump command failed: " + res);
             }
+
+            String lastEntryName = null;
+            for (String line : Files.readAllLines(fileDumpFile)) {
+                if (DropboxEntry.isDropboxEntryName(line)) {
+                    lastEntryName = line.trim();
+                    entries.put(lastEntryName, DropboxEntry.fromEntryName(line));
+                } else if (DropboxEntry.isDropboxFilePath(line) && lastEntryName != null) {
+                    entries.get(lastEntryName).parseTimeFromFilePath(line);
+                }
+            }
+        } finally {
+            Files.delete(fileDumpFile);
         }
-        Files.delete(fileDumpFile);
 
         // Then we get the entry data from the --print dump output. Entry names parsed from the
         // --print dump output are verified against the entry names from the --file dump output to
         // ensure correctness.
         Path printDumpFile = mTempFileSupplier.get();
-        res =
-                mRunUtilProvider
-                        .get()
-                        .runTimedCmd(
-                                4L * 60 * 1000,
-                                "sh",
-                                "-c",
-                                String.format(
-                                        "adb -s %s shell dumpsys dropbox --print > %s",
-                                        mDevice.getSerialNumber(), printDumpFile));
-        if (res.getStatus() != CommandStatus.SUCCESS) {
-            throw new IOException("Dropbox dump command failed: " + res);
-        }
-
-        lastEntryName = null;
-        for (String line : Files.readAllLines(printDumpFile)) {
-            if (DropboxEntry.isDropboxEntryName(line)) {
-                lastEntryName = line.trim();
+        try {
+            res =
+                    mRunUtilProvider
+                            .get()
+                            .runTimedCmd(
+                                    4L * 60 * 1000,
+                                    "sh",
+                                    "-c",
+                                    String.format(
+                                            "adb -s %s shell dumpsys dropbox --print > %s",
+                                            mDevice.getSerialNumber(), printDumpFile));
+            if (res.getStatus() != CommandStatus.SUCCESS) {
+                throw new IOException("Dropbox dump command failed: " + res);
             }
 
-            if (lastEntryName != null && entries.containsKey(lastEntryName)) {
-                entries.get(lastEntryName).addData(line);
-                entries.get(lastEntryName).addData("\n");
+            String lastEntryName = null;
+            for (String line : Files.readAllLines(printDumpFile)) {
+                if (DropboxEntry.isDropboxEntryName(line)) {
+                    lastEntryName = line.trim();
+                }
+
+                if (lastEntryName != null && entries.containsKey(lastEntryName)) {
+                    entries.get(lastEntryName).addData(line);
+                    entries.get(lastEntryName).addData("\n");
+                }
             }
+        } finally {
+            Files.delete(printDumpFile);
         }
-        Files.delete(printDumpFile);
 
         return entries.values().stream()
                 .filter(entry -> tags.contains(entry.getTag()))
