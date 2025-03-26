@@ -18,27 +18,27 @@ package com.android.csuite.tests;
 
 import com.android.csuite.core.AppCrawlTester;
 import com.android.csuite.core.AppCrawlTester.CrawlerException;
-import com.android.csuite.core.DeviceJUnit4ClassRunner;
-import com.android.tradefed.config.IConfiguration;
-import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationReceiver {
+public class AppCrawlTest extends BaseHostJUnit4Test {
+    @Rule public TestLogData mLogData = new TestLogData();
 
     private AppCrawlTester mCrawler;
-    private IConfiguration mConfiguration;
 
     @Before
     public void setUp() throws DeviceNotAvailableException, CrawlerException {
-        mCrawler = AppCrawlTester.newInstance(mConfiguration);
+        mCrawler = AppCrawlTester.newInstance(getTestInformation(), mLogData);
         mCrawler.runSetup();
     }
 
@@ -50,10 +50,5 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
     @After
     public void tearDown() {
         mCrawler.runTearDown();
-    }
-
-    @Override
-    public void setConfiguration(IConfiguration configuration) {
-        mConfiguration = configuration;
     }
 }

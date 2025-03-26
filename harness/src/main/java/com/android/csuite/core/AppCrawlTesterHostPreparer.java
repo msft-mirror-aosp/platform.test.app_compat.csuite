@@ -40,10 +40,11 @@ import java.nio.file.Path;
 /** A Tradefed preparer that preparers an app crawler on the host before testing. */
 public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
     private static final long COMMAND_TIMEOUT_MILLIS = 4 * 60 * 1000;
-    private static final String SDK_PATH_KEY = "SDK_PATH_KEY";
+    private static final String TEMP_DIR_PATH_KEY = "CSUITE_INTERNAL_CRAWLER_TEMP_DIR_PATH";
     private static final String CRAWLER_BIN_PATH_KEY = "CSUITE_INTERNAL_CRAWLER_BIN_PATH";
     private static final String CREDENTIAL_PATH_KEY = "CSUITE_INTERNAL_CREDENTIAL_PATH";
     private static final String IS_READY_KEY = "CSUITE_INTERNAL_IS_READY";
+    private static final String ANDROID_SDK = "ANDROID_SDK";
     @VisibleForTesting static final String SDK_TAR_OPTION = "sdk-tar";
     @VisibleForTesting static final String CRAWLER_BIN_OPTION = "crawler-bin";
     @VisibleForTesting static final String CREDENTIAL_JSON_OPTION = "credential-json";
@@ -78,6 +79,15 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
         mRunUtilProvider = runUtilProvider;
         mFileSystem = fileSystem;
     }
+    /**
+     * Returns the temp directory path created for the AppCrawlTester.
+     *
+     * @param testInfo The test info where the path is stored in.
+     * @return The path to the temp directory; Null if not set.
+     */
+    public static String getTempDirPath(TestInformation testInfo) {
+        return getPathFromBuildInfo(testInfo, TEMP_DIR_PATH_KEY);
+    }
 
     /**
      * Returns a path that contains Android SDK.
@@ -86,7 +96,9 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
      * @return The path to Android SDK; Null if not set.
      */
     public static String getSdkPath(TestInformation testInfo) {
-        return getPathFromBuildInfo(testInfo, SDK_PATH_KEY);
+        return Path.of(getPathFromBuildInfo(testInfo, TEMP_DIR_PATH_KEY))
+                .resolve(ANDROID_SDK)
+                .toString();
     }
 
     /**
@@ -124,8 +136,8 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
     }
 
     @VisibleForTesting
-    static void setSdkPath(TestInformation testInfo, Path path) {
-        testInfo.getBuildInfo().addBuildAttribute(SDK_PATH_KEY, path.toString());
+    static void setTempDirPath(TestInformation testInfo, Path path) {
+        testInfo.getBuildInfo().addBuildAttribute(TEMP_DIR_PATH_KEY, path.toString());
     }
 
     @VisibleForTesting
@@ -143,16 +155,26 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
             throws TargetSetupError, DeviceNotAvailableException {
         IRunUtil runUtil = mRunUtilProvider.get();
 
+        Path tempDirPath;
+        try {
+            tempDirPath = Files.createTempDirectory(TEMP_DIR_PATH_KEY);
+        } catch (IOException e) {
+            throw new TargetSetupError(
+                    "Failed to create the temp dir.",
+                    e,
+                    testInfo.getDevice().getDeviceDescriptor());
+        }
+        setTempDirPath(testInfo, tempDirPath);
+
         Path sdkPath;
         try {
-            sdkPath = Files.createTempDirectory("android-sdk");
+            sdkPath = Files.createDirectory(tempDirPath.resolve(ANDROID_SDK));
         } catch (IOException e) {
             throw new TargetSetupError(
                     "Failed to create the output path for android sdk.",
                     e,
                     testInfo.getDevice().getDeviceDescriptor());
         }
-
         String cmd = "tar -xvzf " + mSdkTar.getPath() + " -C " + sdkPath.toString();
         CLog.i("Decompressing Android SDK to " + sdkPath.toString());
         CommandResult res = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, cmd.split(" "));
@@ -161,8 +183,6 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
                     String.format("Failed to untar android sdk: %s", res),
                     testInfo.getDevice().getDeviceDescriptor());
         }
-
-        setSdkPath(testInfo, sdkPath);
 
         Path jar = mCrawlerBin.toPath().resolve("crawl_launcher_deploy.jar");
         if (!Files.exists(jar)) {
