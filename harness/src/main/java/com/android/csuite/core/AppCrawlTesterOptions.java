@@ -68,22 +68,18 @@ public class AppCrawlTesterOptions {
 
     @Option(
             name = "crawl-controller-endpoint",
-            mandatory = false,
             description = "The crawl controller endpoint to target.")
     private String mCrawlControllerEndpoint;
 
     @Option(
-            name = "ui-automator-mode",
-            mandatory = false,
+            name = "espresso-mode",
             description =
-                    "Run the crawler with UIAutomator mode. Apk option is not required in this"
-                            + " mode. This option is by default true. Setting it to false enables"
-                            + " espresso mode which is less stable.")
-    private boolean mUiAutomatorMode = true;
+                    "Run the crawler in Espresso mode. Subject APK path is required in this"
+                            + " mode. This option is by default false.")
+    private boolean mEspressoMode = false;
 
     @Option(
             name = "crawl-duration-sec",
-            mandatory = false,
             description = "The max duration timeout for the crawler in seconds.")
     private int mCrawlDurationSec = 60;
 
@@ -115,7 +111,6 @@ public class AppCrawlTesterOptions {
 
     @Option(
             name = "grant-external-storage",
-            mandatory = false,
             description = "After an apks are installed, grant MANAGE_EXTERNAL_STORAGE permissions.")
     private boolean mGrantExternalStoragePermission = false;
 
@@ -218,14 +213,14 @@ public class AppCrawlTesterOptions {
         return this;
     }
 
-    /** Returns the config value for whether to enable UiAutomator mode. */
-    boolean isUiAutomatorMode() {
-        return mUiAutomatorMode;
+    /** Returns the config value for whether to enable espresso mode. */
+    boolean isEspressoMode() {
+        return mEspressoMode;
     }
 
-    /** Sets whether to enable UiAutomator mode. */
-    AppCrawlTesterOptions setUiAutomatorMode(boolean uiAutomatorMode) {
-        this.mUiAutomatorMode = uiAutomatorMode;
+    /** Sets whether to enable espresso mode. */
+    AppCrawlTesterOptions setEspressoMode(boolean espressoMode) {
+        this.mEspressoMode = espressoMode;
         return this;
     }
 

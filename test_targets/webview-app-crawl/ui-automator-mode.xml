@@ -18,7 +18,6 @@
         <option name="subject-package-name" value="{package}"/>
         <option name="subject-apk-path" value="app://{package}"/>
         <option name="subject-apk-install-arg" value="-g"/>
-        <option name="ui-automator-mode" value="true"/>
     </object>
     <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
