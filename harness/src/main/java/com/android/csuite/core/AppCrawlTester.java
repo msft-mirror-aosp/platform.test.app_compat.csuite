@@ -26,7 +26,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.LogDataType;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
+import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
@@ -61,8 +61,8 @@ import java.util.stream.Stream;
 public final class AppCrawlTester {
     @VisibleForTesting Path mOutput;
     private final RunUtilProvider mRunUtilProvider;
-    private final TestUtils mTestUtils;
-    private final ApkInstaller mApkInstaller;
+    private TestUtils mTestUtils;
+    private ApkInstaller mApkInstaller;
     private final FileSystem mFileSystem;
     private DeviceTimestamp mScreenRecordStartTime;
     private IConfiguration mConfiguration;
@@ -72,21 +72,12 @@ public final class AppCrawlTester {
     /**
      * Creates an {@link AppCrawlTester} instance.
      *
-     * @param testInformation The TradeFed test information.
-     * @param testLogData The TradeFed test output receiver.
+     * @param configuration the module configuration object.
      * @return an {@link AppCrawlTester} instance.
      */
-    public static AppCrawlTester newInstance(
-            TestInformation testInformation,
-            TestLogData testLogData,
-            IConfiguration configuration) {
-        TestUtils testUtils = TestUtils.getInstance(testInformation, testLogData);
+    public static AppCrawlTester newInstance(IConfiguration configuration) {
         return new AppCrawlTester(
-                testUtils,
-                () -> new RunUtil(),
-                FileSystems.getDefault(),
-                configuration,
-                ApkInstaller.getInstance(testUtils.getDeviceUtils().getITestDevice()));
+                null, () -> new RunUtil(), FileSystems.getDefault(), configuration, null);
     }
 
     @VisibleForTesting
@@ -103,21 +94,20 @@ public final class AppCrawlTester {
         mApkInstaller = apkInstaller;
     }
 
-    /** Returns the options object for the app crawl tester */
     private AppCrawlTesterOptions getConfigOptions() {
-        List<?> configurations =
-                mConfiguration.getConfigurationObjectList(AppCrawlTesterOptions.OBJECT_TYPE);
         Preconditions.checkNotNull(
-                configurations,
-                "Expecting a "
-                        + ModuleInfoProvider.MODULE_INFO_PROVIDER_OBJECT_TYPE
-                        + " in the module configuration.");
+                mConfiguration, "Reference to the IConfiguration object is required.");
+        List<ITargetPreparer> preparers =
+                mConfiguration.getTargetPreparers().stream()
+                        .filter(preparer -> preparer instanceof AppCrawlTesterOptions)
+                        .collect(Collectors.toList());
         Preconditions.checkArgument(
-                configurations.size() == 1,
+                preparers.size() == 1,
                 "Expecting exactly 1 instance of "
-                        + ModuleInfoProvider.MODULE_INFO_PROVIDER_OBJECT_TYPE
-                        + " in the module configuration.");
-        return (AppCrawlTesterOptions) configurations.get(0);
+                        + AppCrawlTesterOptions.class.getName()
+                        + " in the module configuration. Found "
+                        + preparers.size());
+        return (AppCrawlTesterOptions) preparers.get(0);
     }
 
     /** An exception class representing crawler test failures. */
@@ -186,6 +176,15 @@ public final class AppCrawlTester {
             Preconditions.checkNotNull(
                     getConfigOptions().getSubjectApkPath(),
                     "Subject apk path is required when not running in UIAutomator mode");
+        }
+
+        if (mTestUtils == null) {
+            mTestUtils =
+                    TestUtils.getInstance(
+                            getConfigOptions().getTestInfo(), getConfigOptions().getTestLogger());
+        }
+        if (mApkInstaller == null) {
+            mApkInstaller = ApkInstaller.getInstance(mTestUtils.getDeviceUtils().getITestDevice());
         }
 
         try {

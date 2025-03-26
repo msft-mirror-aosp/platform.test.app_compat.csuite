@@ -26,7 +26,6 @@ import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.webview.lib.WebviewPackage;
 import com.android.webview.lib.WebviewUtils;
@@ -35,7 +34,6 @@ import org.json.JSONException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -44,7 +42,6 @@ import java.io.IOException;
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigurationReceiver {
-    @Rule public TestLogData mLogData = new TestLogData();
 
     private WebviewUtils mWebviewUtils;
     private WebviewPackage mPreInstalledWebview;
@@ -74,12 +71,12 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test implements IConfigur
         // Only save apk on the verification run.
         // Only record screen on the webview run.
         mCrawler =
-                AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration)
+                AppCrawlTester.newInstance(mConfiguration)
                         .setSaveApkWhen(TestUtils.TakeEffectWhen.NEVER)
                         .setRecordScreen(true)
                         .setNoThrowOnFailure(true);
         mCrawlerVerify =
-                AppCrawlTester.newInstance(getTestInformation(), mLogData, mConfiguration)
+                AppCrawlTester.newInstance(mConfiguration)
                         .setSaveApkWhen(TestUtils.TakeEffectWhen.ON_PASS)
                         .setRecordScreen(false)
                         .setNoThrowOnFailure(true);

@@ -16,15 +16,19 @@
 package com.android.csuite.core;
 
 import com.android.tradefed.config.Option;
+import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.ITestLogger;
+import com.android.tradefed.result.ITestLoggerReceiver;
+import com.android.tradefed.targetprep.ITargetPreparer;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 /** A class for receiving and storing option values for the AppCrawlTester class. */
-public class AppCrawlTesterOptions {
-
-    public static final String OBJECT_TYPE = "APP_CRAWL_TESTER_OPTIONS";
+public class AppCrawlTesterOptions implements ITargetPreparer, ITestLoggerReceiver {
+    private ITestLogger mTestLogger;
+    private TestInformation mTestInfo;
 
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -291,5 +295,25 @@ public class AppCrawlTesterOptions {
             boolean grantExternalStoragePermission) {
         this.mGrantExternalStoragePermission = grantExternalStoragePermission;
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setUp(TestInformation testInfo) {
+        mTestInfo = testInfo;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setTestLogger(ITestLogger testLogger) {
+        mTestLogger = testLogger;
+    }
+
+    TestInformation getTestInfo() {
+        return mTestInfo;
+    }
+
+    ITestLogger getTestLogger() {
+        return mTestLogger;
     }
 }

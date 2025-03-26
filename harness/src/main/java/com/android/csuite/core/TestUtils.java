@@ -20,6 +20,7 @@ import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.FileInputStreamSource;
@@ -64,6 +65,7 @@ public class TestUtils {
         FAIL
     }
 
+    /** Gets a new instance of test utils with TestLogData as artifact processor. */
     public static TestUtils getInstance(TestInformation testInformation, TestLogData testLogData) {
         return new TestUtils(
                 testInformation,
@@ -71,6 +73,15 @@ public class TestUtils {
                 DeviceUtils.getInstance(testInformation.getDevice()));
     }
 
+    /** Gets a new instance of test utils with ITestLogger as artifact processor. */
+    public static TestUtils getInstance(TestInformation testInformation, ITestLogger testLogger) {
+        return new TestUtils(
+                testInformation,
+                new TestLogDataTestArtifactReceiver(testLogger),
+                DeviceUtils.getInstance(testInformation.getDevice()));
+    }
+
+    /** Gets a new instance of test utils with a given artifact receiver. */
     public static TestUtils getInstance(
             TestInformation testInformation, TestArtifactReceiver testArtifactReceiver) {
         return new TestUtils(
@@ -508,23 +519,49 @@ public class TestUtils {
         @SuppressWarnings("hiding")
         private final TestLogData mTestLogData;
 
+        private final ITestLogger mTestLogger;
+
         public TestLogDataTestArtifactReceiver(TestLogData testLogData) {
             mTestLogData = testLogData;
+            mTestLogger = null;
+        }
+
+        /**
+         * @param testLogger
+         */
+        public TestLogDataTestArtifactReceiver(ITestLogger testLogger) {
+            mTestLogData = null;
+            mTestLogger = testLogger;
         }
 
         @Override
         public void addTestArtifact(String name, LogDataType type, byte[] bytes) {
-            mTestLogData.addTestLog(name, type, new ByteArrayInputStreamSource(bytes));
+            if (mTestLogData != null) {
+                mTestLogData.addTestLog(name, type, new ByteArrayInputStreamSource(bytes));
+            }
+            if (mTestLogger != null) {
+                mTestLogger.testLog(name, type, new ByteArrayInputStreamSource(bytes));
+            }
         }
 
         @Override
         public void addTestArtifact(String name, LogDataType type, File file) {
+            if (mTestLogData != null) {
             mTestLogData.addTestLog(name, type, new FileInputStreamSource(file));
+            }
+            if (mTestLogger != null) {
+                mTestLogger.testLog(name, type, new FileInputStreamSource(file));
+            }
         }
 
         @Override
         public void addTestArtifact(String name, LogDataType type, InputStreamSource source) {
+            if (mTestLogData != null) {
             mTestLogData.addTestLog(name, type, source);
+            }
+            if (mTestLogger != null) {
+                mTestLogger.testLog(name, type, source);
+            }
         }
     }
 
