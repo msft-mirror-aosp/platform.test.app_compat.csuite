@@ -368,14 +368,19 @@ public final class AppCrawlTester {
             mTestUtils.collectGmsVersion(getOptions().getPackageName());
         }
 
-        // Minimum timeout 3 minutes plus crawl test timeout.
-        long commandTimeout = 3L * 60 * 1000 + getOptions().getTimeoutSec() * 1000L;
+        // Minimum timeout 3 minutes plus crawl test timeout. In espresso mode, extend the timeout
+        // for another 3 minutes for apk recompile and OBB upload
+        long commandTimeout =
+                3L * 60 * 1000
+                        + getOptions().getTimeoutSec() * 1000L
+                        + (!getOptions().isUiAutomatorMode() ? 3L * 60 * 1000 : 0);
 
         CLog.i(
                 "Starting to crawl the package %s with command %s",
                 mPackageName, String.join(" ", command.get()));
         // TODO(yuexima): When the obb_file option is supported in espresso mode, the timeout need
         // to be extended.
+
         if (getOptions().isRecordScreen()) {
             mTestUtils.collectScreenRecord(
                     () -> {
