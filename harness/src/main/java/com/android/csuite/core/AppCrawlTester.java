@@ -378,7 +378,7 @@ public final class AppCrawlTester {
         // for another 3 minutes for apk recompile and OBB upload
         long commandTimeout =
                 3L * 60 * 1000
-                        + getConfigOptions().getTimeoutSec() * 1000L
+                        + getConfigOptions().getCrawlDurationSec() * 1000L
                         + (!getConfigOptions().isUiAutomatorMode() ? 3L * 60 * 1000 : 0);
 
         CLog.i(
@@ -619,9 +619,11 @@ public final class AppCrawlTester {
                         "--tmp-dir",
                         mOutput.toString()));
 
-        if (getConfigOptions().getTimeoutSec() > 0) {
+        if (getConfigOptions().getCrawlDurationSec() > 0) {
             cmd.add("--crawler-flag");
-            cmd.add("crawlDurationSec=" + Integer.toString(getConfigOptions().getTimeoutSec()));
+            cmd.add(
+                    "crawlDurationSec="
+                            + Integer.toString(getConfigOptions().getCrawlDurationSec()));
         }
 
         if (getConfigOptions().isUiAutomatorMode()) {
@@ -766,9 +768,9 @@ public final class AppCrawlTester {
             }
         }
 
-        if (getConfigOptions().getTimeoutSec() > 0) {
+        if (getConfigOptions().getCrawlDurationSec() > 0) {
             cmd.add("--timeout-sec");
-            cmd.add(Integer.toString(getConfigOptions().getTimeoutSec()));
+            cmd.add(Integer.toString(getConfigOptions().getCrawlDurationSec()));
         }
 
         if (getConfigOptions().getRoboscriptFile() != null) {
@@ -898,10 +900,10 @@ public final class AppCrawlTester {
         return this;
     }
 
-    /** Sets the timeout duration in seconds. */
-    public AppCrawlTester setTimeoutSec(int timeoutSec) {
+    /** Sets the crawler duration timeout in seconds. */
+    public AppCrawlTester setCrawlDurationSec(int timeoutSec) {
         checkOptionSettable();
-        getConfigOptions().setTimeoutSec(timeoutSec);
+        getConfigOptions().setCrawlDurationSec(timeoutSec);
         return this;
     }
 
