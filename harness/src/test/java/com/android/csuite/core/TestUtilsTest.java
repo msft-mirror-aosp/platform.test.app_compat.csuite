@@ -23,7 +23,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
-import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.csuite.core.DropboxEntryCrashDetector.DropboxEntry;
 import com.android.csuite.core.TestUtils.TestArtifactReceiver;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.device.ITestDevice;
@@ -354,7 +354,9 @@ public final class TestUtilsTest {
     @Test
     public void getDropboxPackageCrashLog_noEntries_returnsEmpty() throws Exception {
         TestUtils sut = createSubjectUnderTest();
-        when(mMockDeviceUtils.getDropboxEntries(Mockito.any())).thenReturn(List.of());
+        when(mMockDeviceUtils.getCrashEntriesFromDropbox(
+                        Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(List.of());
         DeviceTimestamp startTime = new DeviceTimestamp(0);
 
         String result = sut.getDropboxPackageCrashLog(TEST_PACKAGE_NAME, startTime, false);
@@ -365,7 +367,9 @@ public final class TestUtilsTest {
     @Test
     public void getDropboxPackageCrashLog_noEntries_doesNotSaveOutput() throws Exception {
         TestUtils sut = createSubjectUnderTest();
-        when(mMockDeviceUtils.getDropboxEntries(Mockito.any())).thenReturn(List.of());
+        when(mMockDeviceUtils.getCrashEntriesFromDropbox(
+                        Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(List.of());
         DeviceTimestamp startTime = new DeviceTimestamp(0);
         boolean saveToFile = true;
 
@@ -379,16 +383,17 @@ public final class TestUtilsTest {
     @Test
     public void getDropboxPackageCrashLog_appCrashed_saveOutput() throws Exception {
         TestUtils sut = createSubjectUnderTest();
-        when(mMockDeviceUtils.getDropboxEntries(
-                        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(mMockDeviceUtils.getCrashEntriesFromDropbox(
+                        Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(
                         List.of(
-                                new DeviceUtils.DropboxEntry(
+                                new DropboxEntry(
                                         2,
-                                        DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                        DropboxEntryCrashDetector.DROPBOX_APP_CRASH_TAGS
                                                 .toArray(
                                                         new String
-                                                                [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                                [DropboxEntryCrashDetector
+                                                                        .DROPBOX_APP_CRASH_TAGS
                                                                         .size()])[0],
                                         "Package: " + TEST_PACKAGE_NAME)));
         DeviceTimestamp startTime = new DeviceTimestamp(0);
@@ -412,20 +417,22 @@ public final class TestUtilsTest {
         String expectedTime2 = "01:02";
         List<DropboxEntry> crashEntries =
                 List.of(
-                        new DeviceUtils.DropboxEntry(
+                        new DropboxEntry(
                                 crashTime1,
-                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                DropboxEntryCrashDetector.DROPBOX_APP_CRASH_TAGS
                                         .toArray(
                                                 new String
-                                                        [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                        [DropboxEntryCrashDetector
+                                                                .DROPBOX_APP_CRASH_TAGS
                                                                 .size()])[0],
                                 TEST_PACKAGE_NAME + " entry1"),
-                        new DeviceUtils.DropboxEntry(
+                        new DropboxEntry(
                                 crashTime2,
-                                DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                DropboxEntryCrashDetector.DROPBOX_APP_CRASH_TAGS
                                         .toArray(
                                                 new String
-                                                        [DeviceUtils.DROPBOX_APP_CRASH_TAGS
+                                                        [DropboxEntryCrashDetector
+                                                                .DROPBOX_APP_CRASH_TAGS
                                                                 .size()])[0],
                                 TEST_PACKAGE_NAME + " entry2"));
 
