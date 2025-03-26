@@ -849,9 +849,9 @@ public final class AppCrawlTester {
     }
 
     /** Sets the subject APK file path. */
-    public AppCrawlTester setSubjectApkPath(File apkPaths) {
+    public AppCrawlTester setSubjectApkPath(File apkPath) {
         checkOptionSettable();
-        mConfigOptions.setSubjectApkPath(apkPaths);
+        mConfigOptions.setSubjectApkPath(apkPath);
         return this;
     }
 
