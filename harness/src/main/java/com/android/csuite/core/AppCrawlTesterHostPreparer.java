@@ -17,6 +17,7 @@
 package com.android.csuite.core;
 
 import com.android.tradefed.config.Option;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.ITargetPreparer;
@@ -138,21 +139,27 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
     }
 
     @Override
-    public void setUp(TestInformation testInfo) throws TargetSetupError {
+    public void setUp(TestInformation testInfo)
+            throws TargetSetupError, DeviceNotAvailableException {
         IRunUtil runUtil = mRunUtilProvider.get();
 
         Path sdkPath;
         try {
             sdkPath = Files.createTempDirectory("android-sdk");
         } catch (IOException e) {
-            throw new TargetSetupError("Failed to create the output path for android sdk.", e);
+            throw new TargetSetupError(
+                    "Failed to create the output path for android sdk.",
+                    e,
+                    testInfo.getDevice().getDeviceDescriptor());
         }
 
         String cmd = "tar -xvzf " + mSdkTar.getPath() + " -C " + sdkPath.toString();
         CLog.i("Decompressing Android SDK to " + sdkPath.toString());
         CommandResult res = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, cmd.split(" "));
         if (!res.getStatus().equals(CommandStatus.SUCCESS)) {
-            throw new TargetSetupError(String.format("Failed to untar android sdk: %s", res));
+            throw new TargetSetupError(
+                    String.format("Failed to untar android sdk: %s", res),
+                    testInfo.getDevice().getDeviceDescriptor());
         }
 
         setSdkPath(testInfo, sdkPath);
@@ -167,23 +174,28 @@ public final class AppCrawlTesterHostPreparer implements ITargetPreparer {
         CommandResult chmodRes = runUtil.runTimedCmd(COMMAND_TIMEOUT_MILLIS, chmodCmd.split(" "));
         if (!chmodRes.getStatus().equals(CommandStatus.SUCCESS)) {
             throw new TargetSetupError(
-                    String.format("Failed to make crawler binary executable: %s", chmodRes));
+                    String.format("Failed to make crawler binary executable: %s", chmodRes),
+                    testInfo.getDevice().getDeviceDescriptor());
         }
 
-        setCrawlerBinPath(testInfo, mCrawlerBin.toPath());
+        testInfo.getDevice()
+                .executeShellV2Command("settings put global package_verifier_user_consent -1");
 
+        setCrawlerBinPath(testInfo, mCrawlerBin.toPath());
         setCredentialPath(testInfo, mCredential.toPath());
 
         testInfo.getBuildInfo().addBuildAttribute(IS_READY_KEY, "true");
     }
 
     @Override
-    public void tearDown(TestInformation testInfo, Throwable e) {
+    public void tearDown(TestInformation testInfo, Throwable e) throws DeviceNotAvailableException {
         try {
             cleanUp(mFileSystem.getPath(getSdkPath(testInfo)));
         } catch (IOException ioException) {
             CLog.e(ioException);
         }
+        testInfo.getDevice()
+                .executeShellV2Command("settings put global package_verifier_user_consent 1");
     }
 
     private static void cleanUp(Path path) throws IOException {

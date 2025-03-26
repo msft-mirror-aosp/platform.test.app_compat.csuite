@@ -809,7 +809,10 @@ public final class AppCrawlTesterTest {
     }
 
     private void simulatePreparerWasExecutedSuccessfully()
-            throws ConfigurationException, IOException, TargetSetupError {
+            throws ConfigurationException,
+                    IOException,
+                    TargetSetupError,
+                    DeviceNotAvailableException {
         IRunUtil runUtil = Mockito.mock(IRunUtil.class);
         Mockito.when(runUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
                 .thenReturn(createSuccessfulCommandResult());
