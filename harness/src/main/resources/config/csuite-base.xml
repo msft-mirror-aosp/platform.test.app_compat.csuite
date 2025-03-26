@@ -37,6 +37,8 @@
   <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
   <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
       <option name="run-command" value="settings put secure immersive_mode_confirmations confirmed" />
+      <option name="run-command" value="settings put global package_verifier_user_consent -1" />
+      <option name="teardown-command" value="settings put global package_verifier_user_consent 1" />
   </target_preparer>
 
   <target_preparer class="com.android.csuite.core.AppCrawlTesterHostPreparer"/>
