@@ -154,8 +154,7 @@ public final class AppCrawlTesterTest {
         Mockito.doReturn(new DeviceUtils.DeviceTimestamp(1L))
                 .when(mDeviceUtils)
                 .currentTimeMillis();
-        String noCrashLog = null;
-        Mockito.doReturn(noCrashLog)
+        Mockito.doReturn("")
                 .when(mTestUtils)
                 .getDropboxPackageCrashLog(
                         Mockito.anyString(), Mockito.any(), Mockito.anyBoolean());

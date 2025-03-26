@@ -277,10 +277,7 @@ public final class AppCrawlTester {
         }
         DeviceTimestamp endTime = mTestUtils.getDeviceUtils().currentTimeMillis();
 
-        ArrayList<String> failureMessages = new ArrayList<>();
-
         try {
-
             List<DropboxEntry> crashEntries =
                     mTestUtils
                             .getDeviceUtils()
@@ -296,26 +293,22 @@ public final class AppCrawlTester {
                             true,
                             mScreenRecordStartTime);
 
-            if (dropboxCrashLog != null) {
+            if (!dropboxCrashLog.isBlank()) {
                 // Put dropbox crash log on the top of the failure messages.
-                failureMessages.add(dropboxCrashLog);
+                mExecutionStage.addFailureMessage(dropboxCrashLog);
             }
         } catch (IOException e) {
-            failureMessages.add("Error while getting dropbox crash log: " + e.getMessage());
+            mExecutionStage.addFailureMessage(
+                    "Error while getting dropbox crash log: " + e.getMessage());
         }
 
         if (crawlerException != null) {
-            failureMessages.add(crawlerException.getMessage());
+            mExecutionStage.addFailureMessage(crawlerException.getMessage());
         }
 
-        if (!failureMessages.isEmpty()) {
-            Assert.fail(
-                    String.join(
-                            "\n============\n",
-                            failureMessages.toArray(new String[failureMessages.size()])));
+        if (!mExecutionStage.isTestPassed()) {
+            Assert.fail(mExecutionStage.getFailureMessage());
         }
-
-        mExecutionStage.setTestPassed(true);
     }
 
     /**
@@ -800,7 +793,7 @@ public final class AppCrawlTester {
     private class ExecutionStage {
         private boolean mIsSetupComplete = false;
         private boolean mIsTestExecuted = false;
-        private boolean mIsTestPassed = false;
+        private ArrayList<String> mFailureMessages = new ArrayList<>();
 
         private boolean isSetupComplete() {
             return mIsSetupComplete;
@@ -819,11 +812,17 @@ public final class AppCrawlTester {
         }
 
         private boolean isTestPassed() {
-            return mIsTestPassed;
+            return getFailureMessage().isBlank();
         }
 
-        private void setTestPassed(boolean isTestPassed) {
-            mIsTestPassed = isTestPassed;
+        private void addFailureMessage(String msg) {
+            mFailureMessages.add(msg);
+        }
+
+        private String getFailureMessage() {
+            return String.join(
+                    "\n============\n",
+                    mFailureMessages.toArray(new String[mFailureMessages.size()]));
         }
     }
 

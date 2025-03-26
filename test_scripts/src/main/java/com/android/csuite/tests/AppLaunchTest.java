@@ -203,7 +203,7 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
             String crashLog =
                     testUtils.compileTestFailureMessage(
                             mPackageName, crashEntries, true, videoStartTime.get());
-            if (crashLog != null) {
+            if (!crashLog.isBlank()) {
                 Assert.fail(crashLog);
             }
         } catch (IOException e) {
