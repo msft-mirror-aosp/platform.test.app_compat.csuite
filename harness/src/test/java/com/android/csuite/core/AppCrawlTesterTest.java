@@ -184,8 +184,7 @@ public final class AppCrawlTesterTest {
                 .currentTimeMillis();
         Mockito.doReturn(new ArrayList<>())
                 .when(mDeviceUtils)
-                .getDropboxEntries(
-                        Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any());
+                .getCrashEntriesFromDropbox(Mockito.anyString(), Mockito.any(), Mockito.any());
         sut.runSetup();
 
         sut.runTest();
@@ -456,8 +455,7 @@ public final class AppCrawlTesterTest {
                 .currentTimeMillis();
         Mockito.doReturn(new ArrayList<>())
                 .when(mDeviceUtils)
-                .getDropboxEntries(
-                        Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any());
+                .getCrashEntriesFromDropbox(Mockito.anyString(), Mockito.any(), Mockito.any());
         sut.runSetup();
         sut.runTest();
 
