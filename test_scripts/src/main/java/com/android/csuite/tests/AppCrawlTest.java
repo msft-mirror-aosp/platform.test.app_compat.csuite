@@ -16,15 +16,12 @@
 
 package com.android.csuite.tests;
 
-import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.AppCrawlTester;
 import com.android.csuite.core.AppCrawlTester.CrawlerException;
-import com.android.csuite.core.DeviceJUnit4ClassRunner;
 import com.android.csuite.core.TestUtils;
-import com.android.tradefed.config.IConfiguration;
-import com.android.tradefed.config.IConfigurationReceiver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
@@ -35,30 +32,41 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 /** A test that verifies that a single app can be successfully launched. */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationReceiver {
-    @Deprecated private static final String COLLECT_APP_VERSION = "collect-app-version";
-    @Deprecated private static final String COLLECT_GMS_VERSION = "collect-gms-version";
-    @Deprecated private static final String RECORD_SCREEN = "record-screen";
-    @Deprecated private static final int DEFAULT_TIMEOUT_SEC = 60;
+public class AppCrawlTest extends BaseHostJUnit4Test {
 
     @Rule public TestLogData mLogData = new TestLogData();
 
     private AppCrawlTester mCrawler;
-    private IConfiguration mConfiguration;
+
+    @Before
+    public void setUp() throws DeviceNotAvailableException, CrawlerException {
+        mCrawler = AppCrawlTester.newInstance(getTestInformation(), mLogData);
+        processDeprecatedOptions();
+        mCrawler.runSetup();
+    }
+
+    @Test
+    public void testAppCrash() throws DeviceNotAvailableException, CrawlerException {
+        mCrawler.runTest();
+    }
+
+    @After
+    public void tearDown() {
+        mCrawler.runTearDown();
+    }
 
     @Deprecated
-    @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
+    @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
 
     @Deprecated
     @Option(
-            name = COLLECT_APP_VERSION,
+            name = "collect-app-version",
             description =
                     "Whether to collect package version information and store the information in"
                             + " test log files.")
@@ -66,7 +74,7 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
 
     @Deprecated
     @Option(
-            name = COLLECT_GMS_VERSION,
+            name = "collect-gms-version",
             description =
                     "Whether to collect GMS core version information and store the information in"
                             + " test log files.")
@@ -124,15 +132,13 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
             name = "timeout-sec",
             mandatory = false,
             description = "The timeout for the crawl test.")
-    private int mTimeoutSec = DEFAULT_TIMEOUT_SEC;
+    private int mTimeoutSec = 60;
 
     @Deprecated
     @Option(
             name = "robo-script-file",
             description = "A Roboscript file to be executed by the crawler.")
     private File mRoboscriptFile;
-
-    // TODO(b/234512223): add support for contextual roboscript files
 
     @Deprecated
     @Option(
@@ -163,55 +169,52 @@ public class AppCrawlTest extends BaseHostJUnit4Test implements IConfigurationRe
             description = "After an apks are installed, grant MANAGE_EXTERNAL_STORAGE permissions.")
     private boolean mGrantExternalStoragePermission = false;
 
-    @Before
-    public void setUp()
-            throws ApkInstaller.ApkInstallerException, IOException, DeviceNotAvailableException {
-        mCrawler =
-                AppCrawlTester.newInstance(
-                        mPackageName, getTestInformation(), mLogData, mConfiguration);
-        if (mCrawlControllerEndpoint != null) {
-            mCrawler.getOptions().setCrawlControllerEndpoint(mCrawlControllerEndpoint);
-        }
+    /** Convert deprecated options to new options if set. */
+    private void processDeprecatedOptions() {
         if (mRecordScreen) {
-            mCrawler.getOptions().setRecordScreen(mRecordScreen);
-        }
-        if (mCollectGmsVersion) {
-            mCrawler.getOptions().setCollectGmsVersion(mCollectGmsVersion);
+            mCrawler.setRecordScreen(mRecordScreen);
         }
         if (mCollectAppVersion) {
-            mCrawler.getOptions().setCollectAppVersion(mCollectAppVersion);
+            mCrawler.setCollectAppVersion(mCollectAppVersion);
         }
-        if (mUiAutomatorMode) {
-            mCrawler.getOptions().setUiAutomatorMode(mUiAutomatorMode);
+        if (mCollectGmsVersion) {
+            mCrawler.setCollectGmsVersion(mCollectGmsVersion);
+        }
+        if (mRepackApk != null) {
+            mCrawler.setSubjectApkPath(mRepackApk);
+        }
+        if (!mInstallApkPaths.isEmpty()) {
+            mCrawler.setExtraApkPaths(mInstallApkPaths);
+        }
+        if (!mInstallArgs.isEmpty()) {
+            mCrawler.setExtraApkInstallArgs(mInstallArgs);
+        }
+        if (!mUiAutomatorMode) {
+            mCrawler.setEspressoMode(true);
+        }
+        if (mTimeoutSec > 0) {
+            mCrawler.setCrawlDurationSec(mTimeoutSec);
         }
         if (mRoboscriptFile != null) {
-            mCrawler.getOptions().setRoboscriptFile(mRoboscriptFile);
+            mCrawler.setRoboscriptFile(mRoboscriptFile);
         }
         if (mCrawlGuidanceProtoFile != null) {
-            mCrawler.getOptions().setCrawlGuidanceProtoFile(mCrawlGuidanceProtoFile);
+            mCrawler.setCrawlGuidanceProtoFile(mCrawlGuidanceProtoFile);
         }
         if (mLoginConfigDir != null) {
-            mCrawler.getOptions().setLoginConfigDir(mLoginConfigDir);
+            mCrawler.setLoginConfigDir(mLoginConfigDir);
         }
-        if (mTimeoutSec != DEFAULT_TIMEOUT_SEC) {
-            mCrawler.getOptions().setTimeoutSec(mTimeoutSec);
+        if (mSaveApkWhen != TestUtils.TakeEffectWhen.NEVER) {
+            mCrawler.setSaveApkWhen(mSaveApkWhen);
         }
-
-        mCrawler.runSetup();
-    }
-
-    @Test
-    public void testAppCrash() throws DeviceNotAvailableException, CrawlerException {
-        mCrawler.runTest();
-    }
-
-    @After
-    public void tearDown() {
-        mCrawler.runTearDown();
-    }
-
-    @Override
-    public void setConfiguration(IConfiguration configuration) {
-        mConfiguration = configuration;
+        if (mGrantExternalStoragePermission) {
+            mCrawler.setGrantExternalStoragePermission(true);
+        }
+        if (mCrawlControllerEndpoint != null) {
+            mCrawler.setCrawlControllerEndpoint(mCrawlControllerEndpoint);
+        }
+        if (mPackageName != null) {
+            mCrawler.setSubjectPackageName(mPackageName);
+        }
     }
 }
