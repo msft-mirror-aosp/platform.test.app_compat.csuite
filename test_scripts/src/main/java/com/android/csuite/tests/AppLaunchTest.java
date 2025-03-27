@@ -23,8 +23,8 @@ import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle.BlankSc
 import com.android.csuite.core.DeviceUtils;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
-import com.android.csuite.core.DeviceUtils.DropboxEntry;
 import com.android.csuite.core.DeviceUtils.RunnableThrowingDeviceNotAvailable;
+import com.android.csuite.core.DropboxEntryCrashDetector.DropboxEntry;
 import com.android.csuite.core.TestUtils;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -195,15 +195,11 @@ public class AppLaunchTest extends BaseHostJUnit4Test {
 
         try {
             List<DropboxEntry> crashEntries =
-                    deviceUtils.getDropboxEntries(
-                            DeviceUtils.DROPBOX_APP_CRASH_TAGS,
-                            mPackageName,
-                            startTime.get(),
-                            endTime);
+                    deviceUtils.getCrashEntriesFromDropbox(mPackageName, startTime.get(), endTime);
             String crashLog =
                     testUtils.compileTestFailureMessage(
                             mPackageName, crashEntries, true, videoStartTime.get());
-            if (crashLog != null) {
+            if (!crashLog.isBlank()) {
                 Assert.fail(crashLog);
             }
         } catch (IOException e) {

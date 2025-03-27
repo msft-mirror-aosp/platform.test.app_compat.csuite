@@ -191,7 +191,7 @@ public class WebviewAppLaunchTest extends BaseHostJUnit4Test {
 
         try {
             String crashLog = testUtils.getDropboxPackageCrashLog(mPackageName, startTime, true);
-            if (crashLog != null) {
+            if (!crashLog.isBlank()) {
                 Assert.fail(crashLog);
             }
         } catch (IOException e) {
