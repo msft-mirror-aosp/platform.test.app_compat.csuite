@@ -187,7 +187,7 @@ public class WebviewAppCrawlTest extends BaseHostJUnit4Test {
             description =
                     "Run the crawler with UIAutomator mode. Apk option is not required in this"
                             + " mode.")
-    private boolean mUiAutomatorMode = false;
+    private boolean mUiAutomatorMode = true;
 
     @Deprecated
     @Option(
