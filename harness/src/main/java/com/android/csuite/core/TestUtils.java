@@ -17,7 +17,7 @@
 package com.android.csuite.core;
 
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
-import com.android.csuite.core.DeviceUtils.DropboxEntry;
+import com.android.csuite.core.DropboxEntryCrashDetector.DropboxEntry;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -246,8 +246,7 @@ public class TestUtils {
             String packageName, DeviceTimestamp startTimeOnDevice, boolean saveToFile)
             throws IOException {
         List<DropboxEntry> crashEntries =
-                mDeviceUtils.getDropboxEntries(
-                        DeviceUtils.DROPBOX_APP_CRASH_TAGS, packageName, startTimeOnDevice, null);
+                mDeviceUtils.getCrashEntriesFromDropbox(packageName, startTimeOnDevice, null);
         return compileTestFailureMessage(packageName, crashEntries, saveToFile, null);
     }
 
@@ -270,7 +269,7 @@ public class TestUtils {
             DeviceTimestamp screenRecordStartTime)
             throws IOException {
         if (entries.size() == 0) {
-            return null;
+            return "";
         }
 
         BiFunction<String, Integer, String> truncateFunction =

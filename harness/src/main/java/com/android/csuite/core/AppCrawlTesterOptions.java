@@ -15,16 +15,32 @@
  */
 package com.android.csuite.core;
 
+import com.android.csuite.core.AppCrawlTester.CrawlerException;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.targetprep.TargetSetupError;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 /** A class for receiving and storing option values for the AppCrawlTester class. */
-public class AppCrawlTesterOptions {
-
-    public static final String OBJECT_TYPE = "APP_CRAWL_TESTER_OPTIONS";
+public class AppCrawlTesterOptions implements ITargetPreparer, Serializable {
 
     @Option(name = "record-screen", description = "Whether to record screen during test.")
     private boolean mRecordScreen;
@@ -43,51 +59,45 @@ public class AppCrawlTesterOptions {
                             + " in test log files.")
     private boolean mCollectGmsVersion;
 
-    @Option(
-            name = "repack-apk",
-            mandatory = false,
-            description =
-                    "Path to an apk file or a directory containing apk files of a single"
-                            + " package to repack and install in Espresso mode")
-    private File mRepackApk;
+    @Option(name = "subject-package-name", description = "Package name of the app being crawled.")
+    private String mSubjectPackageName;
 
     @Option(
-            name = "install-apk",
-            mandatory = false,
+            name = "subject-apk-path",
             description =
-                    "The path to an apk file or a directory of apk files to be installed on the"
-                            + " device. In Ui-automator mode, this includes both the target apk to"
-                            + " install and any dependencies. In Espresso mode this can include"
-                            + " additional libraries or dependencies.")
-    private List<File> mInstallApkPaths = new ArrayList<>();
+                    "The path to the apk files of the subject package being tested. Optional in"
+                            + " ui-automator mode and required in Espresso mode")
+    private File mSubjectApkPath;
+
+    @Option(name = "subject-apk-install-arg", description = "Adb install arg for the subject apk.")
+    private List<String> mSubjectApkInstallArgs = new ArrayList<>();
 
     @Option(
-            name = "install-arg",
+            name = "extra-apk-path",
             description =
-                    "Arguments for the 'adb install-multiple' package installation command for"
-                            + " UI-automator mode.")
-    private List<String> mInstallArgs = new ArrayList<>();
+                    "The paths to extra apks to be installed before test. Split apks of a single"
+                            + " package should be included in one directory path.")
+    private List<File> mExtraApkPaths = new ArrayList<>();
+
+    @Option(name = "extra-apk-install-arg", description = "Adb install arg for extra apka.")
+    private List<String> mExtraApkInstallArgs = new ArrayList<>();
 
     @Option(
             name = "crawl-controller-endpoint",
-            mandatory = false,
             description = "The crawl controller endpoint to target.")
     private String mCrawlControllerEndpoint;
 
     @Option(
-            name = "ui-automator-mode",
-            mandatory = false,
+            name = "espresso-mode",
             description =
-                    "Run the crawler with UIAutomator mode. Apk option is not required in this"
-                            + " mode. This option is by default true. Setting it to false enables"
-                            + " espresso mode which is less stable.")
-    private boolean mUiAutomatorMode = true;
+                    "Run the crawler in Espresso mode. Subject APK path is required in this"
+                            + " mode. This option is by default false.")
+    private boolean mEspressoMode = false;
 
     @Option(
-            name = "timeout-sec",
-            mandatory = false,
-            description = "The timeout for the crawl test.")
-    private int mTimeoutSec = 60;
+            name = "crawl-duration-sec",
+            description = "The max duration timeout for the crawler in seconds.")
+    private int mCrawlDurationSec = 60;
 
     @Option(
             name = "robo-script-file",
@@ -117,149 +127,170 @@ public class AppCrawlTesterOptions {
 
     @Option(
             name = "grant-external-storage",
-            mandatory = false,
             description = "After an apks are installed, grant MANAGE_EXTERNAL_STORAGE permissions.")
     private boolean mGrantExternalStoragePermission = false;
 
+    /** Returns the config value for the package name to crawl. */
+    String getSubjectPackageName() {
+        return mSubjectPackageName;
+    }
+
+    /** Sets the package name to crawl. */
+    AppCrawlTesterOptions setSubjectPackageName(String subjectPackageName) {
+        this.mSubjectPackageName = subjectPackageName;
+        return this;
+    }
+
     /** Returns the config value for whether to record the screen. */
-    public boolean isRecordScreen() {
+    boolean isRecordScreen() {
         return mRecordScreen;
     }
 
     /** Sets whether to enable screen recording. */
-    public AppCrawlTesterOptions setRecordScreen(boolean recordScreen) {
+    AppCrawlTesterOptions setRecordScreen(boolean recordScreen) {
         this.mRecordScreen = recordScreen;
         return this;
     }
 
     /** Returns the config value for whether to collect app version information. */
-    public boolean isCollectAppVersion() {
+    boolean isCollectAppVersion() {
         return mCollectAppVersion;
     }
 
     /** Sets whether to enable app version collection. */
-    public AppCrawlTesterOptions setCollectAppVersion(boolean collectAppVersion) {
+    AppCrawlTesterOptions setCollectAppVersion(boolean collectAppVersion) {
         this.mCollectAppVersion = collectAppVersion;
         return this;
     }
 
     /** Returns the config value for whether to collect GMS version information. */
-    public boolean isCollectGmsVersion() {
+    boolean isCollectGmsVersion() {
         return mCollectGmsVersion;
     }
 
     /** Sets whether to enable GMS version collection. */
-    public AppCrawlTesterOptions setCollectGmsVersion(boolean collectGmsVersion) {
+    AppCrawlTesterOptions setCollectGmsVersion(boolean collectGmsVersion) {
         this.mCollectGmsVersion = collectGmsVersion;
         return this;
     }
 
-    /** Returns the config value for the repacked APK file path. */
-    public File getRepackApk() {
-        return mRepackApk;
+    /** Returns the config value for the subject APK path. */
+    File getSubjectApkPath() {
+        return mSubjectApkPath;
     }
 
-    /** Sets the repacked APK file path. */
-    public AppCrawlTesterOptions setRepackApk(File repackApk) {
-        this.mRepackApk = repackApk;
+    /** Sets the subject APK path. */
+    AppCrawlTesterOptions setSubjectApkPath(File subjectApkPath) {
+        this.mSubjectApkPath = subjectApkPath;
         return this;
     }
 
-    /** Returns the config value for the list of APK paths for installation. */
-    public List<File> getInstallApkPaths() {
-        return mInstallApkPaths;
+    /** Returns the config value for the list of extra APK paths for installation. */
+    List<File> getExtraApkPaths() {
+        return mExtraApkPaths;
     }
 
-    /** Sets the list of APK paths for installation. */
-    public AppCrawlTesterOptions setInstallApkPaths(List<File> installApkPaths) {
-        this.mInstallApkPaths = installApkPaths;
+    /** Sets the list of extra APK paths for installation before test. */
+    AppCrawlTesterOptions setExtraApkPaths(List<File> extraApkPaths) {
+        this.mExtraApkPaths = extraApkPaths;
         return this;
     }
 
-    /** Returns the config value for the list of installation arguments. */
-    public List<String> getInstallArgs() {
-        return mInstallArgs;
+    /** Returns the config value for the list of installation arguments for the subject APK. */
+    List<String> getSubjectApkInstallArgs() {
+        return mSubjectApkInstallArgs;
     }
 
-    /** Sets the list of installation arguments. */
-    public AppCrawlTesterOptions setInstallArgs(List<String> installArgs) {
-        this.mInstallArgs = installArgs;
+    /** Sets the list of installation arguments for the subject APK. */
+    AppCrawlTesterOptions setSubjectApkInstallArgs(List<String> subjectApkInstallArgs) {
+        this.mSubjectApkInstallArgs = subjectApkInstallArgs;
+        return this;
+    }
+
+    /** Returns the config value for the list of installation arguments for the extra APKs. */
+    List<String> getExtraApkInstallArgs() {
+        return mExtraApkInstallArgs;
+    }
+
+    /** Sets the list of installation arguments for the extra APKs. */
+    AppCrawlTesterOptions setExtraApkInstallArgs(List<String> extraApkInstallArgs) {
+        this.mExtraApkInstallArgs = extraApkInstallArgs;
         return this;
     }
 
     /** Returns the config value for the crawl controller endpoint URL. */
-    public String getCrawlControllerEndpoint() {
+    String getCrawlControllerEndpoint() {
         return mCrawlControllerEndpoint;
     }
 
     /** Sets the crawl controller endpoint URL. */
-    public AppCrawlTesterOptions setCrawlControllerEndpoint(String crawlControllerEndpoint) {
+    AppCrawlTesterOptions setCrawlControllerEndpoint(String crawlControllerEndpoint) {
         this.mCrawlControllerEndpoint = crawlControllerEndpoint;
         return this;
     }
 
-    /** Returns the config value for whether to enable UiAutomator mode. */
-    public boolean isUiAutomatorMode() {
-        return mUiAutomatorMode;
+    /** Returns the config value for whether to enable espresso mode. */
+    boolean isEspressoMode() {
+        return mEspressoMode;
     }
 
-    /** Sets whether to enable UiAutomator mode. */
-    public AppCrawlTesterOptions setUiAutomatorMode(boolean uiAutomatorMode) {
-        this.mUiAutomatorMode = uiAutomatorMode;
+    /** Sets whether to enable espresso mode. */
+    AppCrawlTesterOptions setEspressoMode(boolean espressoMode) {
+        this.mEspressoMode = espressoMode;
         return this;
     }
 
-    /** Returns the config value for the timeout duration in seconds. */
-    public int getTimeoutSec() {
-        return mTimeoutSec;
+    /** Returns the config value for the crawler duration timeout in seconds. */
+    int getCrawlDurationSec() {
+        return mCrawlDurationSec;
     }
 
-    /** Sets the timeout duration in seconds. */
-    public AppCrawlTesterOptions setTimeoutSec(int timeoutSec) {
-        this.mTimeoutSec = timeoutSec;
+    /** Sets the crawler duration timeout in seconds. */
+    AppCrawlTesterOptions setCrawlDurationSec(int crawlDurationSec) {
+        this.mCrawlDurationSec = crawlDurationSec;
         return this;
     }
 
     /** Returns the config value for the Roboscript file path. */
-    public File getRoboscriptFile() {
+    File getRoboscriptFile() {
         return mRoboscriptFile;
     }
 
     /** Sets the Roboscript file path. */
-    public AppCrawlTesterOptions setRoboscriptFile(File roboscriptFile) {
+    AppCrawlTesterOptions setRoboscriptFile(File roboscriptFile) {
         this.mRoboscriptFile = roboscriptFile;
         return this;
     }
 
     /** Returns the config value for the crawl guidance proto file path. */
-    public File getCrawlGuidanceProtoFile() {
+    File getCrawlGuidanceProtoFile() {
         return mCrawlGuidanceProtoFile;
     }
 
     /** Sets the crawl guidance proto file path. */
-    public AppCrawlTesterOptions setCrawlGuidanceProtoFile(File crawlGuidanceProtoFile) {
+    AppCrawlTesterOptions setCrawlGuidanceProtoFile(File crawlGuidanceProtoFile) {
         this.mCrawlGuidanceProtoFile = crawlGuidanceProtoFile;
         return this;
     }
 
     /** Gets the config value of login config directory. */
-    public File getLoginConfigDir() {
+    File getLoginConfigDir() {
         return mLoginConfigDir;
     }
 
     /** Sets the login config directory. */
-    public AppCrawlTesterOptions setLoginConfigDir(File loginConfigDir) {
+    AppCrawlTesterOptions setLoginConfigDir(File loginConfigDir) {
         this.mLoginConfigDir = loginConfigDir;
         return this;
     }
 
     /** Gets the config value for when to save apks. */
-    public TestUtils.TakeEffectWhen getSaveApkWhen() {
+    TestUtils.TakeEffectWhen getSaveApkWhen() {
         return mSaveApkWhen;
     }
 
     /** Sets when to save the apks to test artifacts. */
-    public AppCrawlTesterOptions setSaveApkWhen(TestUtils.TakeEffectWhen saveApkWhen) {
+    AppCrawlTesterOptions setSaveApkWhen(TestUtils.TakeEffectWhen saveApkWhen) {
         this.mSaveApkWhen = saveApkWhen;
         return this;
     }
@@ -267,14 +298,87 @@ public class AppCrawlTesterOptions {
     /**
      * Gets the config value for whether to grant external storage permission to the subject package
      */
-    public boolean isGrantExternalStoragePermission() {
+    boolean isGrantExternalStoragePermission() {
         return mGrantExternalStoragePermission;
     }
 
     /** Sets whether to grant external storage permission to the subject package. */
-    public AppCrawlTesterOptions setGrantExternalStoragePermission(
+    AppCrawlTesterOptions setGrantExternalStoragePermission(
             boolean grantExternalStoragePermission) {
         this.mGrantExternalStoragePermission = grantExternalStoragePermission;
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setUp(TestInformation testInfo) throws TargetSetupError {
+        try {
+            dump(testInfo, FileSystems.getDefault());
+        } catch (IOException e) {
+            throw new TargetSetupError(
+                    "Failed to dump options", e, testInfo.getDevice().getDeviceDescriptor());
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void tearDown(TestInformation testInfo, Throwable e) {
+        cleanUpDump(testInfo);
+    }
+
+    private void cleanUpDump(TestInformation testInfo) {
+        String tmpPathStr = AppCrawlTesterHostPreparer.getTempDirPath(testInfo);
+        if (tmpPathStr == null) {
+            return;
+        }
+        Path objFile = Path.of(tmpPathStr).resolve(GetObjFileName(testInfo));
+        if (!Files.exists(objFile)) {
+            return;
+        }
+        try {
+            Files.delete(objFile);
+        } catch (IOException e2) {
+            CLog.w("Failed to delete %s: %s", objFile, e2);
+        }
+    }
+
+    @VisibleForTesting
+    void dump(TestInformation testInfo, FileSystem fileSystem) throws IOException {
+        String tmpPathStr = AppCrawlTesterHostPreparer.getTempDirPath(testInfo);
+        Preconditions.checkNotNull(tmpPathStr, "Temp dir not found.");
+        Preconditions.checkArgument(
+                Files.exists(fileSystem.getPath(tmpPathStr)), "Temp dir not exist.");
+        Path objFile = fileSystem.getPath(tmpPathStr).resolve(GetObjFileName(testInfo));
+        Files.createFile(objFile);
+
+        try (OutputStream fos = Files.newOutputStream(objFile);
+                ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+            oos.writeObject(this);
+        }
+    }
+
+    /** Loads the option object from test information. */
+    public static AppCrawlTesterOptions load(TestInformation testInfo, FileSystem fileSystem)
+            throws CrawlerException {
+        if (!AppCrawlTesterHostPreparer.isReady(testInfo)) {
+            throw new CrawlerException("");
+        }
+        String tmpPathStr = AppCrawlTesterHostPreparer.getTempDirPath(testInfo);
+        Preconditions.checkNotNull(
+                tmpPathStr, "Temp dir not found, crawl host preparer likely not run.");
+        Path dump = fileSystem.getPath(tmpPathStr).resolve(GetObjFileName(testInfo));
+
+        try {
+            try (InputStream fis = Files.newInputStream(dump);
+                    ObjectInputStream ois = new ObjectInputStream(fis)) {
+                return (AppCrawlTesterOptions) ois.readObject();
+            }
+        } catch (ClassNotFoundException | IOException e) {
+            throw new CrawlerException(e);
+        }
+    }
+
+    private static String GetObjFileName(TestInformation testInfo) {
+        return testInfo.hashCode() + ".dump";
     }
 }
