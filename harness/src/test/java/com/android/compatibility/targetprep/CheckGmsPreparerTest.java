@@ -19,9 +19,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
 
-import com.android.ddmlib.Log;
-import com.android.ddmlib.Log.ILogOutput;
-import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.log.Log;
+import com.android.tradefed.log.Log.ILogOutput;
+import com.android.tradefed.log.Log.LogLevel;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
