@@ -194,6 +194,7 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
             mIsLastTestPass = true;
             // Do not throw to fail the test here as it's not compile related
             Assume.assumeNoException(e);
+            return;
         }
 
         throw testFailureThrowable;
