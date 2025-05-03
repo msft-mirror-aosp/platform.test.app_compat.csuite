@@ -158,8 +158,8 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
                 getDevice().executeShellV2Command("cmd package compile -m speed " + mPackageName);
         Assert.assertEquals(
                 "Failed to execute compile command: " + cmdResult,
-                cmdResult.getStatus(),
-                CommandStatus.SUCCESS);
+                CommandStatus.SUCCESS,
+                cmdResult.getStatus());
 
         try {
             doTestAppCrash(false);
