@@ -30,19 +30,24 @@
     </test>
 
     <option name="config-descriptor:metadata" key="test-type" value="performance" />
-    <metric_post_processor class="com.android.tradefed.postprocessor.PerfettoGenericPostProcessor">
-        <option name="perfetto-proto-file-prefix" value="metric_perfetto"/>
-        <option name="perfetto-metric-filter-regex" value="android_startup-.*"/>
-    </metric_post_processor>
-
-    <metric_post_processor class="com.android.tradefed.postprocessor.PerfettoTracePostProcessor">
-        <option name="perfetto-trace-file-regex" value="device-trace.*"/>
-        <option name="trace-processor-run-metrics" value="android_startup"/>
-        <option name="trace-processor-binary" value="prebuilts/tools/linux-x86_64/perfetto/trace_processor_shell"/>
-    </metric_post_processor>
 
     <metrics_collector class="com.android.tradefed.device.metric.DeviceTraceCollector">
         <option name="trace-config-file" value="trace_config.textproto"/>
         <option name="per-run" value="false"/>
     </metrics_collector>
+
+    <metric_post_processor class="com.android.tradefed.postprocessor.MetricFilePostProcessor"/>
+
+    <metric_post_processor class="com.android.tradefed.postprocessor.PerfettoGenericPostProcessor">
+        <option name="perfetto-proto-file-prefix" value="metric_device-trace"/>
+        <option name="perfetto-indexed-list-field" value="perfetto.protos.AndroidStartupMetric.startup" />
+        <option name="perfetto-metric-filter-regex" value="android_startup-startup-.*startup_type.*-to_first_frame-dur_ms"/>
+        <option name="perfetto-metric-filter-regex" value="android_startup-startup-.*package_name.*-to_first_frame-dur_ms"/>
+    </metric_post_processor>
+
+    <metric_post_processor class="com.android.tradefed.postprocessor.PerfettoTracePostProcessor">
+        <option name="perfetto-trace-file-regex" value="device-trace.*"/>
+        <option name="trace-processor-run-metrics" value="android_startup"/>
+        <option name="trace-processor-binary" value="gs://tradefed_crystalball/trace_processor_lab_version/Feb-27-2025/trace_processor_shell"/>
+    </metric_post_processor>
 </configuration>
