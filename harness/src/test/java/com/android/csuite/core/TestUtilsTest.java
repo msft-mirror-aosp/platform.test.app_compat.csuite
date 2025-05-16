@@ -160,6 +160,29 @@ public final class TestUtilsTest {
     }
 
     @Test
+    public void listApks_withSplitApkAndObbFiles_returnsApksWithObbInCorrectOrder()
+            throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("config.apk"));
+        Files.createFile(root.resolve("base.apk"));
+        Files.createFile(root.resolve("main.123.package.obb"));
+        Files.createFile(root.resolve("patch.123.package.obb"));
+
+        List<Path> res = TestUtils.listApks(root);
+
+        List<String> fileNames =
+                res.stream()
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toList());
+        assertThat(fileNames)
+                .containsExactly(
+                        "base.apk", "config.apk", "main.123.package.obb", "patch.123.package.obb")
+                .inOrder();
+    }
+
+    @Test
     public void listApks_withApkDirectoryContainingOtherFileTypes_returnsApksOnly()
             throws Exception {
         Path root = mFileSystem.getPath("apk");

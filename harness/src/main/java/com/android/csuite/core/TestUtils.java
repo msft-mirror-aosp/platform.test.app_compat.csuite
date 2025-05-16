@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -442,19 +443,32 @@ public class TestUtils {
                                     apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
-        Collections.sort(
-                apksAndObbs,
-                (first, second) -> {
-                    if (first.getFileName().toString().equals("base.apk")) {
-                        return -1;
-                    } else if (first.getFileName().toString().toLowerCase().endsWith(".obb")) {
-                        return 1;
-                    } else {
-                        return first.getFileName().compareTo(second.getFileName());
-                    }
-                });
+        // Reorder the apks and obbs to put the base.apk on the first index and .obb files on the
+        // end.
+        var reorderedApksAndObbs = new ArrayList<Path>();
+        apksAndObbs.stream()
+                .filter(path -> path.getFileName().toString().equals("base.apk"))
+                .forEach(reorderedApksAndObbs::add);
+        apksAndObbs.stream()
+                .filter(
+                        path ->
+                                path.getFileName().toString().endsWith(".apk")
+                                        && !path.getFileName().toString().equals("base.apk"))
+                .forEach(reorderedApksAndObbs::add);
+        apksAndObbs.stream()
+                .filter(
+                        path ->
+                                path.getFileName().toString().endsWith(".obb")
+                                        && path.getFileName().toString().startsWith("main"))
+                .forEach(reorderedApksAndObbs::add);
+        apksAndObbs.stream()
+                .filter(
+                        path ->
+                                path.getFileName().toString().endsWith(".obb")
+                                        && !path.getFileName().toString().startsWith("main"))
+                .forEach(reorderedApksAndObbs::add);
 
-        return apksAndObbs;
+        return reorderedApksAndObbs;
     }
 
     /** Returns the test information. */
