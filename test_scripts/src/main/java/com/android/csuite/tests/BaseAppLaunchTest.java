@@ -18,6 +18,7 @@ package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller;
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
+import com.android.csuite.core.AutoFDOProfileCollector;
 import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle;
 import com.android.csuite.core.BlankScreenDetectorWithSameColorRectangle.BlankScreen;
 import com.android.csuite.core.DeviceUtils;
@@ -69,6 +70,7 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
   protected ApkInstaller mApkInstaller;
   protected boolean mIsLastTestPass;
   protected boolean mIsApkSaved = false;
+  protected AutoFDOProfileCollector mAutoFDOProfileCollector;
 
   @Option(name = RECORD_SCREEN, description = "Whether to record screen during test.")
   protected boolean mRecordScreen;
@@ -91,6 +93,13 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
                   "Whether to collect GMS core version information and store the information in"
                           + " test log files.")
   protected boolean mCollectGmsVersion;
+
+  @Option(
+          name = "collect-autofdo-profile",
+          description =
+                  "Whether to collect kernel AutoFDO profile and store the information in"
+                          + " test log files.")
+  private boolean mCollectAutoFDOProfile;
 
   @Option(
           name = "install-apk",
@@ -147,6 +156,10 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
       mTestUtils.collectAppVersion(mPackageName);
     }
 
+    if (mCollectAutoFDOProfile) {
+      mAutoFDOProfileCollector = AutoFDOProfileCollector.newInstance(getDevice());
+    }
+
     mDeviceUtils.freezeRotation();
   }
 
@@ -178,6 +191,11 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
 
     AtomicReference<DeviceTimestamp> startTime = new AtomicReference<>();
     AtomicReference<DeviceTimestamp> videoStartTime = new AtomicReference<>();
+
+    if (mCollectAutoFDOProfile
+            && !mAutoFDOProfileCollector.recordAutoFDOProfile(mAppLaunchTimeoutMs / 1000.0)) {
+        CLog.e("Failed to record AutoFDO profile.");
+    }
 
     performAppLaunch(startTime, videoStartTime);
 
@@ -233,6 +251,14 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
 
     if (mScreenshotAfterLaunch) {
       mTestUtils.collectScreenshot(mPackageName);
+    }
+
+    if (mCollectAutoFDOProfile) {
+      try {
+        mAutoFDOProfileCollector.collectAutoFDOProfile(mTestUtils.getTestArtifactReceiver());
+      } catch (DeviceNotAvailableException e) {
+        CLog.e("AutoFDO profile collection failed during teardown: %s", e.getMessage());
+      }
     }
 
     mDeviceUtils.stopPackage(mPackageName);

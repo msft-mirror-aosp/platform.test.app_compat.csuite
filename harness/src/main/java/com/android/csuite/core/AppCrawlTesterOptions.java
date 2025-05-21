@@ -59,6 +59,13 @@ public class AppCrawlTesterOptions implements ITargetPreparer, Serializable {
                             + " in test log files.")
     private boolean mCollectGmsVersion;
 
+    @Option(
+            name = "collect-autofdo-profile",
+            description =
+                    "Whether to collect kernel AutoFDO profile and store the information in"
+                            + " test log files.")
+    private boolean mCollectAutoFDOProfile;
+
     @Option(name = "subject-package-name", description = "Package name of the app being crawled.")
     private String mSubjectPackageName;
 
@@ -172,6 +179,11 @@ public class AppCrawlTesterOptions implements ITargetPreparer, Serializable {
     AppCrawlTesterOptions setCollectGmsVersion(boolean collectGmsVersion) {
         this.mCollectGmsVersion = collectGmsVersion;
         return this;
+    }
+
+    /** Returns the config value for whether to collect AutoFDO profile. */
+    boolean isCollectAutoFDOProfile() {
+        return mCollectAutoFDOProfile;
     }
 
     /** Returns the config value for the subject APK path. */
