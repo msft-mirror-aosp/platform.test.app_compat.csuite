@@ -201,6 +201,148 @@ public final class DeviceUtilsTest {
         sut.launchPackage("package.name");
     }
 
+  @Test
+    public void warmLaunchPackage_pmDumpFailedAndPackageDoesNotExist_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("no packages"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("package.name"));
+    }
+
+    @Test
+    public void warmLaunchPackage_pmDumpFailedAndPackageExists_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("package:package.name"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("package.name"));
+    }
+
+    @Test
+    public void warmLaunchPackage_amStartCommandFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("com.google.android.gms"));
+    }
+
+    @Test
+    public void warmLaunchPackage_amFailedToLaunchThePackage_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "Error: Activity not started, unable to resolve Intent"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("com.google.android.gms"));
+    }
+
+    @Test
+    public void warmLaunchPackage_amSucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        sut.warmLaunchPackage("com.google.android.gms");
+    }
+
+    @Test
+    public void pressHome_amFailed_throw() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start -a")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceNotAvailableException.class, () -> sut.pressHome());
+    }
+
+    @Test
+    public void pressHome_amSucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start -a")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        sut.pressHome();
+    }
+
+    @Test
+    public void getLaunchActivityName_pmDumpFailedAndPackageDoesNotExists_throw() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("no packages"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.getLaunchActivityName("package.name"));
+    }
+
+    @Test
+    public void getLaunchActivityName_pmDumpFailedAndPackageExists_throw() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(createFailedCommandResult());
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
+                .thenReturn(createSuccessfulCommandResultWithStdout("package:package.name"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.getLaunchActivityName("package.name"));
+    }
+
+    @Test
+    public void getLaunchActivityName_pmDumpSucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "        87f1610"
+                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
+                                    + " filter 7357509\n"
+                                    + "          Action: \"android.intent.action.MAIN\"\n"
+                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
+                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
+                                    + "          Category:"
+                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        sut.getLaunchActivityName("com.google.android.gms");
+    }
+
     @Test
     public void getLaunchActivity_oneActivityIsLauncherAndMainAndDefault_returnsIt()
             throws Exception {
