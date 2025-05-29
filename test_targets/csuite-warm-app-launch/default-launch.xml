@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2025 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<configuration description="Warm launches an app and check for crashes while collecting perfetto traces">
+    <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
+        <option name="run-command" value="input keyevent KEYCODE_MENU"/>
+        <option name="run-command" value="input keyevent KEYCODE_HOME"/>
+    </target_preparer>
+    <test class="com.android.tradefed.testtype.HostTest" >
+        <option name="set-option" value="package-name:{package}"/>
+        <option name="set-option" value="install-apk:app\://{package}"/>
+        <option name="set-option" value="install-arg:-g"/>
+        <option name="set-option" value="warm-app-launch-count:9"/>
+        <option name="class" value="com.android.csuite.tests.WarmAppLaunchTest" />
+    </test>
+
+    <option name="config-descriptor:metadata" key="test-type" value="performance" />
+
+    <metrics_collector class="com.android.tradefed.device.metric.DeviceTraceCollector">
+        <option name="trace-config-file" value="trace_config.textproto"/>
+        <option name="per-run" value="false"/>
+    </metrics_collector>
+
+    <metric_post_processor class="com.android.tradefed.postprocessor.MetricFilePostProcessor"/>
+
+    <metric_post_processor class="com.android.tradefed.postprocessor.PerfettoGenericPostProcessor">
+        <option name="perfetto-proto-file-prefix" value="metric_device-trace"/>
+        <option name="perfetto-indexed-list-field" value="perfetto.protos.AndroidStartupMetric.startup" />
+        <option name="perfetto-prefix-key-field" value="perfetto.protos.AndroidStartupMetric.Startup.process_name" />
+        <option name="perfetto-metric-filter-regex" value="android_startup-startup-.*process_name-.*startup_type.*-to_first_frame-dur_ms"/>
+    </metric_post_processor>
+
+    <metric_post_processor class="com.android.tradefed.postprocessor.PerfettoTracePostProcessor">
+        <option name="perfetto-trace-file-regex" value="device-trace.*"/>
+        <option name="trace-processor-run-metrics" value="android_startup"/>
+        <option name="trace-processor-binary" value="gs://tradefed_crystalball/trace_processor_lab_version/Feb-27-2025/trace_processor_shell"/>
+    </metric_post_processor>
+</configuration>
