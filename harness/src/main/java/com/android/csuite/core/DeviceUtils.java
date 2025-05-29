@@ -342,6 +342,68 @@ public class DeviceUtils {
                         + " command failed: %s",
                 packageName, monkeyResult);
 
+        String activity = getLaunchActivityName(packageName);
+
+        CommandResult amResult =
+                mDevice.executeShellV2Command(String.format("am start -n %s", activity));
+        if (amResult.getStatus() != CommandStatus.SUCCESS
+                || amResult.getExitCode() != 0
+                || amResult.getStdout().contains("Error")) {
+            throw new DeviceUtilsException(
+                    String.format(
+                            "The command to start the package %s with activity %s failed: %s",
+                            packageName, activity, amResult));
+        }
+    }
+
+    /**
+     * Warm launches a package on the device.
+     *
+     * @param packageName The package name to launch.
+     * @throws DeviceNotAvailableException When device was lost.
+     * @throws DeviceUtilsException When failed to launch the package.
+     */
+    public void warmLaunchPackage(String packageName)
+            throws DeviceUtilsException, DeviceNotAvailableException {
+        String activity = getLaunchActivityName(packageName);
+
+        // 0x00008000: Set the FLAG_ACTIVITY_CLEAR_TASK flag to the intent when it launches the app.
+        CommandResult amResult =
+                mDevice.executeShellV2Command(String.format("am start -f 0x00008000 -W -n %s", activity));
+        if (amResult.getStatus() != CommandStatus.SUCCESS
+                || amResult.getExitCode() != 0
+                || amResult.getStdout().contains("Error")) {
+            throw new DeviceUtilsException(
+                    String.format(
+                            "The command to warm start the package %s with activity %s failed: %s",
+                            packageName, activity, amResult));
+        }
+    }
+
+    /**
+     * Presses the home button on the device.
+     *
+     * @throws DeviceNotAvailableException When device was lost.
+     */
+    public void pressHome() throws DeviceNotAvailableException {
+        CommandResult homeResult = mDevice.executeShellV2Command("am start -a android.intent.action.MAIN -c android.intent.category.HOME");
+        if (homeResult.getStatus() != CommandStatus.SUCCESS || homeResult.getExitCode() != 0) {
+            throw new DeviceNotAvailableException(
+                    String.format(
+                            "The command to press home failed: %s",
+                            homeResult));
+        }
+    }
+
+    /**
+     * Gets the launch activity name of a package.
+     *
+     * @param packageName The package name to get the launch activity name for.
+     * @return The launch activity name of the package.
+     * @throws DeviceNotAvailableException When device was lost.
+     * @throws DeviceUtilsException When failed to get the launch activity name.
+     */
+    String getLaunchActivityName(String packageName) throws DeviceUtilsException, DeviceNotAvailableException {
         CommandResult pmResult =
                 mDevice.executeShellV2Command(String.format("pm dump %s", packageName));
         if (pmResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
@@ -355,19 +417,7 @@ public class DeviceUtils {
                         String.format("Package %s is not installed on the device.", packageName));
             }
         }
-
-        String activity = getLaunchActivity(pmResult.getStdout());
-
-        CommandResult amResult =
-                mDevice.executeShellV2Command(String.format("am start -n %s", activity));
-        if (amResult.getStatus() != CommandStatus.SUCCESS
-                || amResult.getExitCode() != 0
-                || amResult.getStdout().contains("Error")) {
-            throw new DeviceUtilsException(
-                    String.format(
-                            "The command to start the package %s with activity %s failed: %s",
-                            packageName, activity, amResult));
-        }
+        return getLaunchActivity(pmResult.getStdout());
     }
 
     /**
