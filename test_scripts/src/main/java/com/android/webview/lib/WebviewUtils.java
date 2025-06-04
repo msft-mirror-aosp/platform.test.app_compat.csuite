@@ -69,8 +69,8 @@ public class WebviewUtils {
         Assert.assertEquals(
                 "The WebView installer tool failed to install WebView:\n"
                         + commandResult.toString(),
-                commandResult.getStatus(),
-                CommandStatus.SUCCESS);
+                CommandStatus.SUCCESS,
+                commandResult.getStatus());
 
         printWebviewVersion();
         return getCurrentWebviewPackage();
