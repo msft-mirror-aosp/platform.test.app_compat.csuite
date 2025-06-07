@@ -67,6 +67,7 @@ public final class AppCrawlTester {
     private final ExecutionStage mExecutionStage = new ExecutionStage();
     private boolean mNoThrowOnFailure = false;
     private AppCrawlTesterOptions mConfigOptions;
+    private AutoFDOProfileCollector mAutoFDOProfileCollector;
 
     /**
      * Creates an {@link AppCrawlTester} instance.
@@ -212,12 +213,26 @@ public final class AppCrawlTester {
         for (String cmd : unlockScreenCmd) {
             mTestUtils.getDeviceUtils().getITestDevice().executeShellV2Command(cmd);
         }
+        if (mConfigOptions.isCollectAutoFDOProfile()) {
+            mAutoFDOProfileCollector =
+                    new AutoFDOProfileCollector(
+                            mTestUtils.getDeviceUtils().getITestDevice(), mRunUtilProvider);
+        }
 
         mExecutionStage.setSetupComplete(true);
     }
 
     /** Runs only the teardown step of the crawl test. */
     public void runTearDown() {
+        if (mConfigOptions.isCollectAutoFDOProfile()) {
+            try {
+                mAutoFDOProfileCollector.collectAutoFDOProfile(
+                        mTestUtils.getTestArtifactReceiver());
+            } catch (DeviceNotAvailableException e) {
+                CLog.e("AutoFDO profile collection failed during teardown: %s", e.getMessage());
+            }
+        }
+
         List<File> apksToSave = new ArrayList<>(mConfigOptions.getExtraApkPaths());
         if (mConfigOptions.getSubjectApkPath() != null) {
             apksToSave.add(mConfigOptions.getSubjectApkPath());
@@ -361,6 +376,12 @@ public final class AppCrawlTester {
 
         if (mConfigOptions.isCollectGmsVersion()) {
             mTestUtils.collectGmsVersion(mConfigOptions.getSubjectPackageName());
+        }
+
+        if (mConfigOptions.isCollectAutoFDOProfile()
+                && !mAutoFDOProfileCollector.recordAutoFDOProfile(
+                        mConfigOptions.getCrawlDurationSec())) {
+            CLog.e("Failed to record AutoFDO profile");
         }
 
         // Minimum timeout 3 minutes plus crawl test timeout. In espresso mode, extend the timeout
