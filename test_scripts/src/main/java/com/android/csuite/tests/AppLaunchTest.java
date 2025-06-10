@@ -43,7 +43,12 @@ public class AppLaunchTest extends BaseAppLaunchTest {
                 () -> {
                     startTime.set(mDeviceUtils.currentTimeMillis());
                     try {
-                        mDeviceUtils.launchPackage(mPackageName);
+                        // TODO(jelenacvetic): Remove this option once this method is tested.
+                        if (mColdAppLaunch) {
+                            mDeviceUtils.coldLaunchPackage(mPackageName);
+                        } else {
+                            mDeviceUtils.launchPackage(mPackageName);
+                        }
                     } catch (DeviceUtilsException e) {
                         Assert.fail(
                                 "Failed to launch package " + mPackageName + ": " + e.getMessage());

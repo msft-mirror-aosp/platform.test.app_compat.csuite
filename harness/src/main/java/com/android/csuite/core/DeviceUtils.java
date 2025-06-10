@@ -38,9 +38,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -357,6 +359,30 @@ public class DeviceUtils {
     }
 
     /**
+     * Cold launches a package on the device.
+     *
+     * @param packageName The package name to launch.
+     * @throws DeviceNotAvailableException When device was lost.
+     * @throws DeviceUtilsException When failed to launch the package.
+     */
+    public void coldLaunchPackage(String packageName)
+            throws DeviceUtilsException, DeviceNotAvailableException {
+
+        String activity = getLaunchActivityWithCmd(packageName);
+        CommandResult amResult =
+                mDevice.executeShellV2Command(String.format("am start -n '%s'", activity));
+        if (amResult.getStatus() != CommandStatus.SUCCESS
+                || amResult.getExitCode() != 0
+                || amResult.getStdout().contains("Error")) {
+            throw new DeviceUtilsException(
+                    String.format(
+                            "The command to start the package %s with activity %s failed: %s",
+                            packageName, activity, amResult));
+        }
+        CLog.w("Cold launching package %s with command %s", packageName, String.format("am start -n %s", activity));
+    }
+
+    /**
      * Warm launches a package on the device.
      *
      * @param packageName The package name to launch.
@@ -365,19 +391,23 @@ public class DeviceUtils {
      */
     public void warmLaunchPackage(String packageName)
             throws DeviceUtilsException, DeviceNotAvailableException {
-        String activity = getLaunchActivityName(packageName);
+        String activity = getLaunchActivityWithCmd(packageName);
 
+        // Wait for the device to be ready. Without this there will be no time to record warm app start time.
+        RunUtil.getDefault().sleep(500);
         // 0x00008000: Set the FLAG_ACTIVITY_CLEAR_TASK flag to the intent when it launches the app.
+        String command = String.format("am start -f 0x00008000 -W -n '%s'", activity);
         CommandResult amResult =
-                mDevice.executeShellV2Command(String.format("am start -f 0x00008000 -W -n %s", activity));
+                mDevice.executeShellV2Command(command);
         if (amResult.getStatus() != CommandStatus.SUCCESS
                 || amResult.getExitCode() != 0
                 || amResult.getStdout().contains("Error")) {
             throw new DeviceUtilsException(
                     String.format(
                             "The command to warm start the package %s with activity %s failed: %s",
-                            packageName, activity, amResult));
+                            packageName, activity, command));
         }
+        CLog.w("Warm launching package %s with command %s", packageName, String.format("am start -f 0x00008000 -W -n '%s'", activity));
     }
 
     /**
@@ -419,6 +449,72 @@ public class DeviceUtils {
         }
         return getLaunchActivity(pmResult.getStdout());
     }
+
+    /**
+     * Gets the launch activity for a given package using 'cmd package resolve-activity'.
+     *
+     * @param packageName The package name to query.
+     * @return The fully qualified launch activity component name.
+     * @throws DeviceNotAvailableException if the device is not available.
+     * @throws DeviceUtilsException if the command fails.
+     */
+    public String getLaunchActivityWithCmd(String packageName)
+            throws DeviceNotAvailableException, DeviceUtilsException {
+
+        String command = "cmd package resolve-activity --brief -c android.intent.category.LAUNCHER " + packageName + "| tail -n 1";
+        CommandResult result = mDevice.executeShellV2Command(command);
+
+        if (result.getStatus() != CommandStatus.SUCCESS || result.getStdout() == null || result.getStdout().isEmpty() || result.getExitCode() != 0) {
+            String errorDetails = String.format(
+                    "Failed to execute resolve-activity for package '%s'. Command: '%s', Status: %s, ExitCode: %s, Stderr: '%s', Stdout: '%s'",
+                    packageName, command, result.getStatus(), result.getExitCode(), result.getStderr(), result.getStdout());
+            throw new DeviceUtilsException(errorDetails);
+        }
+
+        String commandOutput = result.getStdout();
+
+        if (commandOutput.contains("/") && commandOutput.contains(".") && !commandOutput.startsWith("No activity found")) {
+            return commandOutput.trim();
+        }
+
+        CLog.w("Could not found the launch activity for package '%s' using command '%s'. Output: '%s'.",
+                packageName, command, commandOutput);
+        CLog.w("Continuing to attempt using pm command to get the launch activity for package '%s'", packageName);
+        return getLaunchActivityName(packageName);
+    }
+
+    /**
+     * Retrieves a set of active activities from the device's activity stack.
+     * This method can be used to capture the device state before and after an action
+     * to determine if a new app/activity has come to the foreground.
+     *
+     * @return A set of strings, where each string represents an active activity (e.g., "com.package.name/.ActivityName").
+     * Returns an empty set if no activities are found or if the command fails.
+     * @throws DeviceNotAvailableException When device was lost.
+     * @throws DeviceUtilsException If there's an issue executing the shell command.
+     */
+    public Set<String> getActiveActivities() throws DeviceNotAvailableException, DeviceUtilsException {
+        Set<String> activities = new HashSet<>();
+        CommandResult focusResult = mDevice.executeShellV2Command(
+            "dumpsys activity activities | grep ActivityRecord");
+
+        if (focusResult.getStatus() == CommandStatus.SUCCESS && focusResult.getStdout() != null) {
+            String dumpsysOutput = focusResult.getStdout();
+            // Example of the regex input: "topResumedActivity=ActivityRecord{53140213 u10 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t1000002}"
+            // Example of the regex output: "com.google.android.apps.nexuslauncher/.NexusLauncherActivity"
+            Pattern pattern = Pattern.compile("u\\d+\\s+([a-zA-Z0-9._-]+/[a-zA-Z0-9.$_\\-+]+)");
+            Matcher matcher = pattern.matcher(dumpsysOutput);
+
+            activities = matcher.results()
+                            .map(matchResult -> matchResult.group(1))
+                                .collect(Collectors.toSet());
+        } else {
+            CLog.w("Could not retrieve active activities: %s", focusResult);
+            throw new DeviceUtilsException("Failed to retrieve active activities.");
+        }
+        return activities;
+    }
+
 
     /**
      * Extracts the launch activity from a pm dump output.
