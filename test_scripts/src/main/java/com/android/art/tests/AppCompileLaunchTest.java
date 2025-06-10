@@ -147,9 +147,9 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
 
         deviceUtils.freezeRotation();
         } catch (ApkInstallerException | IOException | DeviceNotAvailableException e) {
-            CLog.e("Skipping the test on %s as the setup failed: %s", mPackageName, e.getMessage());
             // Do not throw to fail the test here as it's not compile related
-            Assume.assumeNoException(e);
+            CLog.e("Skipping the test on %s as the setup failed: %s", mPackageName, e.getMessage());
+            return;
         }
 
         Throwable testFailureThrowable = null;
@@ -187,13 +187,12 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
         try {
             doTestAppCrash(true);
         } catch (Throwable e) {
+            // Do not throw to fail the test here as it's not compile related
             CLog.i(
                     "Ignoring test result for %s as the test failed both with and without art"
                             + " compile.",
                     mPackageName);
             mIsLastTestPass = true;
-            // Do not throw to fail the test here as it's not compile related
-            Assume.assumeNoException(e);
             return;
         }
 
@@ -304,9 +303,8 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
             deviceUtils.unfreezeRotation();
             mApkInstaller.uninstallAllInstalledPackages();
         } catch (ApkInstallerException | DeviceNotAvailableException e) {
-            CLog.e("Failed to tearDown the test for %s", mPackageName);
             // Do not throw to fail the test here as it's not compile related
-            Assume.assumeNoException(e);
+            CLog.e("Failed to tearDown the test for %s", mPackageName);
         }
     }
 }
