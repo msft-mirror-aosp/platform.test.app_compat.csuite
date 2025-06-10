@@ -20,6 +20,13 @@
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
         <option name="run-command" value="input keyevent KEYCODE_HOME"/>
+        <!-- permissions -->
+        <option name="run-command"
+                value="pm grant --user 10 com.google.android.youtube android.permission.POST_NOTIFICATIONS"/>
+        <option name="run-command"
+                value="pm grant --user 10 com.google.android.apps.betterbug.partners android.permission.POST_NOTIFICATIONS"/>
+        <option name="run-command"
+                value="pm grant --user 10 com.google.android.apps.betterbug.partners android.permission.BLUETOOTH_CONNECT"/>
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="set-option" value="package-name:{package}"/>
