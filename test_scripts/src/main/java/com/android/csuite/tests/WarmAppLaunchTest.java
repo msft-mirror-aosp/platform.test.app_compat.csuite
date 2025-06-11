@@ -47,6 +47,7 @@ public class WarmAppLaunchTest extends BaseAppLaunchTest {
 
         try {
             mDeviceUtils.warmLaunchPackage(mPackageName);
+            RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
         } catch (DeviceUtilsException e) {
             Assert.fail("Failed to launch package: " + e.getMessage());
         }

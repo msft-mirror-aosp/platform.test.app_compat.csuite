@@ -31,12 +31,17 @@ import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
+import static org.mockito.Mockito.verify;
+import org.mockito.Spy;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -201,88 +206,96 @@ public final class DeviceUtilsTest {
         sut.launchPackage("package.name");
     }
 
-  @Test
-    public void warmLaunchPackage_pmDumpFailedAndPackageDoesNotExist_throws() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
-                .thenReturn(createFailedCommandResult());
-        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
-                .thenReturn(createSuccessfulCommandResultWithStdout("no packages"));
-        DeviceUtils sut = createSubjectUnderTest();
-
-        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("package.name"));
-    }
-
     @Test
-    public void warmLaunchPackage_pmDumpFailedAndPackageExists_throws() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
-                .thenReturn(createFailedCommandResult());
-        when(mDevice.executeShellV2Command(Mockito.startsWith("pm list packages")))
-                .thenReturn(createSuccessfulCommandResultWithStdout("package:package.name"));
-        DeviceUtils sut = createSubjectUnderTest();
-
-        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("package.name"));
-    }
-
-    @Test
-    public void warmLaunchPackage_amStartCommandFailed_throws() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+    public void coldLaunchPackage_amStartCommandFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
                 .thenReturn(
-                        createSuccessfulCommandResultWithStdout(
-                                "        87f1610"
-                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
-                                    + " filter 7357509\n"
-                                    + "          Action: \"android.intent.action.MAIN\"\n"
-                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
-                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
-                                    + "          Category:"
-                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+                        createSuccessfulCommandResultWithStdout("package.name/.LauncherActivity"));
         when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
                 .thenReturn(createFailedCommandResult());
         DeviceUtils sut = createSubjectUnderTest();
 
-        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("com.google.android.gms"));
+        assertThrows(DeviceUtilsException.class, () -> sut.coldLaunchPackage("package.name"));
     }
 
     @Test
-    public void warmLaunchPackage_amFailedToLaunchThePackage_throws() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+    public void coldLaunchPackage_amFailedToLaunchThePackage_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
                 .thenReturn(
-                        createSuccessfulCommandResultWithStdout(
-                                "        87f1610"
-                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
-                                    + " filter 7357509\n"
-                                    + "          Action: \"android.intent.action.MAIN\"\n"
-                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
-                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
-                                    + "          Category:"
-                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+                        createSuccessfulCommandResultWithStdout("package.name/.LauncherActivity"));
         when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
                 .thenReturn(
                         createSuccessfulCommandResultWithStdout(
                                 "Error: Activity not started, unable to resolve Intent"));
         DeviceUtils sut = createSubjectUnderTest();
 
-        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("com.google.android.gms"));
+        assertThrows(DeviceUtilsException.class, () -> sut.coldLaunchPackage("package.name"));
     }
 
     @Test
-    public void warmLaunchPackage_amSucceed_doesNotThrow() throws Exception {
-        when(mDevice.executeShellV2Command(Mockito.startsWith("pm dump")))
+    public void coldLaunchPackage_cmdSucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
                 .thenReturn(
-                        createSuccessfulCommandResultWithStdout(
-                                "        87f1610"
-                                    + " com.google.android.gms/.app.settings.GoogleSettingsActivity"
-                                    + " filter 7357509\n"
-                                    + "          Action: \"android.intent.action.MAIN\"\n"
-                                    + "          Category: \"android.intent.category.LAUNCHER\"\n"
-                                    + "          Category: \"android.intent.category.DEFAULT\"\n"
-                                    + "          Category:"
-                                    + " \"android.intent.category.NOTIFICATION_PREFERENCES\""));
+                        createSuccessfulCommandResultWithStdout("package.name/.LauncherActivity"));
         when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
                 .thenReturn(createSuccessfulCommandResultWithStdout(""));
         DeviceUtils sut = createSubjectUnderTest();
 
-        sut.warmLaunchPackage("com.google.android.gms");
+        sut.coldLaunchPackage("package.name");
+    }
+
+    @Test
+    public void coldLaunchPackage_cmdFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+        assertThrows(DeviceUtilsException.class, () -> sut.coldLaunchPackage("package.name"));
+    }
+
+    @Test
+    public void warmLaunchPackage_amStartCommandFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout("package.name/.LauncherActivity"));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("package.name"));
+    }
+
+    @Test
+    public void warmLaunchPackage_amFailedToLaunchThePackage_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout("package.name/.LauncherActivity"));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "Error: Activity not started, unable to resolve Intent"));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("package.name"));
+    }
+
+    @Test
+    public void warmLaunchPackage_cmdSucceed_doesNotThrow() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout("package.name/.LauncherActivity"));
+        when(mDevice.executeShellV2Command(Mockito.startsWith("am start")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest();
+
+        sut.warmLaunchPackage("package.name");
+    }
+
+    @Test
+    public void warmLaunchPackage_cmdFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+        assertThrows(DeviceUtilsException.class, () -> sut.warmLaunchPackage("package.name"));
     }
 
     @Test
@@ -301,6 +314,62 @@ public final class DeviceUtilsTest {
         DeviceUtils sut = createSubjectUnderTest();
 
         sut.pressHome();
+    }
+
+    @Test
+    public void getLaunchActivityWithCmd_cmdFailed_throw() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+
+        assertThrows(DeviceUtilsException.class, () -> sut.getLaunchActivityWithCmd("package.name"));
+    }
+
+    @Test
+    public void getLaunchActivityWithCmd_cmdFailedWithEmptyStdout_throw() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        DeviceUtils sut = createSubjectUnderTest();
+        assertThrows(DeviceUtilsException.class, () -> sut.getLaunchActivityWithCmd("package.name"));
+    }
+
+    @Test
+    public void getLaunchActivityWithCmd_cmdFailedWithNullStdout_throw() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(createSuccessfulCommandResultWithStdout(null));
+        DeviceUtils sut = createSubjectUnderTest();
+        assertThrows(DeviceUtilsException.class, () -> sut.getLaunchActivityWithCmd("package.name"));
+    }
+
+    @Test
+    public void getLaunchActivityWithCmd_cmdSucceed_returnsTheLaunchActivity() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("cmd package resolve-activity")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout("com.google.android.gm/.LauncherActivity"));
+        DeviceUtils sut = createSubjectUnderTest();
+        String res = sut.getLaunchActivityWithCmd("com.google.android.gms");
+        assertThat(res).isEqualTo("com.google.android.gm/.LauncherActivity");
+    }
+
+    @Test
+    public void getActiveActivities_dumpsysFailed_throws() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("dumpsys activity activities")))
+                .thenReturn(createFailedCommandResult());
+        DeviceUtils sut = createSubjectUnderTest();
+        assertThrows(DeviceUtilsException.class, () -> sut.getActiveActivities());
+    }
+
+    @Test
+    public void getActiveActivities_dumpsysSucceed_returnsTheActiveActivities() throws Exception {
+        when(mDevice.executeShellV2Command(Mockito.startsWith("dumpsys activity activities")))
+                .thenReturn(
+                        createSuccessfulCommandResultWithStdout(
+                                "topResumedActivity=ActivityRecord{163003684 u10 com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.robin.main.MainActivity t1000020}\n"
+                                    + "topResumedActivity=ActivityRecord{35090747 u10 com.google.android.youtube/.app.honeycomb.Shell$HomeActivity t1000015}\n"
+                                    + "topResumedActivity=ActivityRecord{265560701 u10 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t1000009}\n"));
+        DeviceUtils sut = createSubjectUnderTest();
+        Set<String> res = sut.getActiveActivities();
+        assertThat(res).containsExactly("com.google.android.googlequicksearchbox/com.google.android.apps.search.assistant.surfaces.voice.robin.main.MainActivity", "com.google.android.youtube/.app.honeycomb.Shell$HomeActivity", "com.google.android.apps.nexuslauncher/.NexusLauncherActivity");
     }
 
     @Test
