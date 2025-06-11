@@ -37,6 +37,8 @@ import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -133,6 +135,13 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
                           + "area, indicates that the app has reached a blank screen.")
   protected double mBlankScreenSameColorThreshold = -1;
 
+  // TODO(jelenacvetic): Remove this option once this method is tested.
+  @Option(name = "cold-app-launch", description = "Whether to use coldAppLaunch method to launch the app.")
+  protected boolean mColdAppLaunch = false;
+
+  @Option(name = "check-if-app-launched", description = "Whether to check if the app launched.")
+  protected boolean mCheckIfAppLaunched = false;
+
   protected DeviceUtils mDeviceUtils;
   protected TestUtils mTestUtils;
 
@@ -197,6 +206,15 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
         CLog.e("Failed to record AutoFDO profile.");
     }
 
+    Set<String> activitiesBeforeLaunch = new HashSet<>();
+    if (mCheckIfAppLaunched){
+      try {
+        activitiesBeforeLaunch = mDeviceUtils.getActiveActivities();
+        CLog.d("Activities before launch: %s", activitiesBeforeLaunch);
+      } catch (DeviceUtilsException e) {
+        Assert.fail("Failed to get activities before launch: " + e.getMessage());
+      }
+    }
     performAppLaunch(startTime, videoStartTime);
 
     CLog.d("Completed launching package: %s", mPackageName);
@@ -236,6 +254,16 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
                   "Blank screen detected with same-color rectangle area percentage of"
                       + " %.2f%%",
                   blankScreenPercent * 100));
+      }
+    }
+
+    if(mCheckIfAppLaunched){
+      try {
+        Set<String> activitiesAfterLaunch = mDeviceUtils.getActiveActivities();
+        CLog.d("Activities after launch: %s", activitiesAfterLaunch);
+        Assert.assertFalse("Activities before and after launch are the same.", activitiesBeforeLaunch.equals(activitiesAfterLaunch));
+      } catch (DeviceUtilsException e) {
+        Assert.fail("Failed to get activities after launch: " + e.getMessage());
       }
     }
 
