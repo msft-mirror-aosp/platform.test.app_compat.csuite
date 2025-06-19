@@ -18,6 +18,8 @@
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
+        <!-- TODO(jelenacvetic): Remove this once the b/417977024 is fixed. -->
+        <option name="run-command" value="am switch-user 10"/>
         <option name="run-command" value="input keyevent KEYCODE_MENU"/>
         <option name="run-command" value="input keyevent KEYCODE_HOME"/>
     </target_preparer>
