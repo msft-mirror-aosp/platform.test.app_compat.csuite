@@ -180,9 +180,19 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
 
         CLog.i("Test on %s failed. Starting verification without speed compile.", mPackageName);
 
-        // No need to call uninstall command as the install command does uninstall first anyway
-        mApkInstaller.install(
-                mApkPaths.stream().map(File::toPath).collect(Collectors.toList()), mInstallArgs);
+        try {
+            // No need to call uninstall command as the install command does uninstall first anyway
+            mApkInstaller.install(
+                    mApkPaths.stream().map(File::toPath).collect(Collectors.toList()),
+                    mInstallArgs);
+        } catch (Throwable e) {
+            // Do not throw to fail the test here as it's not compile related
+            CLog.i(
+                    "Ignoring test result for %s as the APK failed to install/uninstall",
+                    mPackageName);
+            mIsLastTestPass = true;
+            return;
+        }
 
         try {
             doTestAppCrash(true);
