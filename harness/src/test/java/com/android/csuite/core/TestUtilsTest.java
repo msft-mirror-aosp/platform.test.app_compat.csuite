@@ -32,6 +32,7 @@ import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.result.LogDataType;
 
 import com.google.common.jimfs.Jimfs;
 
@@ -40,6 +41,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.File;
@@ -468,6 +470,37 @@ public final class TestUtilsTest {
 
         assertThat(crashMessage).contains(expectedTime1);
         assertThat(crashMessage).contains(expectedTime2);
+    }
+
+    @Test
+    public void collectAppVersion_savesVersionInfoToTestLog() throws Exception {
+        TestUtils sut = createSubjectUnderTest();
+        String testVersionCode = "123";
+        String testVersionName = "1.2.3";
+        when(mMockDeviceUtils.getPackageVersionCode(TEST_PACKAGE_NAME))
+                .thenReturn(testVersionCode);
+        when(mMockDeviceUtils.getPackageVersionName(TEST_PACKAGE_NAME))
+                .thenReturn(testVersionName);
+        ArgumentCaptor<String> nameCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<byte[]> dataCaptor = ArgumentCaptor.forClass(byte[].class);
+
+        sut.collectAppVersion(TEST_PACKAGE_NAME);
+
+        Mockito.verify(mMockTestArtifactReceiver, times(2))
+                .addTestArtifact(
+                        nameCaptor.capture(),
+                        Mockito.eq(LogDataType.HOST_LOG),
+                        dataCaptor.capture());
+
+        List<String> savedNames = nameCaptor.getAllValues();
+        List<byte[]> savedData = dataCaptor.getAllValues();
+
+        assertThat(savedNames.get(0))
+                .isEqualTo(String.format("%s_[versionCode=%s]", TEST_PACKAGE_NAME, testVersionCode));
+        assertThat(new String(savedData.get(0))).isEqualTo(testVersionCode);
+        assertThat(savedNames.get(1))
+                .isEqualTo(String.format("%s_[versionName=%s]", TEST_PACKAGE_NAME, testVersionName));
+        assertThat(new String(savedData.get(1))).isEqualTo(testVersionName);
     }
 
     private TestUtils createSubjectUnderTest() {
