@@ -369,8 +369,9 @@ public class DeviceUtils {
             throws DeviceUtilsException, DeviceNotAvailableException {
 
         String activity = getLaunchActivityWithCmd(packageName);
+        String command = String.format("am start -S -W -n '%s'", activity);
         CommandResult amResult =
-                mDevice.executeShellV2Command(String.format("am start -n '%s'", activity));
+                mDevice.executeShellV2Command(command);
         if (amResult.getStatus() != CommandStatus.SUCCESS
                 || amResult.getExitCode() != 0
                 || amResult.getStdout().contains("Error")) {
@@ -379,7 +380,7 @@ public class DeviceUtils {
                             "The command to start the package %s with activity %s failed: %s",
                             packageName, activity, amResult));
         }
-        CLog.w("Cold launching package %s with command %s", packageName, String.format("am start -n %s", activity));
+        CLog.w("Cold launching package %s with command %s", packageName, command);
     }
 
     /**
