@@ -154,23 +154,21 @@ public class AppCompileLaunchTest extends BaseHostJUnit4Test {
 
         Throwable testFailureThrowable = null;
 
-        // First run with speed compile to see if it crashes. We try to compile the app multiple
-        // times to reduce the flakiness. We only ignore the test result if all the compile attempts
-        // fail. This can happen if e.g. the device is not reachable.
-        int maximumSpeedCompileAttempts = 3;
-        for (int i = 0; i < maximumSpeedCompileAttempts; i++) {
+        try {
             CommandResult cmdResult =
                     getDevice()
                             .executeShellV2Command("cmd package compile -m speed " + mPackageName);
-            if (cmdResult.getStatus() == CommandStatus.SUCCESS) {
-                break;
-            }
-            CLog.w("Iteration %d: Failed to execute compile command: %s", i, cmdResult.getStderr());
-            if (i == maximumSpeedCompileAttempts - 1) {
-                CLog.i("Ignoring test result for %s as the APK failed to compile", mPackageName);
+            if (cmdResult.getStatus() != CommandStatus.SUCCESS) {
+                CLog.w(
+                        "Failed to execute compile command for %s, stderr: %s",
+                        mPackageName, cmdResult.getStderr());
                 mIsLastTestPass = true;
                 return;
             }
+        } catch (DeviceNotAvailableException e) {
+            CLog.w("Ignoring test result for %s as the device is not available", mPackageName);
+            mIsLastTestPass = true;
+            return;
         }
 
         try {
