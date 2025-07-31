@@ -43,3 +43,9 @@ java_test_host {
         unit_test: true,
     },
 }
+
+compatibility_test_suite_package {
+    name: "csuite",
+    tradefed: "csuite-tradefed",
+    readme: ":csuite-readme",
+}

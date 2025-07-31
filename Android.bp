@@ -15,3 +15,10 @@
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
+
+filegroup {
+    name: "csuite-readme",
+    srcs: [
+        "README.md",
+    ],
+}
