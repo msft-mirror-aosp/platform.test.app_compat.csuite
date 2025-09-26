@@ -38,7 +38,7 @@
     <metric_post_processor class="com.android.tradefed.postprocessor.MetricFilePostProcessor"/>
 
     <metric_post_processor class="com.android.tradefed.postprocessor.PerfettoGenericPostProcessor">
-        <option name="perfetto-proto-file-prefix" value="metric_device-trace"/>
+        <option name="perfetto-proto-file-prefix" value="metric_perfetto_device-trace"/>
         <option name="perfetto-indexed-list-field" value="perfetto.protos.AndroidStartupMetric.startup" />
         <option name="perfetto-prefix-key-field" value="perfetto.protos.AndroidStartupMetric.Startup.process_name" />
         <option name="perfetto-metric-filter-regex" value="android_startup-startup-.*process_name-.*startup_type.*-to_first_frame-dur_ms"/>
