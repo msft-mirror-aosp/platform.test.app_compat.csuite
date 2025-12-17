@@ -204,13 +204,13 @@ public abstract class BaseAppCompatTest extends BaseHostJUnit4Test {
     }
 
     /**
-     * Launches the app and waits for it to be fully ready.
+     * Launches the app on the default display, and waits for it to be fully ready.
      *
      * @throws DeviceNotAvailableException
      */
     protected void performAppLaunch() throws DeviceNotAvailableException {
         try {
-            mDeviceUtils.launchPackage(mPackageName);
+            mDeviceUtils.launchPackageOnDisplay(mPackageName, 0 /* displayId */);
         } catch (DeviceUtilsException e) {
             Assert.fail(
                     "Failed during app launch sequence for "

@@ -344,10 +344,24 @@ public class DeviceUtils {
                         + " command failed: %s",
                 packageName, monkeyResult);
 
+        launchPackageOnDisplay(packageName, 0 /* displayId */);
+    }
+
+    /**
+     * Launches a package on the device.
+     *
+     * @param packageName The package name to launch.
+     * @param displayId The display ID on which the app is launched.
+     * @throws DeviceNotAvailableException When device was lost.
+     * @throws DeviceUtilsException When failed to launch the package.
+     */
+    public void launchPackageOnDisplay(String packageName, int displayId)
+            throws DeviceUtilsException, DeviceNotAvailableException {
         String activity = getLaunchActivityName(packageName);
 
         CommandResult amResult =
-                mDevice.executeShellV2Command(String.format("am start -n %s", activity));
+                mDevice.executeShellV2Command(
+                        String.format("am start -n %s --display %d", activity, displayId));
         if (amResult.getStatus() != CommandStatus.SUCCESS
                 || amResult.getExitCode() != 0
                 || amResult.getStdout().contains("Error")) {
