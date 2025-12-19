@@ -17,9 +17,7 @@
 package com.android.csuite.tests;
 
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
-import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
-import com.android.csuite.core.DeviceUtils.RunnableThrowingDeviceNotAvailable;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -29,14 +27,11 @@ import org.junit.Assert;
 import org.junit.Before;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** A test that collects warm start launch time of a single app using perfetto. */
 public class WarmAppLaunchTest extends BaseAppCompatTest {
 
-    @Option(
-            name = "warm-app-launch-count",
-            description = "Number of times to launch the app.")
+    @Option(name = "warm-app-launch-count", description = "Number of times to launch the app.")
     private int mAppLaunchCount = 9;
 
     @Override
@@ -53,39 +48,18 @@ public class WarmAppLaunchTest extends BaseAppCompatTest {
         mDeviceUtils.pressHome();
     }
 
-    /**
-     * Implements the specific logic for warm app launching the app repeatedly.
-     */
+    /** Implements the specific logic for warm app launching the app repeatedly. */
     @Override
-    protected void performAppLaunch(
-        AtomicReference<DeviceTimestamp> startTime,
-        AtomicReference<DeviceTimestamp> videoStartTime) throws DeviceNotAvailableException {
-
-        RunnableThrowingDeviceNotAvailable launchJob =
-                () -> {
-                    startTime.set(mDeviceUtils.currentTimeMillis());
-                    try {
-                        for (int i = 0; i < mAppLaunchCount; i++) {
-                            mDeviceUtils.warmLaunchPackage(mPackageName);
-                            CLog.d(
-                                    "Waiting %s milliseconds for the app to launch fully.",
-                                    mAppLaunchTimeoutMs);
-                            RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
-                            mDeviceUtils.pressHome();
-                        }
-                    } catch (DeviceUtilsException e) {
-                        Assert.fail(
-                                "Failed to launch package " + mPackageName + ": " + e.getMessage());
-                    }
-                };
-
-        if (mRecordScreen) {
-            mTestUtils.collectScreenRecord(
-                launchJob,
-                mPackageName,
-                videoStartTimeOnDevice -> videoStartTime.set(videoStartTimeOnDevice));
-        } else {
-            launchJob.run();
+    protected void performAppLaunch() throws DeviceNotAvailableException {
+        try {
+            for (int i = 0; i < mAppLaunchCount; i++) {
+                mDeviceUtils.warmLaunchPackage(mPackageName);
+                CLog.d("Waiting %s milliseconds for the app to launch fully.", mAppLaunchTimeoutMs);
+                RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
+                mDeviceUtils.pressHome();
+            }
+        } catch (DeviceUtilsException e) {
+            Assert.fail("Failed to launch package " + mPackageName + ": " + e.getMessage());
         }
     }
 }
