@@ -28,7 +28,7 @@ import org.junit.Assert;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** A test that verifies that a single app can be successfully launched. */
-public class AppLaunchTest extends BaseAppLaunchTest {
+public class AppLaunchTest extends BaseAppCompatTest {
 
     /** Implements the specific app launch logic. */
     @Override

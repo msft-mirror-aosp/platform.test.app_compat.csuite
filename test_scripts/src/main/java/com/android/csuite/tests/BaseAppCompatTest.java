@@ -61,7 +61,7 @@ import javax.imageio.ImageIO;
  * crash/blank screen detection logic.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
+public abstract class BaseAppCompatTest extends BaseHostJUnit4Test {
 
     @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
     @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";

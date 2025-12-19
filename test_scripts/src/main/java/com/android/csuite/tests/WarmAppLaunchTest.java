@@ -32,7 +32,7 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** A test that collects warm start launch time of a single app using perfetto. */
-public class WarmAppLaunchTest extends BaseAppLaunchTest {
+public class WarmAppLaunchTest extends BaseAppCompatTest {
 
     @Option(
             name = "warm-app-launch-count",
