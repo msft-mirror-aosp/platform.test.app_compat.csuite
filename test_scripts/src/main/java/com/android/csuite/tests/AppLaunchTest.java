@@ -24,20 +24,18 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.RunUtil;
 
 import org.junit.Assert;
-import org.junit.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
 
 /** A test that verifies that a single app can be successfully launched. */
 public class AppLaunchTest extends BaseAppLaunchTest {
 
-    /**
-     * Implements the specific app launch logic.
-     */
+    /** Implements the specific app launch logic. */
     @Override
     protected void performAppLaunch(
-        AtomicReference<DeviceTimestamp> startTime,
-        AtomicReference<DeviceTimestamp> videoStartTime) throws DeviceNotAvailableException {
+            AtomicReference<DeviceTimestamp> startTime,
+            AtomicReference<DeviceTimestamp> videoStartTime)
+            throws DeviceNotAvailableException {
 
         RunnableThrowingDeviceNotAvailable launchJob =
                 () -> {
