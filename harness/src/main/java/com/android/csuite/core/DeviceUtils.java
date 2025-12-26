@@ -408,7 +408,9 @@ public class DeviceUtils {
                             "The command to warm start the package %s with activity %s failed: %s",
                             packageName, activity, command));
         }
-        CLog.w("Warm launching package %s with command %s", packageName, String.format("am start -f 0x00008000 -W -n '%s'", activity));
+        CLog.w(
+                "Warm launching package %s with command %s",
+                packageName, String.format("am start -f 0x00008000 -W -n '%s'", activity));
     }
 
     /**
@@ -417,7 +419,9 @@ public class DeviceUtils {
      * @throws DeviceNotAvailableException When device was lost.
      */
     public void pressHome() throws DeviceNotAvailableException {
-        CommandResult homeResult = mDevice.executeShellV2Command("am start -a android.intent.action.MAIN -c android.intent.category.HOME");
+        CommandResult homeResult =
+                mDevice.executeShellV2Command(
+                        "am start -a android.intent.action.MAIN -c android.intent.category.HOME");
         if (homeResult.getStatus() != CommandStatus.SUCCESS || homeResult.getExitCode() != 0) {
             throw new DeviceNotAvailableException(
                     String.format(
@@ -462,25 +466,42 @@ public class DeviceUtils {
     public String getLaunchActivityWithCmd(String packageName)
             throws DeviceNotAvailableException, DeviceUtilsException {
 
-        String command = "cmd package resolve-activity --brief -c android.intent.category.LAUNCHER " + packageName + "| tail -n 1";
+        String command =
+                "cmd package resolve-activity --brief -c android.intent.category.LAUNCHER "
+                        + packageName
+                        + "| tail -n 1";
         CommandResult result = mDevice.executeShellV2Command(command);
 
         if (result.getStatus() != CommandStatus.SUCCESS || result.getStdout() == null || result.getStdout().isEmpty() || result.getExitCode() != 0) {
-            String errorDetails = String.format(
-                    "Failed to execute resolve-activity for package '%s'. Command: '%s', Status: %s, ExitCode: %s, Stderr: '%s', Stdout: '%s'",
-                    packageName, command, result.getStatus(), result.getExitCode(), result.getStderr(), result.getStdout());
+            String errorDetails =
+                    String.format(
+                            "Failed to execute resolve-activity for package '%s'. Command: '%s',"
+                                    + " Status: %s, ExitCode: %s, Stderr: '%s', Stdout: '%s'",
+                            packageName,
+                            command,
+                            result.getStatus(),
+                            result.getExitCode(),
+                            result.getStderr(),
+                            result.getStdout());
             throw new DeviceUtilsException(errorDetails);
         }
 
         String commandOutput = result.getStdout();
 
-        if (commandOutput.contains("/") && commandOutput.contains(".") && !commandOutput.startsWith("No activity found")) {
+        if (commandOutput.contains("/")
+                && commandOutput.contains(".")
+                && !commandOutput.startsWith("No activity found")) {
             return commandOutput.trim();
         }
 
-        CLog.w("Could not found the launch activity for package '%s' using command '%s'. Output: '%s'.",
+        CLog.w(
+                "Could not found the launch activity for package '%s' using command '%s'. Output:"
+                        + " '%s'.",
                 packageName, command, commandOutput);
-        CLog.w("Continuing to attempt using pm command to get the launch activity for package '%s'", packageName);
+        CLog.w(
+                "Continuing to attempt using pm command to get the launch activity for package"
+                        + " '%s'",
+                packageName);
         return getLaunchActivityName(packageName);
     }
 

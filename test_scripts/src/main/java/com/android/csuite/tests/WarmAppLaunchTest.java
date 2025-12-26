@@ -16,20 +16,19 @@
 
 package com.android.csuite.tests;
 
+import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
 import com.android.csuite.core.DeviceUtils.RunnableThrowingDeviceNotAvailable;
+import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.csuite.core.ApkInstaller.ApkInstallerException;
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.util.RunUtil;
 
 import org.junit.Assert;
-import com.android.tradefed.config.Option;
 import org.junit.Before;
-import java.io.IOException;
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** A test that collects warm start launch time of a single app using perfetto. */
