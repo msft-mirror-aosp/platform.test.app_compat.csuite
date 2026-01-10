@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration description="Launches an app, moves it to a secondary display, and checks for continuity (csuite-app-continuity).">
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP"/>
+        <option name="run-command" value="wm dismiss-keyguard"/>
+        <option name="run-command" value="input keyevent KEYCODE_MENU"/>
+        <option name="run-command" value="input keyevent KEYCODE_HOME"/>
+        <option name="run-command" value="settings put global overlay_display_devices 1920x1080/320" />
+        <option name="run-command" value="sleep 5" />
+
+        <option name="teardown-command" value="settings delete global overlay_display_devices" />
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
+    <target_preparer class="com.android.compatibility.targetprep.CheckGmsPreparer"/>
+
+    <test class="com.android.tradefed.testtype.HostTest" >
+        <option name="set-option" value="package-name:{package}"/>
+        <option name="set-option" value="install-apk:app\://{package}"/>
+        <option name="set-option" value="install-arg:-g"/>
+        <option name="class" value="com.android.csuite.tests.DisplayMoveTest" />
+    </test>
+</configuration>

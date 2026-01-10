@@ -33,6 +33,7 @@ import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -61,7 +62,7 @@ import javax.imageio.ImageIO;
  * crash/blank screen detection logic.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
+public abstract class BaseAppCompatTest extends BaseHostJUnit4Test {
 
     @VisibleForTesting static final String SCREENSHOT_AFTER_LAUNCH = "screenshot-after-launch";
     @VisibleForTesting static final String COLLECT_APP_VERSION = "collect-app-version";
@@ -175,17 +176,86 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
     }
 
     /**
-     * Abstract method to be implemented by subclasses to define their specific app launch logic.
+     * Invokes app launch logic and screen records it.
      *
      * @param startTime A reference to capture the device timestamp when the launch job starts.
      * @param videoStartTime A reference to capture the device timestamp when screen recording
      *     starts (if enabled).
      * @throws DeviceNotAvailableException
      */
-    protected abstract void performAppLaunch(
+    private void performAndRecordAppLaunch(
             AtomicReference<DeviceTimestamp> startTime,
             AtomicReference<DeviceTimestamp> videoStartTime)
-            throws DeviceNotAvailableException;
+            throws DeviceNotAvailableException {
+        DeviceUtils.RunnableThrowingDeviceNotAvailable launchJob =
+                () -> {
+                    startTime.set(mDeviceUtils.currentTimeMillis());
+                    performAppLaunch();
+                };
+
+        if (mRecordScreen) {
+            mTestUtils.collectScreenRecord(
+                    launchJob,
+                    mPackageName + "_app_launch",
+                    videoStartTimeOnDevice -> videoStartTime.set(videoStartTimeOnDevice));
+        } else {
+            launchJob.run();
+        }
+    }
+
+    /**
+     * Launches the app on the default display, and waits for it to be fully ready.
+     *
+     * @throws DeviceNotAvailableException
+     */
+    protected void performAppLaunch() throws DeviceNotAvailableException {
+        try {
+            mDeviceUtils.launchPackageOnDisplay(mPackageName, 0 /* displayId */);
+        } catch (DeviceUtilsException e) {
+            Assert.fail(
+                    "Failed during app launch sequence for "
+                            + mPackageName
+                            + ": "
+                            + e.getMessage());
+        }
+        RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
+    }
+
+    /**
+     * Invokes post app launch logic and record it.
+     *
+     * @param startTime A reference to capture the device timestamp when the post launch job starts.
+     * @param videoStartTime A reference to capture the device timestamp when screen recording
+     *     starts (if enabled).
+     * @throws DeviceNotAvailableException
+     */
+    private void performAndRecordPostAppLaunch(
+            AtomicReference<DeviceTimestamp> startTime,
+            AtomicReference<DeviceTimestamp> videoStartTime)
+            throws DeviceNotAvailableException {
+        DeviceUtils.RunnableThrowingDeviceNotAvailable launchJob =
+                () -> {
+                    startTime.set(mDeviceUtils.currentTimeMillis());
+                    performPostLaunchActions();
+                };
+
+        if (mRecordScreen) {
+            mTestUtils.collectScreenRecord(
+                    launchJob,
+                    mPackageName + "_post_app_launch",
+                    videoStartTimeOnDevice -> videoStartTime.set(videoStartTimeOnDevice));
+        } else {
+            launchJob.run();
+        }
+    }
+
+    /**
+     * Abstract method to be implemented by subclasses to define their specific post app launch
+     * logic.
+     *
+     * @throws DeviceNotAvailableException
+     */
+    protected void performPostLaunchActions() throws DeviceNotAvailableException {}
 
     @Test
     public void testAppLaunchCommonLogic() throws DeviceNotAvailableException, IOException {
@@ -202,8 +272,8 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
             Assert.fail("Failed to check the installed package list: " + e.getMessage());
         }
 
-        AtomicReference<DeviceTimestamp> startTime = new AtomicReference<>();
-        AtomicReference<DeviceTimestamp> videoStartTime = new AtomicReference<>();
+        AtomicReference<DeviceTimestamp> launchStartTime = new AtomicReference<>();
+        AtomicReference<DeviceTimestamp> launchVideoStartTime = new AtomicReference<>();
 
         if (mCollectAutoFDOProfile
                 && !mAutoFDOProfileCollector.recordAutoFDOProfile(mAppLaunchTimeoutMs / 1000.0)) {
@@ -219,23 +289,12 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
                 Assert.fail("Failed to get activities before launch: " + e.getMessage());
             }
         }
-        performAppLaunch(startTime, videoStartTime);
+        performAndRecordAppLaunch(launchStartTime, launchVideoStartTime);
 
         CLog.d("Completed launching package: %s", mPackageName);
-        DeviceTimestamp endTime = mDeviceUtils.currentTimeMillis();
+        DeviceTimestamp launchEndTime = mDeviceUtils.currentTimeMillis();
 
-        try {
-            List<DropboxEntry> crashEntries =
-                    mDeviceUtils.getCrashEntriesFromDropbox(mPackageName, startTime.get(), endTime);
-            String crashLog =
-                    mTestUtils.compileTestFailureMessage(
-                            mPackageName, crashEntries, true, videoStartTime.get());
-            if (!crashLog.isBlank()) {
-                Assert.fail(crashLog);
-            }
-        } catch (IOException e) {
-            Assert.fail("Error while getting dropbox crash log: " + e);
-        }
+        checkDropboxCrashLog(launchStartTime.get(), launchEndTime, launchVideoStartTime.get());
 
         if (mBlankScreenSameColorThreshold > 0) {
             BufferedImage screen;
@@ -273,7 +332,34 @@ public abstract class BaseAppLaunchTest extends BaseHostJUnit4Test {
             }
         }
 
+        AtomicReference<DeviceTimestamp> postLaunchStartTime = new AtomicReference<>();
+        AtomicReference<DeviceTimestamp> postLaunchVideoStartTime = new AtomicReference<>();
+
+        CLog.d("Performing post-launch actions for package: %s", mPackageName);
+        performAndRecordPostAppLaunch(postLaunchStartTime, postLaunchVideoStartTime);
+        CLog.d("Completed testing logic for package: %s", mPackageName);
+
+        DeviceTimestamp postLaunchEndTime = mDeviceUtils.currentTimeMillis();
+        checkDropboxCrashLog(
+                postLaunchStartTime.get(), postLaunchEndTime, postLaunchVideoStartTime.get());
+
         mIsLastTestPass = true;
+    }
+
+    private void checkDropboxCrashLog(
+            DeviceTimestamp startTime, DeviceTimestamp endTime, DeviceTimestamp videoStartTime) {
+        try {
+            List<DropboxEntry> crashEntries =
+                    mDeviceUtils.getCrashEntriesFromDropbox(mPackageName, startTime, endTime);
+            String crashLog =
+                    mTestUtils.compileTestFailureMessage(
+                            mPackageName, crashEntries, true, videoStartTime);
+            if (!crashLog.isBlank()) {
+                Assert.fail(crashLog);
+            }
+        } catch (IOException e) {
+            Assert.fail("Error while getting dropbox crash log: " + e);
+        }
     }
 
     @After

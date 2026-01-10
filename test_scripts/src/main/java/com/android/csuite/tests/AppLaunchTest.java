@@ -16,55 +16,31 @@
 
 package com.android.csuite.tests;
 
-import com.android.csuite.core.DeviceUtils.DeviceTimestamp;
 import com.android.csuite.core.DeviceUtils.DeviceUtilsException;
-import com.android.csuite.core.DeviceUtils.RunnableThrowingDeviceNotAvailable;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.RunUtil;
 
 import org.junit.Assert;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 /** A test that verifies that a single app can be successfully launched. */
-public class AppLaunchTest extends BaseAppLaunchTest {
+public class AppLaunchTest extends BaseAppCompatTest {
 
     /** Implements the specific app launch logic. */
     @Override
-    protected void performAppLaunch(
-            AtomicReference<DeviceTimestamp> startTime,
-            AtomicReference<DeviceTimestamp> videoStartTime)
-            throws DeviceNotAvailableException {
-
-        RunnableThrowingDeviceNotAvailable launchJob =
-                () -> {
-                    startTime.set(mDeviceUtils.currentTimeMillis());
-                    try {
-                        // TODO(jelenacvetic): Remove this option once this method is tested.
-                        if (mColdAppLaunch) {
-                            mDeviceUtils.coldLaunchPackage(mPackageName);
-                        } else {
-                            mDeviceUtils.launchPackage(mPackageName);
-                        }
-                    } catch (DeviceUtilsException e) {
-                        Assert.fail(
-                                "Failed to launch package " + mPackageName + ": " + e.getMessage());
-                    }
-
-                    CLog.d(
-                            "Waiting %s milliseconds for the app to launch fully.",
-                            mAppLaunchTimeoutMs);
-                    RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
-                };
-
-        if (mRecordScreen) {
-            mTestUtils.collectScreenRecord(
-                launchJob,
-                mPackageName,
-                videoStartTimeOnDevice -> videoStartTime.set(videoStartTimeOnDevice));
-        } else {
-            launchJob.run();
+    protected void performAppLaunch() throws DeviceNotAvailableException {
+        try {
+            // TODO(jelenacvetic): Remove this option once this method is tested.
+            if (mColdAppLaunch) {
+                mDeviceUtils.coldLaunchPackage(mPackageName);
+            } else {
+                mDeviceUtils.launchPackage(mPackageName);
+            }
+        } catch (DeviceUtilsException e) {
+            Assert.fail("Failed to launch package " + mPackageName + ": " + e.getMessage());
         }
+
+        CLog.d("Waiting %s milliseconds for the app to launch fully.", mAppLaunchTimeoutMs);
+        RunUtil.getDefault().sleep(mAppLaunchTimeoutMs);
     }
 }
