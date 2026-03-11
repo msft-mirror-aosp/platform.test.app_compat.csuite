@@ -258,7 +258,7 @@ func TestMain(m *testing.M) {
 func assertFileCopyRuleExists(t *testing.T, params android.TestingBuildParams, src string, dst string) {
 	assertPathsContains(t, getAllInputPaths(params), src)
 	assertWritablePathsContainsRel(t, getAllOutputPaths(params), dst)
-	if !strings.HasPrefix(params.RuleParams.Command, "cp") {
+	if !strings.Contains(params.RuleParams.Command, "cp ") {
 		t.Errorf("'cp' command is missing.")
 	}
 }

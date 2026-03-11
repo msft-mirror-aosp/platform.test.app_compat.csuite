@@ -55,7 +55,7 @@ func (cSuiteTest *CSuiteTest) buildCopyConfigTemplateCommand(ctx android.ModuleC
 
 	inputPath := android.PathForModuleSrc(ctx, templatePath)
 	genPath := android.PathForModuleGen(ctx, configDirName, ctx.ModuleName(), inputPath.Rel()+configTemplateFileExtension)
-	rule.Command().Textf("cp").Input(inputPath).Output(genPath)
+	rule.Command().BuiltTool("cp").Input(inputPath).Output(genPath)
 	cSuiteTest.AddExtraResource(genPath)
 	return genPath.Rel()
 }
@@ -76,7 +76,7 @@ func (cSuiteTest *CSuiteTest) buildCopyPlanIncludeCommand(ctx android.ModuleCont
 	}
 	inputPath := android.PathForModuleSrc(ctx, *cSuiteTest.csuiteTestProperties.Test_plan_include)
 	genPath := android.PathForModuleGen(ctx, configDirName, "includes", ctx.ModuleName()+".xml")
-	rule.Command().Textf("cp").Input(inputPath).Output(genPath)
+	rule.Command().BuiltTool("cp").Input(inputPath).Output(genPath)
 	cSuiteTest.AddExtraResource(genPath)
 	return strings.Replace(genPath.Rel(), "config/", "", -1)
 }
